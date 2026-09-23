@@ -1,0 +1,4 @@
+JCI Carmona Admin System Master Rebuild v42
+Source basis: JCI_Carmona_Project_Management_System_Final_Organized(3).docx
+Primary entry: ../index.html
+Admin role: Admin
