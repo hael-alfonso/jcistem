@@ -1,77 +1,75 @@
 <?php
 
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\BodController;
-use App\Http\Controllers\MemberController;
-use App\Http\Controllers\TreasurerController;
-use App\Support\WorkspaceNav;
+use App\Http\Controllers\{AuthController, ChapterController, FinanceController, RecordController};
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    if (auth()->check()) {
-        return redirect()->route(WorkspaceNav::home(auth()->user()->role));
-    }
-
-    return redirect()->route('login');
-});
-
+Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : redirect()->route('login'));
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
 });
-
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
-    Route::get('/projects', [AdminController::class, 'projects'])->name('projects');
-    Route::get('/projects/create', [AdminController::class, 'createProject'])->name('projects.create');
-    Route::get('/projects/{id}', [AdminController::class, 'showProject'])->name('projects.show')->whereNumber('id');
-    Route::get('/tasks', [AdminController::class, 'tasks'])->name('tasks');
-    Route::get('/loi', [AdminController::class, 'loi'])->name('loi');
-    Route::get('/calendar', [AdminController::class, 'calendar'])->name('calendar');
-    Route::get('/reports', [AdminController::class, 'reports'])->name('reports');
-    Route::get('/finance', [AdminController::class, 'finance'])->name('finance');
-    Route::get('/finance/budget', [AdminController::class, 'financeBudget'])->name('finance.budget');
-    Route::get('/finance/utilization', [AdminController::class, 'financeUtilization'])->name('finance.utilization');
-    Route::get('/finance/expenses', [AdminController::class, 'financeExpenses'])->name('finance.expenses');
-    Route::get('/finance/reports', [AdminController::class, 'financeReports'])->name('finance.reports');
-    Route::get('/members', [AdminController::class, 'members'])->name('members');
-    Route::get('/members/registration', [AdminController::class, 'memberRegistration'])->name('members.registration');
-    Route::get('/dues', [AdminController::class, 'dues'])->name('dues');
-    Route::get('/notifications', [AdminController::class, 'notifications'])->name('notifications');
-    Route::get('/account', [AdminController::class, 'account'])->name('account');
-    Route::get('/audit', [AdminController::class, 'audit'])->name('audit');
-});
+Route::middleware(['auth', 'active'])->group(function () {
+    Route::get('/dashboard', [ChapterController::class, 'dashboard'])->name('dashboard');
+    Route::get('/about', [ChapterController::class, 'about'])->name('about');
+    Route::get('/projects', [ChapterController::class, 'projects'])->name('projects');
+    Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
+    Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
+    Route::get('/projects/{project}', [ChapterController::class, 'show'])->name('projects.show')->whereNumber('project');
+    Route::get('/projects/{project}/edit', [ChapterController::class, 'edit'])->name('projects.edit');
+    Route::put('/projects/{project}', [ChapterController::class, 'save'])->name('projects.update');
+    Route::post('/projects/{project}/transition', [ChapterController::class, 'transition'])->name('projects.transition');
+    Route::post('/projects/{project}/tasks', [ChapterController::class, 'taskSave'])->name('tasks.store');
+    Route::put('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskSave'])->name('tasks.update');
+    Route::get('/tasks', [ChapterController::class, 'tasks'])->name('tasks');
+    Route::get('/calendar', [ChapterController::class, 'calendar'])->name('calendar');
+    Route::post('/calendar', [ChapterController::class, 'eventSave'])->name('calendar.store');
+    Route::post('/projects/{project}/documents', [ChapterController::class, 'upload'])->name('documents.store');
+    Route::get('/documents/{document}/download', [ChapterController::class, 'download'])->name('documents.download');
+    Route::get('/notifications', [ChapterController::class, 'notifications'])->name('notifications');
+    Route::post('/notifications/read', [ChapterController::class, 'readNotifications'])->name('notifications.read');
+    Route::get('/audit', [ChapterController::class, 'audit'])->name('audit');
+    Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
+    Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->name('budget.store');
+    Route::get('/ledger/export', [FinanceController::class, 'export'])->name('ledger.export');
+    Route::get('/ledger', [FinanceController::class, 'ledger'])->name('ledger');
+    Route::post('/ledger', [FinanceController::class, 'store'])->name('ledger.store');
+    Route::post('/ledger/{entry}', [FinanceController::class, 'update'])->name('ledger.update');
+    Route::get('/ledger/{entry}/receipt', [FinanceController::class, 'receipt'])->name('ledger.receipt');
+    Route::get('/dues', [FinanceController::class, 'dues'])->name('dues');
+    Route::get('/dues/manage', [FinanceController::class, 'dues'])->name('dues.manage');
+    Route::post('/dues', [FinanceController::class, 'openDues'])->name('dues.store');
+    Route::post('/dues/{due}/payment', [FinanceController::class, 'payDues'])->name('dues.payment');
+    Route::get('/records/{kind}', [RecordController::class, 'index'])->name('records');
+    Route::get('/records/{kind}/create', [RecordController::class, 'create'])->name('records.create');
+    Route::post('/records/{kind}', [RecordController::class, 'save'])->name('records.store');
+    Route::get('/records/{kind}/{id}', [RecordController::class, 'show'])->name('records.show')->whereNumber('id');
+    Route::get('/records/{kind}/{id}/edit', [RecordController::class, 'edit'])->name('records.edit');
+    Route::put('/records/{kind}/{id}', [RecordController::class, 'save'])->name('records.update');
+    Route::post('/records/{kind}/{id}/transition', [RecordController::class, 'transition'])->name('records.transition');
+    Route::get('/records/{kind}/{id}/attachment', [RecordController::class, 'attachment'])->name('records.attachment');
+    Route::get('/members', [RecordController::class, 'members'])->name('members');
+    Route::get('/members/create', [RecordController::class, 'memberForm'])->name('members.create');
+    Route::post('/members', [RecordController::class, 'memberSave'])->name('members.store');
+    Route::get('/members/{member}/edit', [RecordController::class, 'memberForm'])->name('members.edit');
+    Route::put('/members/{member}', [RecordController::class, 'memberSave'])->name('members.update');
+    Route::get('/account', [RecordController::class, 'account'])->name('account');
+    Route::put('/account', [RecordController::class, 'accountSave'])->name('account.update');
 
-Route::middleware(['auth', 'role:treasurer'])->prefix('treasurer')->name('treasurer.')->group(function () {
-    Route::get('/', [TreasurerController::class, 'dashboard'])->name('dashboard');
-    Route::get('/ledger', [TreasurerController::class, 'ledger'])->name('ledger');
-    Route::get('/expenses', [TreasurerController::class, 'expenses'])->name('expenses');
-    Route::get('/liquidation', [TreasurerController::class, 'liquidation'])->name('liquidation');
-    Route::get('/dues', [TreasurerController::class, 'dues'])->name('dues');
-    Route::get('/budget', [TreasurerController::class, 'budget'])->name('budget');
-    Route::get('/utilization', [TreasurerController::class, 'utilization'])->name('utilization');
-    Route::get('/report', [TreasurerController::class, 'report'])->name('report');
-    Route::get('/notifications', [TreasurerController::class, 'notifications'])->name('notifications');
-    Route::get('/account', [TreasurerController::class, 'account'])->name('account');
-});
-
-Route::middleware(['auth', 'role:bod'])->prefix('bod')->name('bod.')->group(function () {
-    Route::get('/', [BodController::class, 'dashboard'])->name('dashboard');
-    Route::get('/projects', [BodController::class, 'projects'])->name('projects');
-    Route::get('/reports', [BodController::class, 'reports'])->name('reports');
-    Route::get('/calendar', [BodController::class, 'calendar'])->name('calendar');
-    Route::get('/notifications', [BodController::class, 'notifications'])->name('notifications');
-    Route::get('/account', [BodController::class, 'account'])->name('account');
-});
-
-Route::middleware(['auth', 'role:member'])->prefix('member')->name('member.')->group(function () {
-    Route::get('/', [MemberController::class, 'dashboard'])->name('dashboard');
-    Route::get('/projects', [MemberController::class, 'projects'])->name('projects');
-    Route::get('/dues', [MemberController::class, 'dues'])->name('dues');
-    Route::get('/calendar', [MemberController::class, 'calendar'])->name('calendar');
-    Route::get('/notifications', [MemberController::class, 'notifications'])->name('notifications');
-    Route::get('/account', [MemberController::class, 'account'])->name('account');
+    // Preserve bookmarked workspace URLs from the original prototype.
+    foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
+        Route::get('/'.$role.'/{path?}', function (string $path = '') {
+            $destination = match (true) {
+                $path === '' => 'dashboard',
+                str_starts_with($path, 'finance') || in_array($path, ['budget', 'utilization']) => 'finance',
+                in_array($path, ['ledger', 'expenses', 'liquidation']) => 'ledger',
+                $path === 'loi' => 'records/letters',
+                in_array($path, ['reports', 'report']) => 'records/reports',
+                $path === 'members/registration' => 'members/create',
+                default => $path,
+            };
+            return redirect(url('/'.$destination));
+        })->where('path', '.*');
+    }
 });

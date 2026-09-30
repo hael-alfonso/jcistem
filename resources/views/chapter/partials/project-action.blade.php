@@ -1,0 +1,1 @@
+<form method="POST" action="{{ route('projects.transition',$project) }}" class="action-form">@csrf<input type="hidden" name="action" value="{{ $action }}">@if($comments??false)<x-field name="comments" label="Review comments / conditions" type="textarea" required/>@endif<button class="btn {{ $tone??'secondary' }}">{{ $label }}</button></form>

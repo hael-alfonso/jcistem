@@ -1,0 +1,733 @@
+JCI CARMONA
+ONLINE PROJECT MANAGEMENT SYSTEM
+REVISED MASTER FUNCTIONALITY, NAVIGATION & WORKFLOW BLUEPRINT
+Organized System Blueprint • Project Concept Letter Workflow • Roles • Menus • Forms • Financial Controls • Reports • Audit
+Document Status
+REVISED MASTER BLUEPRINT – v17
+Scope
+JCI Carmona Online Project Management System
+Permanent Roles
+Admin, BOD, Treasurer, General Member
+Dynamic Assignment
+Project Chair – project-specific; any registered user may become Chair after final project approval
+Key revision: introduces a two-stage project development process using a Project Concept Letter addressed to the Chapter President before preparation of the Full Project Proposal.
+
+Document Organization
+1. System Overview and Core Principles
+2. Governance, Roles and Permission Model
+3. Revised Project Development and Approval Lifecycle
+4. Navigation by User
+5. Core Modules and Menu Functions
+6. Project Concept Letter and President Review
+7. Full Project Proposal and Formal Approval
+8. Project Chair and Task Management
+9. LOI / External Partner Letter Logic
+10. Project Monitoring System
+11. Financial Management and Treasurer Controls
+12. Treasurer Ledger and Monthly Member Dues
+13. Reports and Submission Workflow
+14. Notifications, Audit, Security and Data Integrity
+15. JCI Carmona Forms and Field Definitions
+16. Permission Matrix
+17. End-to-End System Flows
+18. UI/UX and Implementation Standards
+19. Final Implementation Checklist
+
+1. System Overview and Core Principles
+The JCI Carmona Online Project Management System is designed to support project ideation, review, approval, execution, financial monitoring, documentation, reporting, and member dues management in one organized role-based system. The revised workflow reduces unnecessary effort by requiring a short Project Concept Letter before a member prepares a complete Full Project Proposal.
+All registered users — Admin, BOD, Treasurer, and General Member — may submit a Project Concept Letter and later develop a Full Project Proposal when endorsed.
+Any registered user may become Project Chair only after final project approval. Project Chair is a project-level assignment, not a permanent account role.
+All authenticated users may view and monitor authorized project information and project-level budget/fund information.
+President review of the Project Concept Letter is an initial endorsement for development, not final authorization to implement the project.
+Final project approval follows the chapter’s configured formal approval authority and review sequence.
+Treasurer retains exclusive permanent authority to record and maintain official financial transactions, expenses, disbursements, liquidation, ledger records, and member dues.
+Project Chair manages project execution and tasks for chaired projects but does not automatically gain Treasurer authority.
+Important workflow, financial, assignment, and reporting actions are audit logged.
+Frontend visibility and backend authorization must enforce the same permission model.
+Recommended naming: Use “Project Concept Letter” for the internal initial project request addressed to the Chapter President. Reserve “Letter of Intent (LOI)” or “External Partner Letter” for communications with external partners, sponsors, LGUs, schools, organizations, or other collaborators.
+
+2. Governance, Roles and Permission Model
+Role / Assignment
+Primary Responsibilities
+Admin
+System administration, member/account management, organization-wide project monitoring, workflow visibility, submitted-report monitoring, and authorized administrative oversight. Admin may also submit projects and may become Project Chair for an approved project.
+BOD
+Organization-wide project and budget monitoring, participation in configured formal project review/approval, member registration where authorized, and access to authorized reports.
+Treasurer
+Exclusive recorder/maintainer of official financial transactions, Treasurer Ledger, project financial records, liquidation review, budget/fund records, member dues, and Overall Financial Report.
+General Member
+Submit project concepts, develop proposals after endorsement, view projects and authorized financial information, view own member dues, and participate in assigned project tasks.
+President / Reviewing Authority
+Performs initial review of Project Concept Letters addressed to the Chapter President. May endorse a concept for full development, return it for revision, or decline it. Final project approval remains a separate formal stage unless chapter rules explicitly combine them.
+Project Chair (dynamic)
+Assigned after final project approval. Manages the approved project, tasks, milestones, schedule, project documents, external LOIs/partner letters, and project reports within the assigned project.
+
+2.1 Core Permission Principles
+Participation: Every registered user may initiate a project by preparing and submitting a Project Concept Letter.
+Concept Review: President/reviewing authority may review the initial concept but this does not by itself activate implementation.
+Proposal Development: Only endorsed concepts proceed to Full Project Proposal preparation.
+Chair Assignment: Any registered user may be assigned Project Chair after final approval.
+Monitoring: All authenticated users may monitor project information according to visibility rules.
+Tasks: Chair manages tasks in chaired projects; assigned users update their own assigned tasks.
+Finance: Treasurer alone records and maintains official financial records.
+Reports: Project Chair handles project reports; Treasurer handles overall financial reporting.
+Dues: Treasurer records member dues; each member may view only their own dues records unless another role has explicit governance authority.
+
+3. Revised Project Development and Approval Lifecycle
+The project lifecycle is deliberately divided into an early concept stage and a detailed proposal stage. This prevents members from preparing a complete implementation plan, task structure, detailed budget, and documentation before leadership confirms that the idea is worth developing.
+Registered User
+↓
+Create Project Concept Letter
+↓
+Save Draft / Validate
+↓
+Submit Concept to President
+↓
+President Initial Review
+↓
+Endorsed for Development
+↓
+Prepare Full Project Proposal
+↓
+Formal Review / Budget Review / BOD or Configured Approving Authority
+↓
+Final Approval
+↓
+Assign Project Chair
+↓
+Project Setup + External LOI/Partner Letter Access
+↓
+Implementation + Task Management + Treasurer Financial Recording
+↓
+Monitoring + Reporting
+↓
+Completion Review
+↓
+Completed / Archived
+↓
+Alternative statuses may branch from the review stages: Needs Revision / Returned, Declined, or Not Approved.
+3.1 Recommended Status Model
+Stage
+Recommended Status
+Meaning
+Concept
+Draft Concept
+Member is still preparing the Project Concept Letter.
+Concept
+Submitted for President Review
+Concept has been formally submitted.
+Concept
+Needs Revision
+President requests clarification or changes.
+Concept
+Endorsed for Development
+Concept may proceed to a Full Project Proposal.
+Concept
+Declined
+Concept will not proceed unless reopened under chapter rules.
+Proposal
+Full Proposal Draft
+Detailed proposal is being prepared.
+Proposal
+Submitted for Formal Approval
+Full proposal entered formal approval review.
+Proposal
+Returned for Revision
+Detailed proposal requires changes.
+Proposal
+Approved
+Authorized to proceed to setup and implementation.
+Proposal
+Not Approved
+Formal approval was not granted.
+Execution
+Ongoing
+Approved project is currently being implemented.
+Completion
+Completed
+Implementation finished and completion requirements submitted.
+Archive
+Archived
+Project retained as historical record.
+
+
+4. Navigation by User
+User
+Recommended Navigation
+Admin
+Dashboard; Projects; Project Concepts; Tasks; External LOI / Partner Letters; Calendar; Project Reports; Financial Monitoring; Members & Accounts; My Member Dues; Notifications; My Account
+BOD
+Dashboard; Projects; Project Concepts; Tasks; External LOI / Partner Letters; Calendar; Project Reports; Financial Monitoring; Members; My Member Dues; Notifications; My Account
+Treasurer
+Dashboard; Projects; Project Concepts; Tasks; External LOI / Partner Letters; Calendar; Project Reports; Financial Monitoring; Treasurer Ledger; Transactions; Member Dues; Liquidation; Overall Financial Report; My Member Dues; Notifications; My Account
+General Member
+Dashboard; Projects; Submit Project Concept; My Projects; Tasks; External LOI / Partner Letters; Calendar; Project Reports; Financial Monitoring; Members; My Member Dues; Notifications; My Account
+Project Chair
+My Chair Projects; Project Details; Project Tasks; Milestones; Calendar; Project Documents; External LOI / Partner Letters; Project Reports; Financial Information; My Member Dues
+
+4.1 Project Menu Organization
+Menu
+Purpose
+Project Concepts
+Create, save, submit, review, revise, endorse, or decline Project Concept Letters according to authority.
+Projects
+View approved/current projects, Full Project Proposals, status, Chair, progress, milestones, documents, and monitoring information.
+My Projects
+Shows concepts/proposals created by the current user and projects chaired or participated in.
+Pending Review
+Shows concept or proposal items requiring review according to the user’s authority.
+Approved / Ongoing / Completed / Archived
+Status-based project views without duplicating the same records across modules.
+
+
+5. Core Modules and Menu Functions
+Module
+Function
+Dashboard
+Summarizes projects, concept/proposal review attention, milestones, task deadlines, budget/fund summaries, dues alerts, and report status without duplicating source records.
+Project Concepts
+Initial project idea submission and President review.
+Projects / Full Proposals
+Detailed project planning, formal approval, Chair assignment, execution status, and project information.
+Tasks
+Project-scoped task management for Chair and assigned users; monitoring for others.
+Calendar
+Project dates, activities, milestones, deadlines, review dates, and due dates.
+External LOI / Partner Letters
+Project-linked letters to external organizations, partners, sponsors, LGUs, schools, or stakeholders.
+Project Reports
+Project progress/completion reports prepared by Project Chair and submitted to Admin.
+Financial Monitoring
+Budget allocation, fund utilization, expenses, transaction summaries, and financial reports according to role.
+Treasurer Ledger
+Authoritative transaction-recording area controlled by Treasurer.
+Member Dues
+Treasurer records monthly dues; each member views own dues history.
+Members & Accounts
+Member directory, registration, profile, role, and account administration according to authority.
+Notifications
+Review, approval, task, report, dues, and project alerts.
+Audit Log
+Traceability for important workflow, financial, assignment, and record changes.
+
+
+6. Project Concept Letter and President Review
+The Project Concept Letter is a short internal letter addressed to the Chapter President. It presents the proposed project idea and requests initial endorsement to proceed with detailed planning. It should be concise and should not require the proponent to complete the entire implementation plan before the concept receives initial confirmation.
+6.1 Project Concept Letter — Recommended Content
+Concept Letter Reference / ID (system-generated)
+Date
+To: JCI Carmona Chapter President
+From: Proponent / Member
+Subject: Proposed Project — [Project Title]
+JCI Area / Area of Opportunity, where applicable
+Background / Community Need — brief reason the project is being proposed
+Purpose / Main Objective
+Target Beneficiaries / Community
+Brief Project Concept / Proposed Approach
+Proposed Date or Timeframe
+Proposed Location / Venue
+Estimated Participants / Beneficiaries
+Possible Partners / Stakeholders
+Preliminary Resource Requirements
+Rough Estimated Budget / Budget Range
+Expected Main Output / Community Benefit
+Initial Risks / Important Considerations
+Closing Request for Initial Endorsement + Proponent Name/Signature
+6.2 President Review Fields
+Reviewer
+Review Date
+Decision: Endorsed for Development / Needs Revision / Declined
+Review Comments
+Requested Revisions
+Conditions or Considerations for Full Proposal
+Next Action
+Decision Timestamp / Audit Reference
+Important distinction: “Endorsed for Development” means the President has confirmed that the project concept may proceed to detailed planning. It is not yet final project approval, permission to implement, or authority to spend project funds.
+6.3 Project Concept Letter Review Flow
+Member Prepares Project Concept Letter
+↓
+Save Draft
+↓
+Submit / Send to President
+↓
+President Reviews
+↓
+Endorse / Return for Revision / Decline
+↓
+If Endorsed: Open Full Project Proposal Draft
+↓
+
+7. Full Project Proposal and Formal Approval
+Once the Project Concept Letter is endorsed, the system creates or unlocks a Full Project Proposal linked to the concept letter. Common project information should carry forward automatically so members do not re-encode the same details.
+7.1 Full Project Proposal — Detailed Fields
+Project Reference / Linked Concept ID
+Project Title
+Project Rationale / Needs Analysis
+JCI Area / Area of Opportunity
+SMART Objectives
+Target Beneficiaries / Community
+Detailed Project Description
+Activities / Program Flow
+Expected Outputs and Outcomes
+Project Date(s) and Venue
+Project Team / Committees
+Volunteer / Member Participation
+Partner / Stakeholder Plan
+Detailed Timeline / Milestones
+Resources and Logistics
+Detailed Proposed Budget
+Budget Categories and Cost Breakdown
+Proposed Funding Sources
+Risk Assessment and Contingency Plan
+Monitoring and Evaluation Plan
+Success Indicators / KPIs
+Documentation Requirements
+External LOI / Partnership Requirements
+Sustainability / Follow-up Plan where applicable
+Supporting Documents
+Prepared By / Date
+Revision History
+7.2 Formal Review and Approval
+Validate required proposal information before submission.
+Route the Full Project Proposal to configured reviewers/approvers.
+Allow financial/budget review where required.
+Allow BOD or other formal approving authority review according to JCI Carmona governance.
+Record Approve / Return for Revision / Not Approve decisions and comments.
+Preserve all review history and resubmission history.
+Final approval activates Chair assignment and implementation setup.
+
+8. Project Chair and Task Management
+Project Chair is assigned only after final project approval.
+Any registered user may be assigned as Project Chair.
+Chair authority is limited to projects where that user is currently assigned as Chair.
+Chair may create, assign, reassign, prioritize, update, and monitor project tasks.
+Assigned users may update their own task status, notes, and completion evidence.
+Admin, BOD, Treasurer, and ordinary members may monitor task progress according to access but do not receive Chair-level management rights unless they are Chair for that project.
+Chair may manage milestones, schedule, project documents, and project reports for chaired projects.
+Chair cannot record official financial transactions merely because of Chair status.
+8.1 Task Form
+Field
+Purpose
+Task Title
+Clear task name.
+Description
+Work details and expected result.
+Assigned User(s)
+Member(s) responsible.
+Priority
+Configured priority level.
+Start Date / Deadline
+Task schedule.
+Status
+To Do / In Progress / Blocked / Completed or configured status.
+Milestone
+Optional project milestone link.
+Dependencies
+Related prerequisite tasks where needed.
+Notes
+Progress remarks.
+Completion Evidence
+Attachment, link, photo, file, or other evidence.
+Updated By / Timestamp
+Audit information.
+
+
+9. LOI / External Partner Letter Logic
+To avoid confusion with the internal Project Concept Letter, the system should use “External LOI / Partner Letter” for letters addressed to organizations outside the internal project approval workflow.
+External LOI / Partner Letter remains linked to a project.
+Project title, reference, approved description, applicable dates, and authorized project information may auto-populate.
+User completes recipient, organization, purpose, requested collaboration, signatory details, and letter-specific content.
+Versions must be preserved when a letter is revised.
+Changes in linked project data should not silently overwrite a previously issued letter version.
+Access to prepare/send letters should follow project status and configured authorization.
+9.1 External LOI / Partner Letter Form
+Project Reference
+Recipient / Contact Person
+Organization
+Address / Contact Details where required
+Subject / Purpose
+Project Title — auto-populated
+Project Description — auto-populated from approved project data
+Requested Collaboration / Support
+Project Date(s)
+Specific Commitments / Requests
+Signatory Details
+Prepared By
+Version
+Attachments
+Status: Draft / For Review / Approved for Sending / Sent / Archived
+
+10. Project Monitoring System
+All authenticated users may monitor project details and authorized project-level financial information.
+Monitoring does not automatically grant edit, approval, disbursement, financial-recording, or deletion authority.
+Project cards may show title, stage/status, Chair, date, progress, approved budget, used funds, remaining funds, task count, and next milestone.
+Project monitoring tabs should include Overview, Status, Progress, Tasks, Timeline/Milestones, Budget & Funds, Expenses according to access, External LOI/Letters, Documents, and Reports.
+Dashboard should surface only summaries and attention items; source records remain in their dedicated modules to avoid redundancy.
+
+11. Financial Management and Treasurer Controls
+Module
+Main Data / Function
+Primary Authority
+Budget Allocation
+Proposed budget, approved allocation, categories, approval details, remarks.
+Treasurer records/maintains; authorized users monitor.
+Fund Utilization
+Allocated, used/actual, remaining, utilization percentage, variance.
+Treasurer maintains; others monitor.
+Expense Monitoring
+Date, category, description, amount, payee/requester, reference, receipt, status, reviewer, remarks.
+Treasurer records/maintains.
+Transactions
+Official financial transaction records.
+Treasurer.
+Disbursements
+Project/organizational disbursement records.
+Treasurer.
+Liquidation
+Liquidation details and supporting documents.
+Treasurer reviews/maintains.
+Overall Financial Report
+Consolidated organization financial report.
+Treasurer prepares/maintains; Admin receives/views submitted report.
+
+Remaining Funds = Approved Allocation - Actual Expenses.
+Expense Utilization % = Actual Expenses ÷ Approved Allocation × 100.
+Unallocated Amount = Target / Proposed Budget - Approved Allocation.
+Financial totals require server-side validation.
+Expenses exceeding available allocation should be flagged.
+Critical financial records should use archive/void/soft-delete controls rather than destructive deletion.
+
+12. Treasurer Ledger and Monthly Member Dues
+12.1 Treasurer Ledger
+Treasurer Ledger is the authoritative transaction-recording area.
+Record transaction date, reference number, type, description, payee/payer, amount, member/project reference when applicable, fund/category, payment method, attachment, status, remarks, recorder, and timestamp.
+Support receipt/income, payment/expense, dues collection, disbursement, adjustment, and other configured transaction types.
+Link project-related transactions to the appropriate project.
+Link dues payments to the specific member and dues period.
+Corrections must preserve audit history.
+Ordinary users cannot directly modify the Treasurer Ledger.
+12.2 Monthly Member Dues
+Treasurer creates or opens a monthly dues period.
+System lists registered members subject to dues.
+Treasurer records amount, payment date, reference, receipt/proof, status, and remarks.
+Recommended statuses: Paid, Unpaid, Partial, Overdue, Waived/Adjusted, or configured status.
+A dues payment should create or link to a corresponding Treasurer Ledger transaction.
+Member receives a notification when payment is recorded or remains unpaid/overdue according to policy.
+Members view only their own official dues records.
+Exact dues amount, due date, grace period, waiver, and adjustment rules must be configurable rather than hard-coded without chapter approval.
+
+13. Reports and Submission Workflow
+User
+Reporting Authority
+Project Chair
+Prepare/upload project progress, completion, and permitted project reports; print/download; submit to Admin.
+Treasurer
+Review liquidation; prepare/upload Overall Financial Report and authorized financial reports; print/download; submit to Admin.
+Admin
+Receive, view, print, download, and monitor history of reports submitted by Project Chairs and Treasurer.
+BOD
+View authorized project/completion and financial reports according to governance access.
+General Member
+View available project reports where permitted.
+
+13.1 Project Report Flow
+Project Chair Prepares Report
+↓
+Upload / Submit
+↓
+Send to Admin
+↓
+Admin Report Inbox
+↓
+Admin View / Print / Download
+↓
+Report History Preserved
+↓
+13.2 Treasurer Financial Report Flow
+Treasurer Reviews Validated Financial Records
+↓
+Prepare Overall Financial Report
+↓
+Upload / Submit
+↓
+Send to Admin
+↓
+Admin View / Print / Download
+↓
+Report History Preserved
+↓
+
+14. Notifications, Audit, Security and Data Integrity
+Trigger
+Recipient
+Example Notification
+Concept submitted
+President / reviewer
+New Project Concept Letter requires review.
+Concept needs revision
+Proponent
+Your concept requires revision; review comments are available.
+Concept endorsed
+Proponent
+Concept endorsed for development; Full Project Proposal is now available.
+Concept declined
+Proponent
+Concept was declined; review comments are available.
+Full proposal submitted
+Configured approvers
+Full Project Proposal requires formal review.
+Proposal approved
+Proponent / assigned Chair
+Project approved; implementation setup may proceed.
+Task assigned / updated
+Assigned user / Chair
+Task assignment or status changed.
+Project report submitted
+Admin
+Project Chair report received.
+Overall financial report submitted
+Admin
+Treasurer financial report received.
+Dues recorded as Paid / Partial / Overdue
+Member
+Updated dues status with period, amount, and applicable details.
+
+14.1 Audit and Security Logic
+Log create, update, submit, endorse, return, decline, approve, reject, Chair assignment/reassignment, task assignment/reassignment, budget change, expense, dues update, report submission, archive, void, and soft-delete actions.
+Store actor, timestamp, object/project ID, previous value where appropriate, new value, and remarks.
+Prevent unauthorized direct API actions even when UI controls are hidden.
+Preserve review comments/history for returned concepts and proposals.
+Preserve report and external LOI/partner-letter versions.
+Use server-side validation for workflow status transitions, dates, budget values, and permission checks.
+
+15. JCI Carmona Forms and Field Definitions
+Form
+Key Content
+Member Registration
+Full name; nickname; contact details; address; membership/chapter information; profile photo; emergency/contact information where approved; account status.
+User Account
+Member; username/email; account role; account status; profile photo; security/password controls; last login/activity.
+Project Concept Letter
+Short internal letter to the Chapter President requesting initial endorsement to develop the project in full. Content defined in Section 6.
+Full Project Proposal
+Detailed planning and formal approval document. Fields defined in Section 7.
+External LOI / Partner Letter
+Project-linked external communication. Fields defined in Section 9.
+Task
+Task title, description, assigned user(s), priority, dates, status, milestone, dependencies, notes, evidence.
+Budget Allocation
+Project; target/proposed budget; proposed allocation; approved allocation; categories; approving authority; approval date; remarks.
+Expense
+Project; expense date; category; description; amount; payee/requester; reference; receipt/supporting document; status; reviewer; remarks.
+Project Completion / PCR
+Project summary; objectives achieved; beneficiaries; activities completed; outputs; outcomes; participation; actual expenses; remaining funds; issues; recommendations; evidence.
+Treasurer Ledger Entry
+Transaction date; reference; type; description; member/project; account/fund; payee/payer; amount; payment method; supporting document; status; remarks; recorder/timestamp.
+Member Dues
+Member; dues period; due date; dues amount; amount paid; payment date; status; reference; receipt/proof; remarks; recorder/timestamp.
+
+
+16. Permission Matrix
+Function
+Admin
+BOD
+Treasurer
+Project Chair
+General Member
+Submit Project Concept
+Yes
+Yes
+Yes
+Yes
+Yes
+President Concept Review
+If explicitly authorized
+If explicitly authorized
+No
+No
+No
+Develop Full Proposal after Endorsement
+Yes
+Yes
+Yes
+Yes
+Yes
+Formal Proposal Review
+Configured
+Configured
+Budget/financial review
+No unless configured
+No
+Become Project Chair
+Yes
+Yes
+Yes
+Yes
+Yes
+Monitor Projects
+Yes
+Yes
+Yes
+Yes
+Yes
+Monitor Project Funds
+Yes
+Yes
+Yes
+Yes
+Yes
+Manage Chaired Project
+When Chair
+When Chair
+When Chair
+Yes
+When Chair
+Manage Project Tasks
+When Chair
+When Chair
+When Chair
+Yes
+When Chair / assigned-task updates
+Record Financial Transactions
+No
+No
+Yes
+No
+No
+Maintain Treasurer Ledger
+No
+No
+Yes
+No
+No
+Record Monthly Member Dues
+No
+No
+Yes
+No
+No
+View Own Member Dues
+Yes
+Yes
+Yes
+Yes
+Yes
+Review Liquidation
+No
+No
+Yes
+No
+No
+Prepare Overall Financial Report
+No
+No
+Yes
+No
+No
+Submit Project Report to Admin
+When Chair
+When Chair
+When Chair
+Yes
+When Chair
+View Submitted Reports
+Yes
+Authorized
+Own/authorized
+Authorized
+Authorized
+
+
+17. End-to-End System Flows
+17.1 Complete Project Flow
+Member Identifies Project Idea
+↓
+Project Concept Letter Draft
+↓
+Submit to President
+↓
+President Review
+↓
+Endorsed for Development
+↓
+Full Project Proposal
+↓
+Formal Review and Approval
+↓
+Project Approved
+↓
+Assign Project Chair
+↓
+Project Setup
+↓
+External LOI / Partner Letters as Needed
+↓
+Tasks + Milestones + Calendar
+↓
+Treasurer Budget / Transaction Recording
+↓
+All Users Monitor
+↓
+Project Chair Reports
+↓
+Treasurer Financial Reporting
+↓
+Completion Review
+↓
+Completed
+↓
+Archived
+↓
+17.2 Financial and Member Dues Flow
+Financial Activity or Dues Payment Occurs
+↓
+Treasurer Records / Validates Transaction
+↓
+Link to Project and/or Member + Dues Period
+↓
+Update Financial Summaries / Dues Status
+↓
+Create Audit Record
+↓
+Send Applicable Notification
+↓
+Authorized Users Monitor / Member Views Own Record
+↓
+Include Validated Records in Reporting
+↓
+
+18. UI/UX and Implementation Standards
+Use a clean, modern, professional organization-system design aligned with JCI Carmona branding.
+Use a light theme with purposeful JCI-aligned accent colors; avoid excessive blank white areas and decorative outlines.
+Navigation should be compact, scrollable when needed, responsive, and clearly grouped by function.
+Avoid duplicate modules and duplicate record entry. Reuse linked project data where appropriate.
+Use clear status badges for Concept, Proposal, Approval, Ongoing, Completed, Dues, and Report states.
+Use cards for project summaries but keep detailed records in source modules.
+Use pie/bar charts only where they improve comprehension; avoid unnecessary charts.
+Ensure responsive layouts for desktop, tablet, and mobile; avoid overlapping elements and fixed-width content.
+Keep buttons/action labels explicit: Submit Concept, Endorse for Development, Return for Revision, Create Full Proposal, Submit for Approval, Approve Project, Assign Chair.
+Display role/permission-sensitive actions only when the current user is authorized; enforce the same restrictions on the backend.
+Use accessible typography, sufficient contrast, clear icons, and readable table layouts.
+Use archive/soft-delete for critical historical records instead of destructive deletion.
+
+19. Final Implementation Checklist
+☐ Permanent account roles are limited to Admin, BOD, Treasurer, and General Member.
+☐ Project Chair remains a dynamic project-specific assignment.
+☐ All registered users may prepare and submit a Project Concept Letter.
+☐ The Project Concept Letter is reviewed by the President/configured reviewing authority before a Full Project Proposal is required.
+☐ President endorsement is clearly separated from final formal project approval.
+☐ Endorsed concepts can auto-create or unlock a linked Full Project Proposal.
+☐ Common concept data carries forward to the Full Project Proposal to avoid duplicate entry.
+☐ Formal approval occurs only after the Full Project Proposal is complete and reviewed.
+☐ Chair assignment occurs only after final project approval.
+☐ External LOI / Partner Letters are clearly separated from the internal Project Concept Letter.
+☐ Project-linked external letter fields can auto-populate from approved project data.
+☐ Task management is available to the Project Chair and assigned users according to project scope.
+☐ All users may monitor authorized project and project-level financial information.
+☐ Treasurer is the authorized recorder/maintainer of official financial records, ledger, liquidation, member dues, and overall financial reporting.
+☐ Members can view their own dues history without editing official Treasurer records.
+☐ Project Chair project reports and Treasurer overall financial reports can be submitted to Admin.
+☐ Workflow, financial, assignment, dues, and reporting changes are audit logged.
+☐ Navigation is organized by user and function without unnecessary redundancy.
+☐ Critical records use archive/void/soft-delete controls rather than destructive deletion.
+☐ UI is responsive and designed for desktop, tablet, and mobile displays.

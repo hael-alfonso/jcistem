@@ -1,80 +1,12 @@
 <!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Sign in · JCI Carmona</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/admin-ui.css') }}">
-</head>
-<body class="login-body">
-    <div class="login-wrap">
-        <aside class="login-panel">
-            <div class="login-brand">
-                <div class="login-mark"><x-icon name="shieldBrand" /></div>
-                <div>
-                    <strong>JCI CARMONA</strong>
-                    <span>Carmona City, Cavite</span>
-                </div>
-            </div>
-            <h1>Project Management System</h1>
-            <p>Sign in to the workspace that matches your chapter role.</p>
-            <ul class="login-roles">
-                <li><b>Admin</b> monitors projects, reviews, and reports</li>
-                <li><b>Treasurer</b> records funds, dues, and the ledger</li>
-                <li><b>BOD</b> reviews proposals and chapter reports</li>
-                <li><b>Member</b> manages assigned projects and dues</li>
-            </ul>
-        </aside>
-        <main class="login-main">
-            <div class="login-box">
-                <div class="eyebrow">SIGN IN</div>
-                <h2>Enter your workspace</h2>
-                <p class="login-hint">Demo password for every test account is <strong>password</strong>.</p>
-                @if ($errors->any())
-                    <div class="login-error">{{ $errors->first() }}</div>
-                @endif
-                <form method="POST" action="{{ route('login.attempt') }}" class="login-form">
-                    @csrf
-                    <label class="field">
-                        <span>Email</span>
-                        <input type="email" name="email" value="{{ old('email', 'admin@jcicarmona.org') }}" required autocomplete="username">
-                    </label>
-                    <label class="field">
-                        <span>Password</span>
-                        <input type="password" name="password" value="password" required autocomplete="current-password">
-                    </label>
-                    <div class="login-row">
-                        <label class="remember"><input type="checkbox" name="remember"> Keep me signed in</label>
-                    </div>
-                    <button class="btn btn-primary login-submit" type="submit">Enter workspace</button>
-                </form>
-                <div class="test-accounts">
-                    <strong>Test accounts</strong>
-                    <div class="test-grid">
-                        @foreach ($accounts as $account)
-                            <button type="button" class="test-account" data-email="{{ $account['email'] }}">
-                                <span>{{ $account['role'] }}</span>
-                                <b>{{ $account['email'] }}</b>
-                                <em>{{ $account['name'] }}</em>
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-    <script>
-        document.querySelectorAll('.test-account').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                document.querySelector('[name=email]').value = btn.dataset.email;
-                document.querySelector('[name=password]').value = 'password';
-            });
-        });
-    </script>
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in · JCI Carmona</title><link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}"></head>
+<body class="login-page"><section class="login-story"><a class="chapter-brand" href="{{ route('login') }}"><span class="brand-word">JCI<span class="brand-spark">✦</span></span><span>CARMONA<small>PROJECT MANAGEMENT</small></span></a><div><div class="eyebrow">LOCAL LEADERS. LASTING IMPACT.</div><h1>Great ideas deserve<br>a place to grow.</h1><p>Bring your chapter's people, projects, and purpose together. Build a better Carmona, one project at a time.</p></div><span class="login-foot">Carmona City, Cavite, Philippines · JCI Carmona</span><div class="banner-orbit"></div></section>
+<main class="login-main"><div class="login-box"><div class="eyebrow">WELCOME TO YOUR CHAPTER WORKSPACE</div><h2>Good to have you here.</h2><p>Sign in to continue your chapter's work.</p>
+@if($errors->any())<div class="alert error" role="alert">{{ $errors->first() }}</div>@endif
+<form method="POST" action="{{ route('login.attempt') }}">@csrf
+<x-field name="email" label="Email address" type="email" required autocomplete="username" autofocus/>
+<x-field name="password" label="Password" type="password" required autocomplete="current-password"/>
+<label class="check-field"><input type="checkbox" name="remember" value="1"> Keep me signed in</label>
+<button class="btn primary">Sign in to workspace →</button></form>
+<small>Need an account or help signing in? Contact your chapter administrator.</small><div class="login-meta">One workspace. Four areas of opportunity.<br>Leadership · Community · Business · International cooperation</div>
+</div></main></body></html>

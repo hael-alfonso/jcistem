@@ -24,6 +24,11 @@ class User extends Authenticatable
         'password',
         'role',
         'member_no',
+        'status',
+        'concept_reviewer',
+        'proposal_reviewer',
+        'profile',
+        'last_login_at',
     ];
 
     /**
@@ -46,6 +51,10 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'concept_reviewer' => 'boolean',
+            'proposal_reviewer' => 'boolean',
+            'profile' => 'array',
+            'last_login_at' => 'datetime',
         ];
     }
 }

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Loi extends Model
+class Loi extends ChapterRecord
 {
-    //
+    protected $casts = ['data' => 'array', 'versions' => 'array'];
 }

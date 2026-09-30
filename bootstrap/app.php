@@ -15,11 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => EnsureRole::class,
+            'active' => \App\Http\Middleware\EnsureActive::class,
         ]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(function () {
-            return route(WorkspaceNav::home(auth()->user()?->role));
+            return route('dashboard');
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {

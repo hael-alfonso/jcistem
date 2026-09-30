@@ -1,0 +1,793 @@
+JCI CARMONAONLINE PROJECT MANAGEMENT SYSTEMFINAL MASTER FUNCTIONALITY, NAVIGATION & WORKFLOW DOCUMENTOrganized System Blueprint • User Roles • Menus • Forms • Project Flow • Financial Controls • Reports
+Document status: FINAL MASTER BLUEPRINTScope: JCI Carmona Online Project Management SystemPermanent roles: Admin, BOD, Treasurer, General MemberProject Chair: project-specific assignment available to any registered user after project approval.
+DOCUMENT ORGANIZATION
+14. Final End-to-End System Flow
+13. UI/UX and Design Standards
+12. Monitoring, Audit, Security and Data Integrity
+11. JCI Carmona Forms and Field Definitions
+10. Reports and Submission Workflow
+9. Treasurer Ledger and Monthly Member Dues
+8. Financial Management and Treasurer Controls
+7. LOI and Project-Linked Data
+6. Project Chair and Task Management
+5. Core Modules and Menu Functions
+4. Navigation by User
+3. Project Lifecycle and Approval Flow
+2. User Roles and Permission Model
+1. System Overview and Core Rules
+JCI CARMONA ONLINE PROJECT MANAGEMENT SYSTEM
+MASTER NAVIGATION, PROJECT FLOW, MONITORING, FORMS, FUNCTIONALITY & LOGIC — v14
+Consolidated from the supplied JCI Carmona functionality specification and the latest user-defined role, reporting, LOI, financial, and Project Chair rules.
+1. Core System Rules
+All registered users—including Admin, BOD, Treasurer, and General Member—can create and submit project proposals.
+Any registered user can become Project Chair after the project is approved. Project Chair is a project-level assignment, not a permanent account role.
+All authenticated users can view and monitor project information and project-level budget, fund, and expense information.
+Project Chair authority is project-scoped and does not grant Treasurer financial-recording authority.
+Treasurer is the only permanent role with authority to record and maintain project financial records, including transactions, expenses, disbursements, and liquidation.
+Project Chair can prepare, upload, print, and download project reports and send them to Admin.
+Treasurer can review liquidation and prepare the Overall Financial Report; Overall Financial Report preparation and maintenance are Treasurer-only.
+Admin can view reports submitted by Project Chairs and Treasurer and can print/download submitted reports.
+Frontend visibility and backend authorization must enforce the same permission model.
+2. User Navigation & Descriptions
+Admin
+Menu
+Description
+Dashboard
+Overall project, approval, progress, budget, fund-utilization, activity, and notification overview.
+Projects
+Create, review, view, and monitor projects: All Projects, Create Project, My Projects, Pending Review, Approved, Ongoing, Completed, Archived.
+Tasks
+Monitor project tasks; Chair-level task management appears only when Admin is assigned as Chair.
+LOI
+Access project-linked Letters of Intent according to workflow and status.
+Calendar
+View project schedules, milestones, deadlines, and activities.
+Project Reports
+View reports submitted by Project Chairs and Treasurer; print/download as permitted.
+Financial Monitoring
+Monitor Budget Allocation, Fund Utilization, Expense Monitoring, and Financial Reports.
+Members & Accounts
+Member Directory, Member Registration, and User Accounts.
+Notifications
+Project, approval, task, LOI, financial, and system alerts.
+My Account
+Profile, Activity Log, and Settings.
+BOD
+Menu
+Description
+Dashboard
+Monitor organization-wide projects, progress, budgets, and BOD attention items.
+Projects
+Create, review, and monitor projects, including proposals and BOD review.
+Tasks
+Monitor project tasks and progress.
+LOI
+Access project-linked LOIs according to workflow.
+Calendar
+View schedules, milestones, and deadlines.
+Project Reports
+View project progress and completion reports.
+Financial Monitoring
+View project budgets, fund utilization, expenses, and available reports without Treasurer-level recording authority.
+Members
+Member Directory and member-registration functions.
+Notifications
+Project, approval, task, LOI, and system alerts.
+My Account
+Profile, Activity Log, and Settings.
+Treasurer
+Menu
+Description
+Dashboard
+Monitor projects together with budgets, fund utilization, expenses, and financial activity.
+Projects
+Create, view, and monitor projects.
+Tasks
+Monitor project tasks.
+LOI
+Access project-linked LOIs according to workflow.
+Calendar
+View project schedules and important dates.
+Project Reports
+View available project reports.
+Financial Monitoring
+Budget Allocation, Fund Utilization, Expense Monitoring, Transactions, Disbursements, Liquidation, and Financial Reports.
+Liquidation
+Review liquidation records and supporting documents.
+Overall Financial Report
+Prepare, maintain, print/download, upload, and send the overall financial report to Admin.
+Members
+View the member directory.
+Notifications
+Project, task, LOI, financial, and system alerts.
+My Account
+Profile, Activity Log, and Settings.
+General Member
+Menu
+Description
+Dashboard
+View projects, activities, assigned tasks, schedules, and project-level financial monitoring information.
+Projects
+Create, submit, view, and monitor projects.
+Tasks
+View accessible tasks and My Assigned Tasks.
+LOI
+Access project-linked LOIs according to workflow/status.
+Calendar
+View project schedules, milestones, and deadlines.
+Project Reports
+View available project reports; print/download where permitted.
+Financial Monitoring
+View Budget Allocation, Fund Utilization, Expense Monitoring, and available Financial Reports.
+Members
+View the JCI Carmona member directory.
+Notifications
+Receive project, task, LOI, and system notifications.
+My Account
+Profile, Activity Log, and Settings.
+Project Chair (dynamic project-level access)
+Menu
+Description
+My Chair Projects
+View projects for which the user is currently assigned as Chair.
+Project Details
+Manage the assigned project.
+Project Tasks
+Create, assign, reassign, monitor, and update tasks within chaired projects.
+Milestones
+Create and monitor project milestones.
+Calendar
+Manage project schedule and milestones.
+Project Documents
+Manage project documents and completion evidence.
+LOI
+Prepare/access project-linked LOI according to workflow.
+Project Reports
+Prepare/upload project reports; print/download; send reports to Admin.
+Financial Information
+View project-level financial information, but cannot obtain Treasurer recording authority merely by being Chair.
+3. Project Approval & Lifecycle Flow
+Registered User
+↓
+Create Project Proposal
+↓
+Complete Project Details + Proposed Budget
+↓
+Save Draft
+↓
+Validate Required Information
+↓
+Submit Project
+↓
+Admin Review
+↓
+Budget / Financial Review
+↓
+BOD Review
+↓
+Approve / Return / Reject
+Outcome
+System behavior
+Approve
+Move to Approved / Chair Pending; assign any registered user as Project Chair.
+Return
+Preserve review history/comments; revise and resubmit into review flow.
+Reject
+Retain historical record and stop execution unless authorized reopen/restart applies.
+After Approval
+Approved
+↓
+Assign Any Registered User as Project Chair
+↓
+LOI Access + Project Data Auto-Linking
+↓
+Project Setup
+↓
+Chair Manages Project & Tasks
+↓
+Treasurer Records Financial Activity
+↓
+All Users Monitor Project & Funds
+↓
+Completion Review
+↓
+Completed
+↓
+Archived
+4. Project Monitoring System
+All authenticated users can monitor project details and project-level financial information.
+Monitoring does not automatically grant edit, approval, disbursement, financial-recording, or delete authority.
+Project cards show title, status, Chair, date, progress, approved budget, used funds, remaining funds, and task count.
+View Project is available to users with access; Manage Project appears only for users with project-scoped authority.
+Monitoring includes Overview, Status, Progress, Tasks, Timeline/Milestones, Budget & Funds, Expenses according to access, LOI, Documents, and Reports.
+Dashboard emphasizes active projects, approval attention, upcoming activities, task deadlines, budget/fund summary, and report status without duplicating source-module records.
+5. Financial Monitoring System
+Module
+Function
+Primary Authority
+Budget Allocation
+Target/proposed budget, proposed/approved allocation, categories, approving authority, date, remarks.
+Treasurer records/maintains; others monitor.
+Fund Utilization
+Allocated, used/actual, remaining, utilization %, variance.
+Treasurer maintains; others monitor.
+Expense Monitoring
+Date, category, description, amount, payee/requester, reference, receipt, status, reviewer, remarks.
+Treasurer records/maintains; others monitor.
+Transactions
+Financial transaction records.
+Treasurer.
+Disbursements
+Project disbursement records.
+Treasurer.
+Liquidation
+Liquidation records and supporting documents; Treasurer reviews liquidation.
+Treasurer.
+Overall Financial Report
+Consolidated financial reporting.
+Treasurer prepares/maintains; Admin receives/views submitted report.
+Remaining Funds = Approved Allocation − Actual Expenses.
+Expense Utilization % = Actual Expenses ÷ Approved Allocation × 100.
+Unallocated Amount = Target/Proposed Budget − Approved Allocation.
+Financial totals require server-side validation.
+Expenses exceeding available allocation should be flagged.
+Critical financial records should use archive/soft-delete rather than destructive deletion.
+6. Reporting System
+User
+Reporting Authority
+Project Chair
+Prepare/upload project reports; print/download project and permitted reports; send reports to Admin.
+Treasurer
+Review liquidation; prepare/upload Overall Financial Report and financial reports; print/download; send to Admin.
+Admin
+Receive/view reports submitted by Project Chair and Treasurer; print/download submitted reports; monitor report history.
+BOD
+View available project/completion and authorized reports.
+General Member
+View available project reports and print/download where permitted.
+Project Chair prepares project report
+↓
+Upload / Submit
+↓
+Send to Admin
+↓
+Admin Report Inbox
+↓
+Admin View / Print / Download
+Treasurer reviews liquidation
+↓
+Prepare Overall Financial Report
+↓
+Upload / Submit
+↓
+Send to Admin
+↓
+Admin View / Print / Download
+7. JCI Carmona Forms — Format & Details
+Member Registration Form
+Full Name
+Nickname
+Contact Information
+Address
+Membership Information
+Chapter Information
+Profile Photo
+Emergency/Contact Information where approved
+Account Status
+User Account Form
+Member
+Username/Email
+Account Role
+Account Status
+Profile Photo
+Security/Password Controls
+Last Login / Activity
+Project Creation Form
+Project Title
+JCI Area / Area of Opportunity
+Rationale / Needs
+Objectives
+Target Beneficiaries / Community
+Partners / Stakeholders
+Project Date
+Venue
+Expected Participants
+Expected Outputs
+Expected Outcomes
+Member / Volunteer Participation
+Risks
+Resources
+Proposed Budget
+Supporting Documents
+LOI / Partnership Requirements
+Monitoring and Evaluation Notes
+LOI Form
+Project Reference
+Recipient / Partner
+Organization
+Subject / Purpose
+Project Description — auto-populated from project
+Requested Collaboration
+Project Dates
+Signatory Details
+Version
+Attachments
+Task Form
+Task Title
+Description
+Assigned User
+Priority
+Deadline
+Status
+Milestone
+Notes
+Completion Evidence / Attachment
+Budget Allocation Form
+Project
+Target / Proposed Budget
+Proposed Allocation
+Approved Allocation
+Allocation by Category
+Approving Authority
+Approval Date
+Remarks
+Expense Form
+Project
+Expense Date
+Category
+Description
+Amount
+Payee / Requester
+Reference Number
+Receipt / Supporting Document
+Status
+Reviewer
+Remarks
+Project Completion / PCR Form
+Project Summary
+Objectives Achieved
+Beneficiaries
+Activities Completed
+Outputs
+Outcomes
+Participation
+Actual Expenses
+Remaining Funds
+Issues
+Recommendations
+Evidence
+8. JCI Carmona Content Alignment
+Use JCI Area of Opportunity where applicable: Individual Development, Community Action, International Cooperation, and Business & Entrepreneurship.
+Project content should emphasize leadership, service, community impact, collaboration, skills development, volunteer/member participation, partnerships, and responsible stewardship of chapter resources.
+Use JCI Carmona-specific chapter/member/project information while avoiding duplicate fields across modules.
+Project description and applicable project information should be reused through controlled links rather than repeatedly re-encoded.
+9. LOI Automation Logic
+Project Record
+↓
+Create LOI from Project
+↓
+Auto-populate Project Reference / ID
+↓
+Auto-populate Project Title
+↓
+Auto-populate Project Description
+↓
+Auto-populate applicable Dates / Project Data
+↓
+Complete LOI-specific Fields
+↓
+Validate
+↓
+Save Version / Submit
+Project Description automatically populates the LOI Project Description field.
+Project-linked fields reduce duplicate encoding.
+Editable LOIs may use controlled refresh/synchronization when project data changes without silently destroying version history.
+LOI versions remain linked to the project.
+10. Overall System Functionality & Logic
+Authentication determines permanent organizational role and baseline access.
+Project creation is available to all registered users.
+Project approval is workflow-controlled and auditable.
+Chair assignment occurs after approval and may select any registered user.
+Chair controls are scoped by project ID and disappear when the assignment is removed/replaced.
+Task permissions are project/task-scoped; assigned users can update their own tasks while the Chair manages tasks within chaired projects.
+Financial permissions are separate from Chair permissions; only Treasurer retains permanent financial-recording authority.
+All users can monitor projects and project-level funds/budgets.
+Reports are uploaded/submitted by the responsible user; Admin receives and monitors submitted reports.
+Overall Financial Report preparation/maintenance belongs to Treasurer; Admin receives/views submitted copies.
+Required fields, dates, budget values, attachments, and workflow conditions are validated before submission.
+Important workflow and financial actions are audit logged.
+Frontend controls and backend/API authorization enforce the same rules.
+Critical records should be archived/soft-deleted instead of destructively deleted.
+11. Audit & Security Logic
+Log create, update, submit, approve, return, reject, Chair assignment/reassignment, task assignment/reassignment, budget changes, expenses, report submission, archive, and soft-delete.
+Store actor, timestamp, object/project ID, previous value where appropriate, new value, and remarks.
+Prevent unauthorized direct API actions even when UI controls are hidden.
+Preserve review history/comments for returned projects and preserve report/LOI versions where applicable.
+12. Final Permission Logic
+Principle
+Rule
+Participation
+Every registered user can create and submit a project.
+Chair
+Any registered user can be assigned Chair after approval; Chair is project-specific.
+Monitoring
+All authenticated users can monitor project details and project-level financial information.
+Tasks
+Chair manages tasks only within chaired projects; assigned users can update their own tasks.
+Finance
+Treasurer alone records/maintains financial records and reviews liquidation.
+Reports
+Project Chair handles project reports; Treasurer handles overall financial reporting.
+Admin Reporting
+Admin receives, views, prints, and downloads reports submitted by Project Chairs and Treasurer.
+LOI
+LOI is linked to project; project description and applicable project data auto-populate matching LOI fields.
+Security
+Backend and frontend enforce the same permission model.
+Audit
+Workflow, financial, assignment, and reporting changes are logged.
+JCI Carmona — Project Management System | Master Functionality & Flow v14
+13. Treasurer Ledger & Member Dues Management
+The Treasurer Ledger is the central financial-recording module for transactions maintained by the Treasurer. It is separate from project monitoring and supports complete transaction history. The Treasurer also records monthly member dues for all registered users, while each member has a personal Member Dues view.
+13.1 Treasurer Ledger
+Treasurer is the primary and authorized recorder/maintainer of the Treasurer Ledger.
+Record all applicable financial transactions with date, reference number, type, description, payee/payer, amount, project or account reference where applicable, supporting document, status, and remarks.
+Ledger entries should support income/receipt, expense/payment, dues collection, disbursement, adjustment, and other configured transaction types.
+Maintain a running transaction history with searchable and filterable records.
+Link project-related transactions to the appropriate project when applicable.
+Link member-dues receipts/payments to the specific registered member.
+Support attachments such as receipts or supporting documents.
+Allow Treasurer to review, correct, or update records according to authorization while preserving audit history.
+Do not allow ordinary users to directly modify the Treasurer Ledger.
+Critical financial records should use archive/void/soft-delete controls instead of destructive deletion.
+13.2 Treasurer Ledger Menu
+Menu / Module
+Description
+Financial Monitoring
+Central financial area for Treasurer-controlled records and monitoring.
+Treasurer Ledger
+Record and maintain all applicable financial transactions.
+Transactions
+Search, filter, review, and maintain transaction records.
+Member Dues
+Record and maintain monthly dues for all registered users.
+Dues Status
+Monitor paid, unpaid, partial, overdue, waived/adjusted, or other configured statuses.
+Disbursements
+Record project or organizational disbursements.
+Liquidation
+Review liquidation records and supporting documents.
+Budget Allocation
+Maintain project budget allocations.
+Fund Utilization
+Monitor and maintain utilization records.
+Expense Monitoring
+Record and maintain project expenses.
+Financial Reports
+Prepare financial reports, including the Overall Financial Report.
+13.3 Treasurer Ledger Form
+Field
+Purpose
+Transaction Date
+Date the transaction occurred or was recorded.
+Transaction Reference No.
+Unique reference for traceability.
+Transaction Type
+Configured type such as receipt, payment, dues, expense, disbursement, adjustment, or other approved type.
+Description
+Purpose/details of the transaction.
+Member
+Registered member when the transaction relates to dues or member payment.
+Project
+Related project when applicable.
+Account / Fund Category
+Financial category or fund source.
+Payee / Payer
+Person or organization involved.
+Amount
+Transaction amount.
+Payment Method
+Configured payment method.
+Receipt / Supporting Document
+Evidence or attachment.
+Status
+Recorded, pending review, voided/adjusted, or other configured status.
+Remarks
+Additional explanation.
+Recorded By
+System-generated Treasurer/account reference.
+Recorded Date/Time
+System-generated audit timestamp.
+14. Monthly Member Dues Module
+The Member Dues module allows the Treasurer to record the monthly dues status of all registered users. It is connected to the member directory and Treasurer Ledger so that a dues payment can be reflected in both the member's dues history and the financial transaction record.
+14.1 Treasurer Member Dues Functions
+View all registered users who are subject to member dues.
+Create/open a monthly dues period.
+Record whether each member is Paid, Unpaid, Partially Paid, Overdue, Waived/Adjusted, or another configured status.
+Record payment date and amount.
+Record reference/receipt number.
+Upload proof of payment where applicable.
+Add remarks or adjustment reason.
+Correct dues records with audit logging.
+View monthly collection totals and outstanding dues.
+Filter by month, member, status, and payment period.
+Send a notification to the member when a dues payment is recorded or when a member remains unpaid/overdue.
+Keep a historical record of each member's monthly dues.
+14.2 Member Dues Form
+Field
+Description
+Member
+Registered user/member linked to the member directory.
+Dues Period
+Month and year covered by the dues.
+Due Date
+Configured due date for the period.
+Dues Amount
+Expected monthly amount.
+Amount Paid
+Actual amount recorded as paid.
+Payment Date
+Date payment was received/recorded.
+Status
+Paid, Unpaid, Partial, Overdue, Waived/Adjusted, or configured status.
+Payment Reference No.
+Reference for the payment.
+Receipt / Proof
+Uploaded supporting evidence when applicable.
+Remarks
+Notes or approved adjustment explanation.
+Recorded By
+Treasurer/account that recorded the entry.
+Recorded Date/Time
+System-generated timestamp.
+14.3 Member Dues Status Logic
+Monthly Dues Period Created
+↓
+System Lists Registered Users
+↓
+Treasurer Records Payment/Status
+↓
+System Calculates Status
+↓
+Dues Record Linked to Treasurer Ledger
+↓
+Member Notification Sent
+↓
+Member Views Personal Dues Record
+Paid: amount paid meets the configured monthly dues amount.
+Partial: amount paid is greater than zero but below the configured dues amount.
+Unpaid: no payment has been recorded by the configured due-date logic.
+Overdue: unpaid or partial after the configured due date.
+Waived/Adjusted: an authorized adjustment has been recorded with a reason and audit trail.
+Exact due amount, due date, grace period, and adjustment rules should be configurable by authorized administrators/financial governance and should not be hard-coded without chapter approval.
+15. Member Dues Menu for All Users
+Every registered user receives a personal Member Dues module. This is a self-service view and does not grant access to other members' dues records or Treasurer Ledger editing.
+Menu
+Description
+My Member Dues
+View the user's own monthly dues records.
+Current Dues
+View current period amount, due date, amount paid, and status.
+Dues History
+View previous monthly dues and payment history.
+Payment Details
+View recorded payment date, amount, and reference.
+Receipts / Proof
+View available payment receipts or proof attached to the user's own records.
+Notifications
+Receive paid/unpaid/partial/overdue dues notifications.
+15.1 Member Dues User Flow
+Member Logs In
+↓
+My Member Dues
+↓
+View Current Month
+↓
+View Status / Amount Due
+↓
+View Payment Details / Receipt
+↓
+View Dues History
+Members can view only their own dues records.
+Members cannot edit Treasurer-recorded dues or Treasurer Ledger entries.
+If the system later supports member-submitted proof of payment, the submission must go to Treasurer for review/recording and must not directly alter the official ledger.
+Members should receive clear notifications when a payment is recorded as Paid and when their record is Unpaid, Partial, or Overdue.
+16. Updated Navigation by User — Financial & Dues Modules
+User
+Additional Navigation
+Authority
+Admin
+Financial Monitoring → View Financial Information; Reports → Submitted Reports; My Member Dues
+Monitor financial information and submitted reports; view own dues only. No Treasurer Ledger editing.
+BOD
+Financial Monitoring → Budget Allocation, Fund Utilization, Expense Monitoring, Financial Reports; My Member Dues
+Monitor authorized financial information; view own dues only.
+Treasurer
+Financial Monitoring → Treasurer Ledger, Transactions, Member Dues, Dues Status, Disbursements, Liquidation, Budget Allocation, Fund Utilization, Expense Monitoring, Financial Reports
+Record/maintain financial transactions and all member dues; review liquidation; prepare Overall Financial Report.
+General Member
+My Member Dues → Current Dues, Dues History, Payment Details, Receipts/Proof
+View own dues records only; no Treasurer Ledger editing.
+Project Chair
+Project Reports + Financial Information + My Member Dues
+Project reporting and project monitoring; Chair does not gain Treasurer Ledger or dues-recording authority merely by being Chair.
+17. Updated Overall Financial Logic
+Financial Activity
+↓
+Treasurer Records Transaction in Treasurer Ledger
+↓
+If Project-Related → Link to Project
+↓
+If Member Dues → Link to Member + Dues Period
+↓
+System Updates Applicable Financial Summaries
+↓
+Audit Log Created
+↓
+Authorized Users Monitor / Member Views Own Record
+The Treasurer Ledger is the authoritative transaction-recording area for transactions maintained by the Treasurer.
+Member dues payment records should create or link to a corresponding Treasurer Ledger transaction so financial records remain traceable.
+Project financial records remain linked to their projects for project-level monitoring.
+Member dues remain linked to the individual member and monthly dues period.
+One transaction should not be duplicated across modules without a traceable relationship or unique reference.
+Financial summaries and reports should be derived from validated ledger/financial records rather than manually duplicated totals.
+18. Updated Notification Logic
+Trigger
+Recipient
+Notification
+Dues recorded as Paid
+Member
+Monthly dues payment has been recorded as paid; include period, amount, and reference.
+Dues recorded as Partial
+Member
+Partial payment recorded; show amount paid and remaining amount.
+Dues remain Unpaid
+Member
+Reminder/status notification according to configured notification schedule.
+Dues become Overdue
+Member
+Overdue notification with period, amount outstanding, and applicable instructions.
+Dues adjustment/waiver recorded
+Member
+Status/adjustment notification with authorized remarks where appropriate.
+Project report submitted
+Admin
+Project Chair report received.
+Overall financial report submitted
+Admin
+Treasurer financial report received.
+19. Updated Permission Logic
+Function
+Admin
+BOD
+Treasurer
+Project Chair
+General Member
+Create Project
+✓
+✓
+✓
+✓
+✓
+Become Project Chair
+✓
+✓
+✓
+✓
+✓
+Monitor Projects
+✓
+✓
+✓
+✓
+✓
+Monitor Project Funds
+✓
+✓
+✓
+✓
+✓
+Manage Chaired Project
+When Chair
+When Chair
+When Chair
+When Chair
+When Chair
+Record Financial Transactions
+—
+—
+✓
+—
+—
+Maintain Treasurer Ledger
+—
+—
+✓
+—
+—
+Record Monthly Member Dues
+—
+—
+✓
+—
+—
+View Own Member Dues
+✓
+✓
+✓
+✓
+✓
+View Other Members' Dues
+According to admin need
+According to authorized governance
+✓
+—
+—
+Review Liquidation
+—
+—
+✓
+—
+—
+Prepare Overall Financial Report
+—
+—
+✓
+—
+—
+Submit Project Report to Admin
+—
+—
+—
+✓
+—
+Submit Overall Financial Report to Admin
+—
+—
+✓
+—
+—
+View Submitted Reports
+✓
+Authorized
+✓
+Own/authorized
+Authorized
+20. Updated End-to-End Financial & Member Dues Flow
+Registered Member Exists in Member Directory
+↓
+Monthly Dues Period Created
+↓
+Treasurer Reviews All Registered Users
+↓
+Treasurer Records Member Payment / Status
+↓
+Dues Record Linked to Member + Period
+↓
+Payment Transaction Recorded/Linked in Treasurer Ledger
+↓
+System Updates Dues Status
+↓
+System Sends Member Notification
+↓
+Member Views Own Member Dues
+↓
+Treasurer Includes Validated Records in Financial Reporting
+JCI Carmona — Project Management System | Master Functionality & Flow v15
+
+
+FINAL IMPLEMENTATION CHECKLIST
+Permanent roles are limited to Admin, BOD, Treasurer, and General Member.
+Project Chair is a project-specific assignment and can be assigned to any registered user after approval.
+All registered users can create project proposals and monitor projects and project-level funds.
+Project approval follows the required review sequence and records status changes in the audit trail.
+Project-linked LOI fields can be auto-populated from the project record.
+Project Chair controls are limited to the projects where the user is currently assigned as Chair.
+Treasurer is the authorized recorder/maintainer of financial records, Treasurer Ledger, liquidation, reports, and member dues.
+Monthly member dues are recorded for all registered users subject to the chapter's configured dues rules.
+Members can view their own dues history without directly modifying official Treasurer records.
+Financial records use validation, supporting documents, traceability, and audit logging.
+Reports have defined preparation, submission, review, and access responsibilities.
+Navigation is organized by user and menu without unnecessary duplicate functions.
+UI implementation should use a clean, modern, professional JCI Carmona organization-style design.
+Critical records should use archive/void/soft-delete controls rather than destructive deletion.
