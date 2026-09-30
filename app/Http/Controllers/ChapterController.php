@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport};
 use App\Services\ChapterService;
-use App\Support\ChapterForms;
+use App\Support\{ChapterCharts, ChapterForms};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
@@ -15,7 +15,8 @@ class ChapterController extends Controller
         $projects = ChapterService::visibleProjects($request->user())->with('chair')->latest()->get();
         $tasks = Task::whereJsonContains('assignees', $request->user()->id)->where('status', '!=', 'Completed')->orderBy('deadline')->get();
         $dues = MemberDue::where('member_id', $request->user()->id)->get();
-        return view('chapter.dashboard', compact('projects', 'tasks', 'dues'));
+        $charts = ChapterCharts::projectMix($projects);
+        return view('chapter.dashboard', compact('projects', 'tasks', 'dues', 'charts'));
     }
 
     public function projects(Request $request)

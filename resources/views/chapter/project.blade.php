@@ -39,8 +39,25 @@
 <h3 class="subheading">Project transactions</h3><div class="table-wrap"><table><thead><tr><th>Reference / date</th><th>Description</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>@forelse($project->transactions as $entry)<tr><td>{{ $entry->reference }}<small>{{ $entry->transaction_date?->format('M d, Y') }}</small></td><td>{{ $entry->description }}</td><td>{{ $entry->type }}</td><td>₱{{ number_format($entry->amount,2) }}</td><td><span class="badge">{{ $entry->status }}</span></td></tr>@empty<tr><td colspan="5">No project transactions recorded.</td></tr>@endforelse</tbody></table></div></section>
 <section class="panel form-panel" id="documents"><h2>Project documents</h2>@forelse($project->documents as $document)<a class="list-row" href="{{ route('documents.download',$document) }}"><span><strong>{{ $document->title }}</strong><small>{{ $document->category }} · {{ $document->original_name }}</small></span><span class="text-link">Download ↓</span></a>@empty<p class="panel-empty">Supporting documents, task evidence, and project documentation appear here.</p>@endforelse
 @if($manages||$project->canEdit($u))<details class="record-detail no-print"><summary>＋ Upload document</summary><form method="POST" action="{{ route('documents.store',$project) }}" enctype="multipart/form-data" class="form-grid">@csrf<x-field name="title" label="Document title" required/><x-field name="category" label="Document category" value="Supporting document" required/><x-field name="file" label="File (PDF, Office, image, CSV or text; max 10 MB)" type="file" required/><div class="full"><button class="btn primary">Upload document</button></div></form></details>@endif</section>
-<section class="panel form-panel" id="reports"><h2>Partner letters & project reports</h2><div class="button-row no-print">@if($manages)<a class="btn secondary" href="{{ route('records.create',['kind'=>'letters','project_id'=>$project->id]) }}">Create partner letter</a><a class="btn secondary" href="{{ route('records.create',['kind'=>'reports','project_id'=>$project->id]) }}">Prepare project report</a>@endif</div>
-@foreach(['letters'=>$project->letters,'reports'=>$project->reports] as $kind=>$records)@foreach($records as $record)@if($project->chair_id===$u->id||in_array($u->role,['admin','bod'])||in_array($record->status,['Reviewed','Approved for Sending','Sent','Archived']))<a class="list-row" href="{{ route('records.show',[$kind,$record->id]) }}"><strong>{{ $record->title }}</strong><span>{{ $record->type }} · v{{ $record->version }} · {{ $record->status }}</span></a>@endif@endforeach @endforeach</section>
+<section class="panel form-panel" id="reports">
+    <h2>Partner letters & project reports</h2>
+    <div class="button-row no-print">
+        @if($manages)
+            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}">Create partner letter</a>
+            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id]) }}">Prepare project report</a>
+        @endif
+    </div>
+    @foreach(['letters' => $project->letters, 'reports' => $project->reports] as $kind => $records)
+        @foreach($records as $record)
+            @if($project->chair_id === $u->id || in_array($u->role, ['admin', 'bod']) || in_array($record->status, ['Reviewed', 'Approved for Sending', 'Sent', 'Archived']))
+                <a class="list-row" href="{{ route('records.show', [$kind, $record->id]) }}">
+                    <strong>{{ $record->title }}</strong>
+                    <span>{{ $record->type }} · v{{ $record->version }} · {{ $record->status }}</span>
+                </a>
+            @endif
+        @endforeach
+    @endforeach
+</section>
 <section class="panel form-panel" id="history"><h2>Review & revision history</h2>@forelse($project->reviews->sortByDesc('id') as $review)<details class="record-detail"><summary><strong>{{ ucwords(str_replace('_',' ',$review->action)) }}</strong><span>{{ $review->user?->name }} · {{ $review->created_at->format('M d, Y H:i') }}</span></summary><p>{{ $review->from_status }} → {{ $review->to_status }}</p><p class="preserve-lines">{{ $review->comments }}</p><details><summary>Previous saved version</summary><pre class="audit-json">{{ json_encode($review->snapshot,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) }}</pre></details></details>@empty<p class="panel-empty">No reviews yet. Submission and review decisions will be recorded here.</p>@endforelse</section>
 @endsection
 

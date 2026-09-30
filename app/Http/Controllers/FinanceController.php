@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Project, BudgetAllocation, LedgerEntry, MemberDue, User};
 use App\Services\ChapterService;
+use App\Support\ChapterCharts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
@@ -14,7 +15,8 @@ class FinanceController extends Controller
     public function index(Request $request)
     {
         $projects = Project::with('chair')->whereIn('status', Project::APPROVED)->latest()->get();
-        return view('chapter.finance', compact('projects'));
+        $charts = ChapterCharts::finances($projects);
+        return view('chapter.finance', compact('charts'));
     }
 
     public function budget(Request $request, Project $project)
