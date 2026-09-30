@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\JciDemoData;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -236,7 +237,7 @@ class AdminController extends Controller
 
     public function dues(): View
     {
-        $user = auth()->user()->name;
+        $user = Auth::user()->name;
         $mine = array_values(array_filter(JciDemoData::dues(), fn ($d) => $d['member'] === $user));
 
         return $this->page('admin.dues', 'My Member Dues', [
@@ -254,7 +255,7 @@ class AdminController extends Controller
 
     public function account(): View
     {
-        $user = auth()->user()->name;
+        $user = Auth::user()->name;
 
         return $this->page('admin.account', 'My Account', [
             'activity' => array_values(array_filter(JciDemoData::audit(), fn ($a) => $a['actor'] === $user)),
@@ -274,7 +275,7 @@ class AdminController extends Controller
 
         return view($view, array_merge($data, [
             'pageTitle' => $title,
-            'currentUser' => auth()->user()?->name ?? JciDemoData::config()['currentUser'],
+            'currentUser' => Auth::user()?->name ?? JciDemoData::config()['currentUser'],
             'unread' => $unread,
         ]));
     }
