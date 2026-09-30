@@ -82,9 +82,9 @@
                 <span class="avatar">{{ strtoupper(mb_substr($user->name, 0, 1)) }}</span>
                 <span><strong>{{ $user->name }}</strong><small>{{ $roleLabel }}</small></span>
             </a>
-            <form method="POST" action="{{ route('logout') }}">
+            <form class="sidebar-logout-form" method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button class="signout" title="Sign out" aria-label="Sign out" type="submit">↗</button>
+                <button class="signout" type="submit"><span aria-hidden="true">↗</span> Log out</button>
             </form>
         </div>
     </aside>
@@ -102,6 +102,10 @@
                     @if($unread)<span class="notification-dot"></span>@endif
                 </a>
                 <a class="avatar small" href="{{ route('account') }}" aria-label="My account">{{ strtoupper(mb_substr($user->name, 0, 1)) }}</a>
+                <form class="topbar-logout-form" method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="topbar-logout" type="submit">Log out</button>
+                </form>
             </div>
         </header>
         <main class="app-content" id="content">

@@ -239,3 +239,19 @@ progress::-moz-progress-bar { background: var(--teal); }
     .monthly-chart { overflow-x: auto; padding-left: 18px; padding-right: 18px; }
 }
 @media print { .chart-list, .project-finance-chart { max-height: none; overflow: visible; } .monthly-chart { overflow: visible; } }
+/* Visible logout actions in the persistent navigation and header. */
+.sidebar-account { flex-direction: column; align-items: stretch; gap: 12px; }
+.sidebar-account > a { width: 100%; flex: none; }
+.sidebar-logout-form, .topbar-logout-form { margin: 0; }
+.sidebar-logout-form { width: 100%; }
+.sidebar-logout-form .signout { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 37px; padding: 8px 11px; border: 1px solid #ffffff2a; border-radius: 9px; background: #ffffff14; color: #e7f3fa; font-size: 12px; font-weight: 700; text-align: left; }
+.sidebar-logout-form .signout:hover { background: #ffffff26; border-color: #ffffff4b; color: #fff; }
+.sidebar-logout-form .signout span { font-size: 18px; line-height: 1; }
+.topbar-logout { min-height: 36px; padding: 7px 12px; border: 1px solid #c9dfe8; border-radius: 9px; background: #f1f8fb; color: #195574; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.topbar-logout:hover { border-color: #8ebfd1; background: #e3f3f8; color: #0b6287; }
+@media (max-width: 760px) {
+    .topbar-right .avatar.small { display: none; }
+    .topbar-context { min-width: 0; }
+    .topbar-context > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-logout { padding: 7px 9px; font-size: 11px; }
+}
