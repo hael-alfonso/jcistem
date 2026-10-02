@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $pageTitle }} · JCIstem Admin</title>
+    <title>{{ $pageTitle }} · JCISTEM Admin</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -63,7 +63,7 @@
         <div class="brand">
             <div class="brand-mark"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="" class="system-logo"></div>
             <div>
-                <strong>JCIstem</strong>
+                <strong>JCISTEM</strong>
                 <span>Project Management System</span>
             </div>
         </div>
@@ -107,7 +107,7 @@
                 </span>
                 <em><x-icon name="chevron" /></em>
             </a>
-            <div class="brand-footer">JCIstem • Admin Workspace</div>
+            <div class="brand-footer">JCISTEM • Admin Workspace</div>
         </div>
     </aside>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -116,7 +116,7 @@
             <div class="top-left">
                 <button class="mobile-toggle" id="mobileToggle" type="button" aria-label="Open navigation"><x-icon name="menu" /></button>
                 <div class="top-title">
-                    <span class="top-eyebrow">JCI SYSTEM • ADMIN</span>
+                    <span class="top-eyebrow">JCISTEM • ADMIN</span>
                     <h2>{{ $pageTitle }}</h2>
                     <small class="top-context">Projects • Monitoring • Reports</small>
                 </div>
@@ -137,7 +137,7 @@
             @yield('content')
         </section>
         <footer class="footer">
-            <span><strong>JCIstem</strong> • Online Project Management System</span>
+            <span><strong>JCISTEM</strong> • Online Project Management System</span>
             <span>Admin Workspace</span>
         </footer>
     </main>

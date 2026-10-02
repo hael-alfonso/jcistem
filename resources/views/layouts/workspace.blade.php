@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $pageTitle }} · JCIstem</title>
+    <title>{{ $pageTitle }} · JCISTEM</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,7 +28,7 @@
         <div class="brand">
             <div class="brand-mark"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="" class="system-logo"></div>
             <div>
-                <strong>JCIstem</strong>
+                <strong>JCISTEM</strong>
                 <span>{{ $roleLabel }} Workspace</span>
             </div>
         </div>
@@ -63,10 +63,6 @@
                 </span>
                 <em><x-icon name="chevron" /></em>
             </a>
-            <form method="POST" action="{{ route('logout') }}" class="logout-form">
-                @csrf
-                <button type="submit" class="btn btn-secondary logout-btn">Log out</button>
-            </form>
         </div>
     </aside>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -75,7 +71,7 @@
             <div class="top-left">
                 <button class="mobile-toggle" id="mobileToggle" type="button" aria-label="Open navigation"><x-icon name="menu" /></button>
                 <div class="top-title">
-                    <span class="top-eyebrow">JCI SYSTEM • {{ strtoupper($roleLabel) }}</span>
+                    <span class="top-eyebrow">JCISTEM • {{ strtoupper($roleLabel) }}</span>
                     <h2>{{ $pageTitle }}</h2>
                     <small class="top-context">{{ $context }}</small>
                 </div>
@@ -92,9 +88,9 @@
                     <span>{{ $roleLabel }}</span>
                     <x-icon name="chevron" />
                 </a>
-                <form method="POST" action="{{ route('logout') }}">
+                <form class="topbar-logout-form" method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="btn btn-secondary">Log out</button>
+                    <button type="submit" class="topbar-logout">Log out</button>
                 </form>
             </div>
         </header>
@@ -102,7 +98,7 @@
             @yield('content')
         </section>
         <footer class="footer">
-            <span><strong>JCIstem</strong> • Online Project Management System</span>
+            <span><strong>JCISTEM</strong> • Online Project Management System</span>
             <span>{{ $roleLabel }} Workspace</span>
         </footer>
     </main>

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Workspace') · JCIstem</title>
+    <title>@yield('title', 'Workspace') · JCISTEM</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}">
@@ -84,10 +84,6 @@
                 <span class="avatar">{{ strtoupper(mb_substr($user->name, 0, 1)) }}</span>
                 <span><strong>{{ $user->name }}</strong><small>{{ $roleLabel }}</small></span>
             </a>
-            <form class="sidebar-logout-form" method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="signout" type="submit"><span aria-hidden="true">↗</span> Log out</button>
-            </form>
         </div>
     </aside>
     <button class="nav-overlay" type="button" aria-label="Close navigation"></button>
@@ -121,7 +117,7 @@
             @yield('content')
         </main>
         <footer class="app-footer">
-            <span>JCIstem · Carmona City, Cavite</span>
+            <span>JCISTEM · Carmona City, Cavite</span>
             <span>Developing leaders. Creating positive change.</span>
         </footer>
     </div>

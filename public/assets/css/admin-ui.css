@@ -165,4 +165,7 @@
   .test-grid{grid-template-columns:1fr;}
 }
 
-.brand-mark .system-logo { width: 26px; height: 30px; object-fit: contain; }
+.brand-mark .system-logo { width: auto; height: auto; max-width: 32px; max-height: 36px; object-fit: contain; }
+
+.brand-mark { background: #fff !important; border: 1px solid #d7e8ee; box-shadow: 0 4px 12px rgba(19,47,69,.08) !important; }
+.brand-mark:after { content: none !important; display: none !important; }
