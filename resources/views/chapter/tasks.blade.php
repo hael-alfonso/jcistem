@@ -6,9 +6,9 @@
         <div>
             <div class="eyebrow">PROJECT WORKSPACE</div>
             <h1>Tasks &amp; milestones</h1>
-            <p>Keep work moving with clear owners, deadlines, and project progress.</p>
+            <p>{{ request()->boolean('mine') ? 'Your assigned project tasks, deadlines, and milestones.' : 'Monitor tasks across projects you can access. Project chairs manage assignments.' }}</p>
         </div>
-        <a class="btn {{ request()->boolean('mine') ? 'secondary' : 'primary' }}" href="{{ route('tasks', array_filter(['mine' => request()->boolean('mine') ? null : 1, 'q' => request('q'), 'project' => request('project'), 'status' => request('status')])) }}">
+        <a class="btn secondary" href="{{ route('tasks', ['mine' => request()->boolean('mine') ? 0 : 1] + array_filter(['q' => request('q'), 'project' => request('project'), 'status' => request('status')])) }}">
             <x-icon name="user"/>{{ request()->boolean('mine') ? 'View all tasks' : 'View my tasks' }}
         </a>
     </div>
@@ -16,17 +16,13 @@
     <section class="tasks-overview" aria-label="Task overview">
         <div class="tasks-overview-main">
             <div class="tasks-overview-copy">
-                <span class="tasks-overview-eyebrow">WORK IN VIEW</span>
-                <h2>{{ $taskTotal }} {{ \Illuminate\Support\Str::plural('task', $taskTotal) }} across your projects</h2>
-                <p>{{ $doneTasks }} completed{{ $overdueTasks ? ' &middot; '.$overdueTasks.' past due' : ' &middot; Nothing past due' }}</p>
+                <h2>{{ $taskTotal }} {{ \Illuminate\Support\Str::plural('task', $taskTotal) }} {{ request()->boolean('mine') ? 'assigned to you' : 'in view' }}</h2>
+                <p>{{ $doneTasks }} completed &middot; {{ $overdueTasks }} past due &middot; Summary follows search and project filters; status tabs narrow the list.</p>
                 <div class="tasks-overview-progress"><progress max="100" value="{{ $progress }}" aria-label="Overall task completion"></progress><span>{{ $progress }}% complete</span></div>
-            </div>
-            <div class="tasks-completion-ring" style="--task-percent: {{ $progress }}%" aria-label="{{ $progress }} percent complete">
-                <div><strong>{{ $progress }}%</strong><span>complete</span></div>
             </div>
         </div>
         @php
-            $baseFilters = array_filter(['mine' => request()->boolean('mine') ? 1 : null, 'q' => request('q'), 'project' => request('project')], fn ($value) => $value !== null && $value !== '');
+            $baseFilters = array_filter(['mine' => request()->boolean('mine') ? 1 : 0, 'q' => request('q'), 'project' => request('project')], fn ($value) => $value !== null && $value !== '');
             $statusOptions = [
                 ['value' => '', 'label' => 'All tasks', 'count' => $taskTotal, 'tone' => 'all', 'icon' => 'checklist'],
                 ['value' => 'To Do', 'label' => 'To do', 'count' => (int) ($statusCounts['To Do'] ?? 0), 'tone' => 'todo', 'icon' => 'clipboardCheck'],
@@ -49,12 +45,12 @@
     </section>
 
     <form class="tasks-toolbar" method="GET" action="{{ route('tasks') }}">
-        @if(request()->boolean('mine'))<input type="hidden" name="mine" value="1">@endif
+        <input type="hidden" name="mine" value="{{ request()->boolean('mine') ? 1 : 0 }}">
         @if(request()->filled('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
         <label class="tasks-search"><span class="sr-only">Search tasks</span><x-icon name="search"/><input name="q" value="{{ request('q') }}" placeholder="Search task title"></label>
         <label class="tasks-project-filter"><span class="sr-only">Filter by project</span><select name="project"><option value="">All projects</option>@foreach($visibleProjects as $project)<option value="{{ $project->id }}" @selected((string) request('project') === (string) $project->id)>{{ $project->title }}</option>@endforeach</select></label>
         <button class="btn secondary" type="submit">Apply</button>
-        @if(request()->filled('q') || request()->filled('project'))<a class="tasks-clear" href="{{ route('tasks', array_filter(['mine' => request()->boolean('mine') ? 1 : null, 'status' => request('status')])) }}">Clear filters</a>@endif
+        @if(request()->filled('q') || request()->filled('project'))<a class="tasks-clear" href="{{ route('tasks', ['mine' => request()->boolean('mine') ? 1 : 0] + array_filter(['status' => request('status')])) }}">Clear filters</a>@endif
     </form>
 
     <section class="tasks-results" aria-label="Task list">
@@ -71,8 +67,7 @@
                     <summary>
                         <div class="tasks-card-top"><span class="tasks-card-project">{{ $task->project?->title ?? 'Project' }}</span><span class="tasks-card-status">{{ $task->status }}</span></div>
                         <h3>{{ $task->title }}</h3>
-                        <p class="tasks-card-description">{{ \Illuminate\Support\Str::limit($task->description ?: 'Open to see task details and progress.', 110) }}</p>
-                        <div class="tasks-card-meta"><span class="{{ $overdue ? 'is-overdue' : ($soon ? 'is-soon' : '') }}"><x-icon name="calendar"/>{{ $overdue ? 'Past due &middot; ' : ($soon ? 'Due soon &middot; ' : 'Due &middot; ') }}{{ $task->deadline?->format('M d, Y') ?? 'No date' }}</span><span><x-icon name="user"/>{{ $assigned ?: 'Unassigned' }}</span></div>
+                        <div class="tasks-card-meta"><span class="{{ $overdue ? 'is-overdue' : ($soon ? 'is-soon' : '') }}"><x-icon name="calendar"/>{{ $overdue ? 'Past due' : ($soon ? 'Due soon' : 'Due') }} &middot; {{ $task->deadline?->format('M d, Y') ?? 'No date' }}</span><span><x-icon name="user"/>{{ $assigned ?: 'Unassigned' }}</span><span>Priority: {{ $task->priority }}</span>@if($task->milestone)<span>Milestone: {{ $task->milestone }}</span>@endif</div>
                         <span class="tasks-card-expand">View details <span aria-hidden="true">&darr;</span></span>
                     </summary>
                     <div class="tasks-card-body">

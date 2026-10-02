@@ -3,9 +3,10 @@
 use App\Http\Controllers\{AuthController, ChapterController, FinanceController, RecordController};
 use Illuminate\Support\Facades\Route;
 
+$workspaceRoutes = function () {
 Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : redirect()->route('login'));
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::middleware('guest')->group(function () {
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
 });
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
@@ -74,3 +75,9 @@ Route::middleware(['auth', 'active'])->group(function () {
         })->where('path', '.*');
     }
 });
+};
+
+$workspaceRoutes();
+Route::prefix('workspaces/{workspace}')
+    ->where(['workspace' => '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'])
+    ->name('scoped.')->group($workspaceRoutes);

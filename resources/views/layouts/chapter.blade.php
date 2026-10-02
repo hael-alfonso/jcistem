@@ -94,6 +94,7 @@
                 <div class="nav-items">
                     <a class="side-link {{ request()->routeIs('account') ? 'is-active' : '' }}" href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user"/><span>My profile</span></a>
                     <a class="side-link" href="{{ route('account') }}#security"><x-icon name="shieldCheck"/><span>Password &amp; security</span></a>
+                    <a class="side-link" href="{{ request()->getBaseUrl() }}/login" target="_blank" rel="noopener"><x-icon name="userPlus"/><span>Sign in another account</span></a>
                     <form class="side-logout-form" method="POST" action="{{ route('logout') }}">@csrf
                         <button class="side-link side-logout" type="submit"><x-icon name="logout"/><span>Log out</span></button>
                     </form>

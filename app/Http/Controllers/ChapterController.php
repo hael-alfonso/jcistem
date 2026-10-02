@@ -14,10 +14,18 @@ class ChapterController extends Controller
     public function dashboard(Request $request)
     {
         $projects = ChapterService::visibleProjects($request->user())->with('chair')->latest()->get();
-        $tasks = Task::whereJsonContains('assignees', $request->user()->id)->where('status', '!=', 'Completed')->orderBy('deadline')->get();
-        $dues = MemberDue::where('member_id', $request->user()->id)->get();
-        $charts = ChapterCharts::projectMix($projects);
-        return view('chapter.dashboard', compact('projects', 'tasks', 'dues', 'charts'));
+        $assignedTasks = Task::whereIn('project_id', $projects->pluck('id'))
+            ->whereJsonContains('assignees', $request->user()->id)->orderBy('deadline')->get();
+        $tasks = $assignedTasks->where('status', '!=', 'Completed');
+        $dues = MemberDue::with('payments')->where('member_id', $request->user()->id)->get();
+        $personalProjects = $projects->filter(fn ($project) => $project->created_by === $request->user()->id
+            || $project->chair_id === $request->user()->id || $assignedTasks->contains('project_id', $project->id));
+        $charts = ChapterCharts::projectMix($request->user()->role === 'member' ? $personalProjects : $projects);
+        $taskStatuses = $assignedTasks->countBy('status');
+        $financeCharts = $request->user()->role === 'treasurer'
+            ? ChapterCharts::finances($projects->whereIn('status', Project::APPROVED)) : null;
+        $chapterDues = $financeCharts ? MemberDue::with('payments')->get() : collect();
+        return view('chapter.dashboard', compact('projects', 'personalProjects', 'tasks', 'dues', 'charts', 'taskStatuses', 'financeCharts', 'chapterDues'));
     }
 
     public function projects(Request $request)
@@ -88,7 +96,9 @@ class ChapterController extends Controller
 
     public function tasks(Request $request)
     {
+        if (!$request->has('mine') && $request->user()->role === 'member') $request->merge(['mine' => '1']);
         $request->validate([
+            'mine' => 'nullable|boolean',
             'q' => 'nullable|string|max:200',
             'status' => ['nullable', Rule::in(['To Do', 'In Progress', 'Blocked', 'Completed'])],
             'project' => 'nullable|integer',

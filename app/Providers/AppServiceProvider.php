@@ -19,6 +19,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        \Illuminate\Support\Facades\Auth::extend('workspace', function ($app, $name, $config) {
+            $guard = new \App\Support\WorkspaceGuard($name, $app['auth']->createUserProvider($config['provider']), $app['session.store']);
+            $guard->setCookieJar($app['cookie']);
+            $guard->setDispatcher($app['events']);
+            $guard->setRequest($app['request']);
+            $app->refresh('request', $guard, 'setRequest');
+            return $guard;
+        });
     }
 }

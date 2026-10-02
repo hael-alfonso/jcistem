@@ -25,6 +25,7 @@ class ChapterService
 
     public static function notify(iterable $users, string $title, string $body, string $url): void
     {
+        $url = preg_replace('#^/workspaces/[a-f0-9-]{36}(?=/|$)#', '', $url);
         foreach (collect($users)->filter()->unique()->values() as $id) {
             Notification::create(['user_id' => $id, 'title' => $title, 'body' => $body, 'url' => $url]);
         }

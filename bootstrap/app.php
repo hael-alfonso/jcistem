@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prependToGroup('web', \App\Http\Middleware\WorkspaceSession::class);
         $middleware->alias([
             'role' => EnsureRole::class,
             'active' => \App\Http\Middleware\EnsureActive::class,
@@ -24,5 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception, \Illuminate\Http\Request $request) {
+            if ($exception->getStatusCode() !== 419 || $request->expectsJson()) return null;
+            $workspace = $request->attributes->get('workspace');
+            $login = $workspace ? '/workspaces/'.$workspace.'/login' : '/login';
+            return redirect()->to($login)->withErrors(['email' => 'Your session expired. Please sign in again.']);
+        });
     })->create();
