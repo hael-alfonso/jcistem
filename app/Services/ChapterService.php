@@ -88,7 +88,7 @@ class ChapterService
                     $to = ['approve' => 'Approved', 'revise_proposal' => 'Returned for Revision', 'reject' => 'Not Approved'][$action]; break;
                 case 'assign_chair':
                     $allowed = ($user->role === 'admin' || ($user->role === 'bod' && $user->proposal_reviewer)) && in_array($from, ['Approved', 'Ongoing']);
-                    $chair = User::where('status', 'active')->findOrFail($chairId);
+                    $chair = User::where('status', 'active')->where('role', '!=', 'admin')->findOrFail($chairId);
                     $project->chair_id = $chair->id; break;
                 case 'start':
                     $allowed = $project->chair_id === $user->id && $from === 'Approved';

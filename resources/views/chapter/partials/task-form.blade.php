@@ -4,7 +4,7 @@
 <x-field name="title" label="Task title" :value="$task->title" required/>
 <x-field name="priority" label="Priority" type="select" :options="array_combine(['Low','Medium','High','Urgent'],['Low','Medium','High','Urgent'])" :value="$task->priority??'Medium'" required/>
 <x-field name="description" label="Task description" type="textarea" :value="$task->description"/>
-<x-field name="assignees" label="Assigned members (select one or more)" type="select" :options="$members->pluck('name','id')->all()" :value="$task->assignees??[]" multiple required/>
+<x-field name="assignees" label="Assigned members (select one or more)" type="select" :options="$assignableMembers->pluck('name','id')->all()" :value="$task->assignees??[]" multiple required/>
 <x-field name="starts_on" label="Start date" type="date" :value="$task->starts_on?->format('Y-m-d')"/>
 <x-field name="deadline" label="Deadline" type="date" :value="$task->deadline?->format('Y-m-d')" required/>
 <x-field name="milestone" label="Milestone" :value="$task->milestone"/>

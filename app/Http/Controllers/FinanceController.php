@@ -14,7 +14,7 @@ class FinanceController extends Controller
 
     public function index(Request $request)
     {
-        $projects = Project::with('chair')->whereIn('status', Project::APPROVED)->latest()->get();
+        $projects = ChapterService::visibleProjects($request->user())->with('chair')->latest()->get();
         $charts = ChapterCharts::finances($projects);
         return view('chapter.finance', compact('charts'));
     }

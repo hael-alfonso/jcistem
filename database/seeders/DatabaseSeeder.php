@@ -23,5 +23,8 @@ class DatabaseSeeder extends Seeder
                 'status' => 'active', 'email_verified_at' => now(),
             ]);
         }
+        $this->call(JciCarmonaProjectSeeder::class);
+        $this->call(JciCarmonaTaskSeeder::class);
+        $this->call(JciCarmonaBudgetSeeder::class);
     }
 }

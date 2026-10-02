@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign in · JCISTEM</title>
-    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}">
 </head>

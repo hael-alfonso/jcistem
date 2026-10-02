@@ -2,9 +2,37 @@
 @section('title','Project workspace')
 @section('content')
 @php $u=auth()->user(); $manages=$project->canManage($u); $canReview=$u->role==='admin'||($u->role==='bod'&&$u->proposal_reviewer); @endphp
-<div class="page-heading"><div><a class="back-link" href="{{ route('projects') }}">← Projects</a><div class="eyebrow">{{ $project->reference }} · {{ $project->area }}</div><h1>{{ $project->title }}</h1><p>Proposed by {{ $project->owner?->name }} · {{ $project->starts_on?->format('M d, Y') ?? 'Date to be set' }} · {{ $project->venue??'Venue to be set' }}</p></div><div class="heading-actions"><span class="badge large">{{ $project->status }}</span><button class="btn secondary" type="button" data-print>Print / save PDF</button></div></div>
-<div class="journey">@foreach(['Concept','President review','Full proposal','Final approval','Implementation','Completion'] as $i=>$stage)<span><b>{{ $i+1 }}</b>{{ $stage }}</span>@endforeach</div>
-<div class="stats-grid"><div class="stat-card"><span>Project Chair</span><strong class="name">{{ $project->chair?->name??'Unassigned' }}</strong><small>Assigned after final approval</small></div><div class="stat-card"><span>Approved allocation</span><strong class="money">₱{{ number_format($project->allocated,2) }}</strong><small>Proposed: ₱{{ number_format($project->proposed_budget,2) }}</small></div><div class="stat-card"><span>Actual expenses</span><strong class="money">₱{{ number_format($project->spent,2) }}</strong><small>Posted ledger debits</small></div><div class="stat-card"><span>Remaining funds</span><strong class="money">₱{{ number_format($project->remaining,2) }}</strong><small>{{ $project->allocated>0?number_format(100*$project->spent/$project->allocated,1):'0' }}% utilization</small></div></div>
+<div class="page-heading"><div><a class="back-link" href="{{ route('projects') }}">← Projects</a><div class="eyebrow">{{ $project->reference }} · {{ $project->area }}</div><h1>{{ $project->title }}</h1><p>Proposed by {{ $project->owner?->name }} · {{ $project->starts_on?->format('M d, Y') ?? 'Date to be set' }} · {{ $project->venue??'Venue to be set' }}</p></div><div class="heading-actions"><span class="badge large project-status status-{{ $project->status_tone }}">{{ $project->status }}</span><button class="btn secondary" type="button" data-print>Print / save PDF</button></div></div>
+@php
+    $lastReview = $project->reviews->sortByDesc('id')->first();
+    $trackerStatus = $project->status === 'Archived' ? ($lastReview?->from_status ?? 'Archived') : $project->status;
+    $trackerStep = match ($trackerStatus) {
+        'Draft Concept' => 1,
+        'Submitted for President Review', 'Needs Revision', 'Declined' => 2,
+        'Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision' => 3,
+        'Submitted for Formal Approval', 'Not Approved' => 4,
+        'Approved', 'Ongoing' => 5,
+        default => 6,
+    };
+    $trackedTasks = $project->tasks;
+    $completedTasks = $trackedTasks->where('status', 'Completed')->count();
+    $nextTask = $trackedTasks->where('status', '!=', 'Completed')->sortBy('deadline')->first();
+@endphp
+<section class="panel project-tracker" aria-labelledby="project-tracker-title">
+    <div class="tracker-heading"><div><span class="eyebrow">PROJECT MANAGEMENT</span><h2 id="project-tracker-title">Project tracker</h2><p>Current stage: {{ $project->status }}</p></div></div>
+    <ol class="tracker-steps">
+        @foreach(['Concept', 'President review', 'Full proposal', 'Final approval', 'Implementation', 'Completion'] as $index => $stage)
+            @php $number = $index + 1; @endphp
+            <li class="{{ $number < $trackerStep ? 'is-done' : ($number === $trackerStep ? 'is-current' : '') }}" @if($number === $trackerStep) aria-current="step" @endif><b>{{ $number }}</b><span>{{ $stage }}</span></li>
+        @endforeach
+    </ol>
+    <div class="tracker-details">
+        <div><span>Tasks completed</span><strong>{{ $completedTasks }} of {{ $trackedTasks->count() }}</strong><progress max="{{ max(1, $trackedTasks->count()) }}" value="{{ $completedTasks }}"></progress></div>
+        <div><span>Next open task</span><strong>{{ $nextTask?->title ?? 'No open task' }}</strong><small>{{ $nextTask?->deadline?->format('M d, Y') ?? 'Add a task from the Tasks section.' }}</small></div>
+        <div><span>Last updated</span><strong>{{ $project->updated_at?->format('M d, Y') ?? 'Not set' }}</strong><small>Project details and task status</small></div>
+    </div>
+</section>
+<div class="stats-grid"><div class="stat-card"><span>Project Chair</span><strong class="name">{{ $project->chair?->name??'Unassigned' }}</strong><small>Assigned after final approval</small></div><div class="stat-card"><span>Estimated allocation</span><strong class="money">₱{{ number_format($project->allocated,2) }}</strong><small>Proposed: ₱{{ number_format($project->proposed_budget,2) }}</small></div><div class="stat-card"><span>Actual expenses</span><strong class="money">₱{{ number_format($project->spent,2) }}</strong><small>Posted ledger debits</small></div><div class="stat-card"><span>Remaining funds</span><strong class="money">₱{{ number_format($project->remaining,2) }}</strong><small>{{ $project->allocated>0?number_format(100*$project->spent/$project->allocated,1):'0' }}% utilization</small></div></div>
 <section class="panel form-panel no-print"><h2>Available actions</h2><div class="action-grid">
 @if($project->canEdit($u) && $project->status!=='Endorsed for Development')<a class="btn secondary" href="{{ route('projects.edit',$project) }}">Edit {{ in_array($project->status,['Draft Concept','Needs Revision'])?'concept':'proposal' }}</a>@endif
 @if($project->created_by===$u->id && in_array($project->status,['Draft Concept','Needs Revision']))@include('chapter.partials.project-action',['action'=>'submit_concept','label'=>'Submit Concept to President','tone'=>'primary'])@endif
@@ -18,13 +46,13 @@
 @if($u->proposal_reviewer && in_array($u->role,['admin','bod']))@foreach(['approve'=>'Approve Project','revise_proposal'=>'Return Proposal for Revision','reject'=>'Do Not Approve'] as $action=>$label)@include('chapter.partials.project-action',['comments'=>true])@endforeach @endif
 <span class="hint">Budget review: {{ $project->budget_reviewed_at?->format('M d, Y H:i') ?? 'Awaiting Treasurer' }}</span>
 @endif
-@if($canReview && in_array($project->status,['Approved','Ongoing']))<form method="POST" action="{{ route('projects.transition',$project) }}">@csrf<input type="hidden" name="action" value="assign_chair"><x-field name="chair_id" label="Assign project Chair" type="select" :options="$members->pluck('name','id')->all()" :value="$project->chair_id" required/><button class="btn secondary">Assign Chair</button></form>@endif
+@if($canReview && in_array($project->status,['Approved','Ongoing']))<form method="POST" action="{{ route('projects.transition',$project) }}">@csrf<input type="hidden" name="action" value="assign_chair"><x-field name="chair_id" label="Assign project Chair" type="select" :options="$assignableMembers->pluck('name','id')->all()" :value="$project->chair_id" required/><button class="btn secondary">Assign Chair</button></form>@endif
 @if($manages && $project->status==='Approved')@include('chapter.partials.project-action',['action'=>'start','label'=>'Start Implementation','tone'=>'primary'])@endif
 @if($manages && $project->status==='Ongoing')@include('chapter.partials.project-action',['action'=>'request_completion','label'=>'Request Completion Review'])@endif
 @if($u->role==='admin' && $project->status==='Completion Review')@include('chapter.partials.project-action',['action'=>'complete','label'=>'Mark Project Completed'])@include('chapter.partials.project-action',['action'=>'return_completion','label'=>'Return to Implementation','comments'=>true])@endif
 @if($u->role==='admin' && in_array($project->status,['Completed','Declined','Not Approved']))@include('chapter.partials.project-action',['action'=>'archive','label'=>'Archive Project'])@endif
 </div><p class="hint">Monitoring access does not grant editing, approval, or financial recording authority.</p></section>
-<nav class="anchor-tabs no-print"><a href="#overview">Overview</a><a href="#tasks">Tasks</a><a href="#timeline">Timeline</a><a href="#budget">Budget & expenses</a><a href="#documents">Documents</a><a href="#reports">Letters & reports</a><a href="#history">Review history</a></nav>
+<nav class="anchor-tabs no-print"><a href="#overview">Overview</a><a href="#tasks">Tasks</a><a href="#timeline">Timeline</a><a href="#budget">Budget & expenses</a><a href="#documents">Documents</a><a href="#reports">LOIs & reports</a></nav>
 <section class="panel form-panel" id="overview"><h2>Project concept letter</h2><p class="letter-recipient">To: JCI Carmona Chapter President<br>From: {{ $project->owner?->name }}<br>Subject: Proposed Project — {{ $project->title }}</p><div class="detail-grid">@foreach(\App\Support\ChapterForms::CONCEPT as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->concept[$key]??'Not provided' }}</p></div>@endforeach</div></section>
 @if($project->proposal)<section class="panel form-panel"><h2>Full project proposal</h2><div class="detail-grid">@foreach(\App\Support\ChapterForms::PROPOSAL as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->proposal[$key]??'Not provided' }}</p></div>@endforeach</div></section>@endif
 <section class="panel form-panel" id="tasks"><div class="panel-heading flush"><h2>Tasks & milestones</h2><span>{{ $project->progress }}% complete</span></div><progress value="{{ $project->progress }}" max="100"></progress>
@@ -40,10 +68,10 @@
 <section class="panel form-panel" id="documents"><h2>Project documents</h2>@forelse($project->documents as $document)<a class="list-row" href="{{ route('documents.download',$document) }}"><span><strong>{{ $document->title }}</strong><small>{{ $document->category }} · {{ $document->original_name }}</small></span><span class="text-link">Download ↓</span></a>@empty<p class="panel-empty">Supporting documents, task evidence, and project documentation appear here.</p>@endforelse
 @if($manages||$project->canEdit($u))<details class="record-detail no-print"><summary>＋ Upload document</summary><form method="POST" action="{{ route('documents.store',$project) }}" enctype="multipart/form-data" class="form-grid">@csrf<x-field name="title" label="Document title" required/><x-field name="category" label="Document category" value="Supporting document" required/><x-field name="file" label="File (PDF, Office, image, CSV or text; max 10 MB)" type="file" required/><div class="full"><button class="btn primary">Upload document</button></div></form></details>@endif</section>
 <section class="panel form-panel" id="reports">
-    <h2>Partner letters & project reports</h2>
+    <h2>JCI LOIs & project reports</h2>
     <div class="button-row no-print">
         @if($manages)
-            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}">Create partner letter</a>
+            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}">Prepare JCI LOI</a>
             <a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id]) }}">Prepare project report</a>
         @endif
     </div>
@@ -52,12 +80,11 @@
             @if($project->chair_id === $u->id || in_array($u->role, ['admin', 'bod']) || in_array($record->status, ['Reviewed', 'Approved for Sending', 'Sent', 'Archived']))
                 <a class="list-row" href="{{ route('records.show', [$kind, $record->id]) }}">
                     <strong>{{ $record->title }}</strong>
-                    <span>{{ $record->type }} · v{{ $record->version }} · {{ $record->status }}</span>
+                    <span>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : $record->type }} · v{{ $record->version }} · {{ $record->status }}</span>
                 </a>
             @endif
         @endforeach
     @endforeach
 </section>
-<section class="panel form-panel" id="history"><h2>Review & revision history</h2>@forelse($project->reviews->sortByDesc('id') as $review)<details class="record-detail"><summary><strong>{{ ucwords(str_replace('_',' ',$review->action)) }}</strong><span>{{ $review->user?->name }} · {{ $review->created_at->format('M d, Y H:i') }}</span></summary><p>{{ $review->from_status }} → {{ $review->to_status }}</p><p class="preserve-lines">{{ $review->comments }}</p><details><summary>Previous saved version</summary><pre class="audit-json">{{ json_encode($review->snapshot,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) }}</pre></details></details>@empty<p class="panel-empty">No reviews yet. Submission and review decisions will be recorded here.</p>@endforelse</section>
 @endsection
 

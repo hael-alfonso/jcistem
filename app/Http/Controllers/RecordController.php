@@ -26,7 +26,12 @@ class RecordController extends Controller
     public function index(Request $request, string $kind)
     {
         $class = $this->model($kind);
-        $records = $class::with(['project', 'author'])->latest()->get()->filter(fn ($r) => $this->visible($r, $request));
+        $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Progress', 'Completion', 'Overall Financial'])]]);
+        $records = $class::with(['project', 'author'])->latest()->get()
+            ->filter(fn ($r) => $this->visible($r, $request))
+            ->when($request->filled('q'), fn ($items) => $items->filter(fn ($r) => str_contains(mb_strtolower($r->title.' '.$r->project?->title), mb_strtolower($request->string('q')))))
+            ->when($request->filled('status'), fn ($items) => $items->where('status', $request->status))
+            ->when($kind === 'reports' && $request->filled('type'), fn ($items) => $items->where('type', $request->type));
         $projects = Project::where('chair_id', $request->user()->id)->whereIn('status', ['Approved', 'Ongoing'])->orderBy('title')->get();
         return view('chapter.records', compact('records', 'projects', 'kind'));
     }
@@ -38,7 +43,7 @@ class RecordController extends Controller
         $project = $request->filled('project_id') ? Project::findOrFail($request->project_id) : null;
         if ($project) abort_unless($project->canManage($request->user()), 403);
         else abort_unless($kind === 'reports' && $request->user()->role === 'treasurer', 403);
-        $record = new $class(['project_id' => $project?->id, 'type' => $project ? ($kind === 'letters' ? 'External Partner Letter' : 'Progress') : 'Overall Financial', 'data' => []]);
+        $record = new $class(['project_id' => $project?->id, 'type' => $project ? ($kind === 'letters' ? 'JCI LOI' : 'Progress') : 'Overall Financial', 'data' => []]);
         return view('chapter.record-form', compact('record', 'project', 'kind'));
     }
 
@@ -60,7 +65,7 @@ class RecordController extends Controller
         if ($project) abort_unless($project->canManage($request->user()), 403);
         else abort_unless($kind === 'reports' && $request->user()->role === 'treasurer', 403);
         $labels = $kind === 'letters' ? ChapterForms::LETTER : ($project ? ChapterForms::REPORT : ChapterForms::FINANCIAL_REPORT);
-        $rules = ['title' => 'required|string|max:200', 'type' => ['required', Rule::in($kind === 'letters' ? ['External Partner Letter'] : ($project ? ['Progress', 'Completion'] : ['Overall Financial']))], 'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png|max:10240'];
+        $rules = ['title' => 'required|string|max:200', 'type' => ['required', Rule::in($kind === 'letters' ? ['JCI LOI', 'External Partner Letter'] : ($project ? ['Progress', 'Completion'] : ['Overall Financial']))], 'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png|max:10240'];
         foreach ($labels as $key => $label) $rules['data.'.$key] = 'nullable|string|max:20000';
         if (!$project) {
             $rules['data.period_start'] = 'required|date_format:Y-m-d';
@@ -114,7 +119,7 @@ class RecordController extends Controller
                     $record->data = $body;
                 }
                 $record->status = $kind === 'letters' ? 'For Review' : 'Submitted';
-                ChapterService::notify(User::where('role', 'admin')->pluck('id'), $kind === 'letters' ? 'Partner letter for review' : 'Report submitted', $record->title, route('records.show', [$kind, $id], false));
+                ChapterService::notify(User::where('role', 'admin')->pluck('id'), $kind === 'letters' ? 'JCI LOI for review' : 'Report submitted', $record->title, route('records.show', [$kind, $id], false));
             } elseif (in_array($action, ['return', 'approve'])) {
                 abort_unless($request->user()->role === 'admin' && in_array($record->status, ['For Review', 'Submitted']), 403);
                 if (!trim($data['comments'] ?? '')) throw \Illuminate\Validation\ValidationException::withMessages(['comments' => 'Review comments are required.']);
@@ -149,7 +154,11 @@ class RecordController extends Controller
 
     public function members(Request $request)
     {
-        $members = User::orderBy('name')->paginate(30);
+        $request->validate(['q' => 'nullable|string|max:200', 'role' => ['nullable', Rule::in(['admin', 'bod', 'treasurer', 'member'])]]);
+        $members = User::query()
+            ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%')->orWhere('member_no', 'like', '%'.$request->string('q').'%')))
+            ->when($request->filled('role'), fn ($q) => $q->where('role', $request->role))
+            ->orderBy('name')->paginate(30)->withQueryString();
         return view('chapter.members', compact('members'));
     }
 

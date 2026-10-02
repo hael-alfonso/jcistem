@@ -12,7 +12,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', [ChapterController::class, 'dashboard'])->name('dashboard');
-    Route::get('/about', [ChapterController::class, 'about'])->name('about');
     Route::get('/projects', [ChapterController::class, 'projects'])->name('projects');
     Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
@@ -29,6 +28,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/documents/{document}/download', [ChapterController::class, 'download'])->name('documents.download');
     Route::get('/notifications', [ChapterController::class, 'notifications'])->name('notifications');
     Route::post('/notifications/read', [ChapterController::class, 'readNotifications'])->name('notifications.read');
+    Route::post('/notifications/{notification}/open', [ChapterController::class, 'openNotification'])->name('notifications.open');
+    Route::get('/activity-log', [ChapterController::class, 'audit'])->name('activity-log');
     Route::get('/audit', [ChapterController::class, 'audit'])->name('audit');
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
     Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->name('budget.store');

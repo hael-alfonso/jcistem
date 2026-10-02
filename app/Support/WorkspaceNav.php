@@ -15,7 +15,7 @@ class WorkspaceNav
                     ['admin.projects', 'Projects', 'briefcase', ['admin.projects', 'admin.projects.show']],
                     ['admin.projects.create', 'Create Project', 'filePlus'],
                     ['admin.tasks', 'Tasks & Milestones', 'checklist'],
-                    ['admin.loi', 'Letters of Intent', 'fileSignature'],
+                    ['admin.loi', 'JCI LOI', 'fileSignature'],
                     ['admin.calendar', 'Calendar', 'calendar'],
                 ]],
                 ['group' => 'Reports & Finance', 'items' => [
@@ -30,7 +30,7 @@ class WorkspaceNav
                 ]],
                 ['group' => 'Account', 'items' => [
                     ['admin.account', 'My Account', 'user'],
-                    ['admin.audit', 'Audit Log', 'shieldCheck'],
+                    ['admin.audit', 'Activity log', 'shieldCheck'],
                 ]],
             ],
             'treasurer' => [

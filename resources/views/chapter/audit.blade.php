@@ -1,6 +1,0 @@
-@extends('layouts.chapter')
-@section('title','Audit trail')
-@section('content')
-<div class="page-heading"><div><div class="eyebrow">ACCOUNTABILITY & HISTORY</div><h1>Audit trail</h1><p>Recorded workflow, financial, assignment, and account changes.</p></div></div>
-<section class="panel">@forelse($records as $record)<details class="record-detail padded"><summary><strong>{{ ucwords(str_replace('_',' ',$record->action)) }}</strong><span>{{ $record->actor?->name??'System' }} · {{ $record->created_at->format('M d, Y H:i:s') }}</span><span class="badge">{{ $record->object_type }} #{{ $record->object_id }}</span></summary><p>{{ $record->remarks }}</p><div class="detail-grid"><div><h3>Previous values</h3><pre class="audit-json">{{ json_encode($record->before,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) }}</pre></div><div><h3>New values</h3><pre class="audit-json">{{ json_encode($record->after,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) }}</pre></div></div></details>@empty<div class="empty-state"><h3>No recorded changes yet.</h3><p>Important chapter actions are recorded automatically.</p></div>@endforelse@include('chapter.partials.pagination',['items'=>$records])</section>
-@endsection

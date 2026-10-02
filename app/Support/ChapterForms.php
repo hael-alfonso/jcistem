@@ -34,7 +34,7 @@ class ChapterForms
         'evaluation' => 'Monitoring and evaluation plan',
         'indicators' => 'Success indicators / KPIs',
         'documentation' => 'Documentation requirements',
-        'letters' => 'External LOI / partnership requirements',
+        'letters' => 'JCI LOI / partnership requirements',
         'sustainability' => 'Sustainability / follow-up plan',
     ];
     public const LETTER = [

@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $pageTitle }} · JCISTEM</title>
-    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
 <div class="shell">
     <aside class="sidebar" id="sidebar">
         <div class="brand">
-            <div class="brand-mark"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="" class="system-logo"></div>
+            <div class="brand-mark"><img src="{{ asset('assets/images/brand/favicon.png') }}" alt="" class="system-logo"></div>
             <div>
                 <strong>JCISTEM</strong>
                 <span>{{ $roleLabel }} Workspace</span>

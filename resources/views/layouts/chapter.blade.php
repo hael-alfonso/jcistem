@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Workspace') · JCISTEM</title>
-    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}">
     <script defer src="{{ asset('assets/js/chapter.js') }}"></script>
@@ -27,8 +27,8 @@
             ['calendar', 'Calendar', 'calendar', []],
         ],
         'DOCUMENTS' => [
-            ['records', 'Partner letters', 'fileSignature', ['kind' => 'letters']],
-            ['records', 'Project reports', 'report', ['kind' => 'reports']],
+            ['records', 'JCI LOI', 'fileSignature', ['kind' => 'letters']],
+            ['records', 'Reports', 'report', ['kind' => 'reports']],
         ],
         'FINANCES' => [
             ['finance', 'Financial overview', 'chart', []],
@@ -37,7 +37,6 @@
         'CHAPTER' => [
             ['members', 'Member directory', 'users', []],
             ['notifications', 'Notifications', 'bell', []],
-            ['about', 'About JCI Carmona', 'shieldBrand', []],
         ],
     ];
     if ($user->role === 'treasurer') {
@@ -47,7 +46,7 @@
     }
     if ($user->role === 'admin') {
         $navigation['CHAPTER'][] = ['members.create', 'Register member', 'userPlus', []];
-        $navigation['CHAPTER'][] = ['audit', 'Audit trail', 'shieldCheck', []];
+        $navigation['CHAPTER'][] = ['activity-log', 'Activity log', 'clock', []];
     }
 @endphp
 <a class="skip-link" href="#content">Skip to content</a>
@@ -57,8 +56,19 @@
         <div class="workspace-label"><span class="live-dot"></span><span>{{ $roleLabel }} workspace</span><span>PH</span></div>
         <nav aria-label="Main navigation">
             @foreach($navigation as $group => $items)
-                <div class="nav-section">
-                    <p>{{ $group }}</p>
+                @php
+                    $groupOpen = match ($group) {
+                        'OVERVIEW' => request()->routeIs('dashboard'),
+                        'PROJECTS' => request()->routeIs('projects*', 'tasks', 'calendar'),
+                        'DOCUMENTS' => request()->routeIs('records*'),
+                        'FINANCES' => request()->routeIs('finance', 'ledger*', 'dues*'),
+                        'CHAPTER' => request()->routeIs('members*', 'notifications', 'activity-log', 'audit'),
+                        default => false,
+                    };
+                @endphp
+                <details class="nav-section" name="sidebar-menu" @if($groupOpen) open @endif>
+                    <summary>{{ $group }}</summary>
+                    <div class="nav-items">
                     @foreach($items as [$route, $label, $icon, $params])
                         @php
                             $active = match (true) {
@@ -76,8 +86,19 @@
                             @if($route === 'notifications' && $unread)<b>{{ $unread }}</b>@endif
                         </a>
                     @endforeach
-                </div>
+                    </div>
+                </details>
             @endforeach
+            <details class="nav-section nav-settings" name="sidebar-menu" @if(request()->routeIs('account')) open @endif>
+                <summary>SETTINGS</summary>
+                <div class="nav-items">
+                    <a class="side-link {{ request()->routeIs('account') ? 'is-active' : '' }}" href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user"/><span>My profile</span></a>
+                    <a class="side-link" href="{{ route('account') }}#security"><x-icon name="shieldCheck"/><span>Password &amp; security</span></a>
+                    <form class="side-logout-form" method="POST" action="{{ route('logout') }}">@csrf
+                        <button class="side-link side-logout" type="submit"><x-icon name="logout"/><span>Log out</span></button>
+                    </form>
+                </div>
+            </details>
         </nav>
         <div class="sidebar-account">
             <a href="{{ route('account') }}" aria-label="My account">
@@ -99,11 +120,18 @@
                     <x-icon name="bell"/>
                     @if($unread)<span class="notification-dot"></span>@endif
                 </a>
-                <a class="avatar small" href="{{ route('account') }}" aria-label="My account">{{ strtoupper(mb_substr($user->name, 0, 1)) }}</a>
-                <form class="topbar-logout-form" method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="topbar-logout" type="submit">Log out</button>
-                </form>
+                <details class="topbar-settings-menu">
+                    <summary aria-label="Settings" title="Settings"><x-icon name="settings"/></summary>
+                    <div class="topbar-menu-panel">
+                        <div class="topbar-menu-user"><strong>{{ $user->name }}</strong><small>{{ $roleLabel }} workspace</small></div>
+                        <a href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user"/><span>My profile</span></a>
+                        <a href="{{ route('account') }}#security"><x-icon name="shieldCheck"/><span>Password &amp; security</span></a>
+                        <form method="POST" action="{{ route('logout') }}">@csrf
+                            <button type="submit"><x-icon name="logout"/><span>Log out</span></button>
+                        </form>
+                    </div>
+                </details>
+                <a class="avatar small" href="{{ route('account') }}" aria-label="My profile">{{ strtoupper(mb_substr($user->name, 0, 1)) }}</a>
             </div>
         </header>
         <main class="app-content" id="content">
@@ -122,5 +150,13 @@
         </footer>
     </div>
 </div>
+<dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message">
+    <div class="confirm-dialog-inner">
+        <span class="confirm-dialog-icon"><x-icon name="shieldCheck"/></span>
+        <h2 id="confirm-dialog-title">Confirm this change</h2>
+        <p id="confirm-dialog-message"></p>
+        <div class="confirm-dialog-actions"><button class="btn secondary" type="button" data-dialog-cancel>Cancel</button><button class="btn primary" type="button" data-dialog-confirm>Continue</button></div>
+    </div>
+</dialog>
 </body>
 </html>

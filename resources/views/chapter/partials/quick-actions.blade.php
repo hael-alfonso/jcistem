@@ -12,7 +12,7 @@
         ],
         'bod' => [
             ['Review projects', 'See concepts and proposals awaiting review.', 'projects', ['filter' => 'review'], 'briefcase'],
-            ['Project reports', 'Read submitted chapter reports.', 'records', ['kind' => 'reports'], 'report'],
+            ['Reports', 'Read project and financial reports.', 'records', ['kind' => 'reports'], 'report'],
             ['Calendar', 'See upcoming chapter activities.', 'calendar', [], 'calendar'],
         ],
         default => [
