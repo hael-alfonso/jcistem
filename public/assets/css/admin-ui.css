@@ -164,3 +164,5 @@
   .login-panel h1{font-size:26px;}
   .test-grid{grid-template-columns:1fr;}
 }
+
+.brand-mark .system-logo { width: 26px; height: 30px; object-fit: contain; }

@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $pageTitle }} · JCI Carmona Admin</title>
+    <title>{{ $pageTitle }} · JCIstem Admin</title>
+    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -59,9 +61,9 @@
 <div class="shell">
     <aside class="sidebar" id="sidebar">
         <div class="brand">
-            <div class="brand-mark"><x-icon name="shieldBrand" /></div>
+            <div class="brand-mark"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="" class="system-logo"></div>
             <div>
-                <strong>JCI CARMONA</strong>
+                <strong>JCIstem</strong>
                 <span>Project Management System</span>
             </div>
         </div>
@@ -105,7 +107,7 @@
                 </span>
                 <em><x-icon name="chevron" /></em>
             </a>
-            <div class="brand-footer">JCI Carmona • Admin Workspace</div>
+            <div class="brand-footer">JCIstem • Admin Workspace</div>
         </div>
     </aside>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -135,7 +137,7 @@
             @yield('content')
         </section>
         <footer class="footer">
-            <span><strong>JCI CARMONA</strong> • Online Project Management System</span>
+            <span><strong>JCIstem</strong> • Online Project Management System</span>
             <span>Admin Workspace</span>
         </footer>
     </main>

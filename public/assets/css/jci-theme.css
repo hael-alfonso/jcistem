@@ -133,7 +133,7 @@ progress::-moz-progress-bar { background: var(--teal); }
 .login-story-copy { position: relative; z-index: 1; }
 .login-story h1 { font-size: clamp(34px, 4vw, 55px); }
 .login-story p { color: #d1e3ec; font-size: 15px; line-height: 1.7; }
-.login-main { background: #fff; }
+.login-foot { position: relative; z-index: 1; }`r`n.login-main { background: #fff; }
 .login-box { max-width: 400px; }
 .login-box h2 { color: var(--navy); font-size: 30px; }
 .login-box > p { font-size: 14px; }
@@ -255,3 +255,16 @@ progress::-moz-progress-bar { background: var(--teal); }
     .topbar-context > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .topbar-logout { padding: 7px 9px; font-size: 11px; }
 }
+/* JCIstem identity and refined sign-in treatment. */
+.brand-logo { width: 42px; height: 48px; object-fit: contain; flex: none; }
+.system-logo { display: block; width: 26px; height: 30px; object-fit: contain; }
+.login-story { isolation: isolate; background: radial-gradient(ellipse at 82% 76%, rgba(7,155,212,.25), transparent 36%), linear-gradient(145deg, #10132e 0%, #173653 58%, #126183 100%); }
+.login-story::after { content: ""; position: absolute; z-index: 0; width: min(52vw, 520px); aspect-ratio: 1; right: -8%; bottom: -18%; background: url('../images/brand/logo.png') center / contain no-repeat; opacity: .13; filter: drop-shadow(0 20px 45px rgba(0,0,0,.2)); }
+.login-story .chapter-brand { gap: 13px; position: relative; z-index: 1; }
+.login-story .brand-logo { width: 48px; height: 56px; }
+.login-story .brand-name { font-family: 'Manrope', sans-serif; letter-spacing: 1.8px; }
+.login-story-copy { position: relative; z-index: 1; max-width: 570px; padding: clamp(26px, 4vw, 48px) 0; }
+.login-story .eyebrow { display: inline-flex; padding: 8px 12px; border: 1px solid rgba(138,225,220,.25); border-radius: 999px; background: rgba(255,255,255,.06); letter-spacing: 1.6px; }
+.login-story h1 { max-width: 520px; line-height: 1.12; letter-spacing: -1.8px; }
+.login-foot { position: relative; z-index: 1; }`r`n.login-main { background: linear-gradient(145deg, #fff 0%, #f6fafc 100%); }
+@media (max-width: 760px) { .login-story::after { width: 280px; right: -55px; bottom: -110px; opacity: .1; } .login-story-copy { padding: 26px 0 8px; } }

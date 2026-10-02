@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Workspace') · JCI Carmona</title>
+    <title>@yield('title', 'Workspace') · JCIstem</title>
+    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}">
     <script defer src="{{ asset('assets/js/chapter.js') }}"></script>
@@ -119,7 +121,7 @@
             @yield('content')
         </main>
         <footer class="app-footer">
-            <span>JCI Carmona · Carmona City, Cavite</span>
+            <span>JCIstem · Carmona City, Cavite</span>
             <span>Developing leaders. Creating positive change.</span>
         </footer>
     </div>

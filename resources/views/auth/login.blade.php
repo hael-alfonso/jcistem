@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign in · JCI Carmona</title>
+    <title>Sign in · JCIstem</title>
+    <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/logo.png') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}">
 </head>
@@ -15,12 +17,12 @@
             <h1>Great ideas deserve<br>a place to grow.</h1>
             <p>Bring your chapter's people, projects, and purpose together. Build a better Carmona, one project at a time.</p>
         </div>
-        <span class="login-foot">Carmona City, Cavite, Philippines · JCI Carmona</span>
+        <span class="login-foot">Carmona City, Cavite, Philippines · JCIstem</span>
         <div class="banner-orbit" aria-hidden="true"></div>
     </section>
     <main class="login-main">
         <div class="login-box">
-            <div class="eyebrow">JCI CARMONA WORKSPACE</div>
+            <div class="eyebrow">JCIstem WORKSPACE</div>
             <h2>Welcome back.</h2>
             <p>Sign in to see your projects, tasks, and chapter updates.</p>
             @if($errors->any())<div class="alert error" role="alert">{{ $errors->first() }}</div>@endif
