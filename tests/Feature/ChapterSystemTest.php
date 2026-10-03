@@ -183,8 +183,52 @@ class ChapterSystemTest extends TestCase
         $this->actingAs($owner)->post('/projects/'.$p->id.'/documents', ['title' => 'Concept evidence', 'category' => 'Supporting document', 'file' => UploadedFile::fake()->create('evidence.pdf', 12, 'application/pdf')])->assertSessionHasNoErrors();
         $doc = $p->documents()->firstOrFail();
         Storage::disk('local')->assertExists($doc->path);
+        $this->get('/documents')->assertOk()->assertSee('Concept evidence');
         $this->get('/documents/'.$doc->id.'/download')->assertOk();
+        $this->actingAs($other)->get('/documents')->assertOk()->assertDontSee('Concept evidence');
         $this->actingAs($other)->get('/documents/'.$doc->id.'/download')->assertForbidden();
+        $p->update(['status' => 'Approved']);
+        $this->get('/documents')->assertOk()->assertSee('Concept evidence');
+        $this->get('/documents/'.$doc->id.'/download')->assertOk();
+    }
+
+    public function test_profile_photo_is_saved_privately_and_can_be_replaced_or_removed(): void
+    {
+        Storage::fake('local');
+        $member = $this->user();
+        $other = $this->user();
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/qXcAAAAASUVORK5CYII=');
+
+        $this->actingAs($member)->put('/account', [
+            'name' => $member->name,
+            'email' => $member->email,
+            'photo' => UploadedFile::fake()->create('not-an-image.txt', 1, 'text/plain'),
+        ])->assertSessionHasErrors('photo');
+
+        $this->actingAs($member)->put('/account', [
+            'name' => $member->name,
+            'email' => $member->email,
+            'photo' => UploadedFile::fake()->createWithContent('portrait.png', $png),
+        ])->assertSessionHasNoErrors();
+
+        $firstPath = $member->fresh()->profile['photo_path'];
+        $this->assertStringStartsWith('profile-photos/'.$member->id.'/', $firstPath);
+        Storage::disk('local')->assertExists($firstPath);
+        $this->get('/account/photo')->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->actingAs($other)->get('/account/photo')->assertNotFound();
+
+        $this->actingAs($member)->put('/account', [
+            'name' => $member->name,
+            'email' => $member->email,
+            'photo' => UploadedFile::fake()->createWithContent('replacement.png', $png),
+        ])->assertSessionHasNoErrors();
+        $secondPath = $member->fresh()->profile['photo_path'];
+        Storage::disk('local')->assertExists($secondPath);
+        Storage::disk('local')->assertMissing($firstPath);
+
+        $this->put('/account', ['name' => $member->name, 'email' => $member->email, 'remove_photo' => 1])->assertSessionHasNoErrors();
+        $this->assertArrayNotHasKey('photo_path', $member->fresh()->profile);
+        Storage::disk('local')->assertMissing($secondPath);
     }
 }
 

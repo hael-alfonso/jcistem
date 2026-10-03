@@ -20,6 +20,8 @@ A Laravel 12 application for JCI Carmona project management, with separate Admin
 
 The default configuration uses SQLite. Set `DB_CONNECTION=sqlite` and provide a writable database path in `.env` (for example, `database/database.sqlite`) before migrating if the file does not exist.
 
+Password recovery uses email reset links. The default `MAIL_MAILER=log` writes messages to the application log for local development; it does not deliver email. Configure an SMTP mailer and a chapter-approved `MAIL_FROM_ADDRESS` in `.env` before using password recovery with real accounts.
+
 ## Local demo accounts
 
 The database seeder creates one account for each workspace. Each seeded account uses the local demo password `password`:

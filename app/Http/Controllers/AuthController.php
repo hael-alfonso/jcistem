@@ -1,11 +1,13 @@
 <?php
 namespace App\Http\Controllers;
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\{Request, RedirectResponse};
-use Illuminate\Support\Facades\{Auth, RateLimiter};
+use Illuminate\Support\Facades\{Auth, Password, RateLimiter};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -19,6 +21,49 @@ class AuthController extends Controller
         // sign-in context, even when that workspace already has an account.
         if (Auth::check()) return redirect()->route('scoped.login', ['workspace' => Str::uuid()]);
         return view('auth.login');
+    }
+
+    public function showForgotPassword(): View
+    {
+        return view('auth.forgot-password');
+    }
+
+    public function sendPasswordResetLink(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['email' => 'required|email|max:200']);
+        Password::sendResetLink(['email' => $data['email'], 'status' => 'active']);
+
+        return back()->with('status', 'If an active account uses that address, check its inbox for a reset link. If no message arrives, contact your chapter administrator.');
+    }
+
+    public function showResetPassword(Request $request, string $token): View
+    {
+        return view('auth.reset-password', ['token' => $token, 'email' => $request->query('email', '')]);
+    }
+
+    public function resetPassword(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|email|max:200',
+            'password' => ['required', 'confirmed', PasswordRule::min(10)],
+        ]);
+
+        $status = Password::reset($data + ['status' => 'active'], function (User $user, string $password) {
+            $user->forceFill([
+                'password' => Hash::make($password),
+                'remember_token' => Str::random(60),
+                'active_login_token' => null,
+                'active_login_seen_at' => null,
+            ])->save();
+            event(new PasswordReset($user));
+        });
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return back()->withErrors(['email' => 'This reset link is invalid or expired. Request a new link.'])->onlyInput('email');
+        }
+
+        return redirect()->route('login')->with('status', 'Your password has been updated. Sign in with your new password.');
     }
 
     public function login(Request $request): RedirectResponse

@@ -6,7 +6,7 @@ use App\Services\ChapterService;
 use App\Support\ChapterForms;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Hash, Storage};
-use Illuminate\Validation\{Rule, Rules\Password};
+use Illuminate\Validation\{Rule, Rules\Password, ValidationException};
 
 class RecordController extends Controller
 {
@@ -188,17 +188,41 @@ class RecordController extends Controller
 
     public function account(Request $request) { return view('chapter.account', ['member' => $request->user()]); }
 
+    public function accountPhoto(Request $request)
+    {
+        $path = $request->user()->profile['photo_path'] ?? null;
+        abort_unless($path && str_starts_with($path, 'profile-photos/'.$request->user()->id.'/') && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, null, [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function accountSave(Request $request)
     {
-        $data = $request->validate(['name' => 'required|string|max:200', 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($request->user()->id)], 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'current_password' => 'nullable|required_with:password|current_password', 'password' => ['nullable', 'confirmed', Password::min(10)]]);
+        $data = $request->validate(['name' => 'required|string|max:200', 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($request->user()->id)], 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048', 'remove_photo' => 'nullable|boolean', 'current_password' => 'nullable|required_with:password|current_password', 'password' => ['nullable', 'confirmed', Password::min(10)]]);
+        $user = $request->user();
+        $oldPhoto = $user->profile['photo_path'] ?? null;
+        $newPhoto = $request->hasFile('photo') ? $request->file('photo')->store('profile-photos/'.$user->id, 'local') : null;
+        if ($request->hasFile('photo') && !$newPhoto) throw ValidationException::withMessages(['photo' => 'The profile photo could not be saved. Please try again.']);
+        unset($data['photo'], $data['remove_photo']);
         unset($data['current_password']);
         if (empty($data['password'])) unset($data['password']);
-        DB::transaction(function () use ($request, $data) {
-            $before = $request->user()->toArray();
-            $data['profile'] = array_merge($request->user()->profile ?? [], $data['profile'] ?? []);
-            $request->user()->fill($data)->save();
-            ChapterService::audit('account_updated', $request->user(), $before);
-        });
+        try {
+            DB::transaction(function () use ($user, $data, $request, $newPhoto) {
+                $before = $user->toArray();
+                $data['profile'] = array_merge($user->profile ?? [], $data['profile'] ?? []);
+                if ($newPhoto) $data['profile']['photo_path'] = $newPhoto;
+                elseif ($request->boolean('remove_photo')) unset($data['profile']['photo_path']);
+                $user->fill($data)->save();
+                ChapterService::audit('account_updated', $user, $before);
+            });
+        } catch (\Throwable $e) {
+            if ($newPhoto) Storage::disk('local')->delete($newPhoto);
+            throw $e;
+        }
+        if (($newPhoto || $request->boolean('remove_photo')) && $oldPhoto && str_starts_with($oldPhoto, 'profile-photos/'.$user->id.'/')) Storage::disk('local')->delete($oldPhoto);
         if (isset($data['password'])) $request->session()->regenerate();
         return back()->with('success', 'Account updated.');
     }

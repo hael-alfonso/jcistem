@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\JciPasswordReset;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +13,11 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new JciPasswordReset($token));
+    }
 
     /**
      * The attributes that are mass assignable.

@@ -255,6 +255,26 @@ class ChapterController extends Controller
         return Storage::disk('local')->download($document->path, $document->original_name, ['X-Content-Type-Options' => 'nosniff']);
     }
 
+    public function documents(Request $request)
+    {
+        $request->validate(['q' => 'nullable|string|max:200']);
+
+        $documents = ProjectDocument::query()
+            ->with('project')
+            ->whereHas('project', fn ($query) => $query->when($request->user()->role === 'member', fn ($query) => $query->where(fn ($query) => $query
+                ->whereIn('status', Project::APPROVED)
+                ->orWhere('created_by', $request->user()->id))))
+            ->when($request->filled('q'), fn ($query) => $query->where(fn ($query) => $query
+                ->where('title', 'like', '%'.$request->string('q').'%')
+                ->orWhere('category', 'like', '%'.$request->string('q').'%')
+                ->orWhereHas('project', fn ($project) => $project->where('title', 'like', '%'.$request->string('q').'%'))))
+            ->latest()
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('chapter.documents', compact('documents'));
+    }
+
     public function notifications(Request $request)
     {
         $filter = $request->query('filter');

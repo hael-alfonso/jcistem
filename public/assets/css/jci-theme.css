@@ -63,6 +63,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .notification-link:hover { background: #eaf6fa; color: var(--blue); }
 .notification-dot { width: 9px; height: 9px; background: var(--teal); border: 2px solid #fff; }
 .avatar { background: #dff2f3; color: #12646c; }
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.profile-photo-row { display: flex; align-items: center; gap: 24px; padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid #dce9ef; }
+.profile-photo-preview { width: 96px; height: 96px; border-radius: 22px; font-size: 36px; overflow: hidden; }
+.profile-photo-controls { flex: 1; min-width: 0; }
+.profile-photo-controls h2 { margin-bottom: 5px; }
+.profile-photo-controls p { color: #637b8d; font-size: 12px; margin-bottom: 12px; }
+.profile-photo-controls .field { max-width: 420px; }
+@media (max-width: 600px) { .profile-photo-row { align-items: flex-start; flex-direction: column; } }
 .app-content { padding: 34px 38px 54px; max-width: 1500px; }
 .app-footer { padding: 18px 38px; font-size: 11px; color: #6d8090; }
 .page-heading { margin-bottom: 27px; }
@@ -297,6 +305,40 @@ progress::-moz-progress-bar { background: var(--teal); }
 .chapter-brand > span.brand-name { border-left: 0; padding-left: 0; }
 .brand-logo { width: auto; height: 48px; max-width: none; max-height: none; object-fit: initial; }
 .login-story .brand-logo { width: auto; height: 54px; max-width: none; max-height: none; }
+.signin-page { min-height: 100vh; display: grid; place-items: center; padding: clamp(16px, 3vw, 40px); background: #dcebf0; }
+.signin-shell { width: min(100%, 1040px); min-height: 600px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: hidden; border: 1px solid #b7d3dd; border-radius: 22px; background: #f8fbfc; box-shadow: 0 22px 60px rgba(20, 64, 87, .17); }
+.signin-intro { display: flex; flex-direction: column; min-width: 0; background: #123c57; }
+.signin-photo { height: 240px; flex: none; background: #9eaeb8 url('../images/jci-hq.jpg') 75% center / cover no-repeat; }
+.signin-identity { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 22px; padding: 30px 40px 38px; color: #fff; }
+.signin-identity .chapter-brand { align-self: flex-start; width: auto; padding: 0; }
+.signin-identity .brand-name { color: #fff; border-color: #ffffff57; }
+.signin-identity .brand-name small { color: #c5dce7; }
+.signin-kicker { display: block; margin-bottom: 10px; color: #9ad9d5; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+.signin-identity h1 { max-width: 390px; margin-bottom: 10px; color: #fff; font-size: clamp(25px, 2.5vw, 33px); letter-spacing: -.8px; }
+.signin-identity p { max-width: 390px; margin: 0; color: #cee0e8; font-size: 13px; line-height: 1.6; }
+.signin-main { display: flex; align-items: center; justify-content: center; min-width: 0; padding: clamp(30px, 5vw, 62px); background: #f8fbfc; }
+.signin-form { width: 100%; max-width: 365px; }
+.signin-form .eyebrow { color: #12868a; }
+.signin-form h2 { margin-bottom: 8px; color: #17394f; font-size: 29px; }
+.signin-form > p { color: #61798a; font-size: 13px; }
+.signin-form form { margin-top: 25px; }
+.signin-form .field { margin-bottom: 19px; }
+.signin-options { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin: 2px 0 14px; }
+.signin-options .check-field { margin: 0; }
+.signin-options a, .signin-help a { color: #087da5; font-size: 12px; font-weight: 700; }
+.signin-options a:hover, .signin-help a:hover { text-decoration: underline; }
+.signin-form input:not([type=checkbox]) { transition: border-color .18s ease, box-shadow .18s ease; }
+.signin-form input:focus-visible { border-color: #1596b9; box-shadow: 0 0 0 4px rgba(21, 150, 185, .13); }
+.signin-form .btn { width: 100%; margin: 12px 0 0; }
+.signin-form .btn.primary { transition: background-color .18s ease, transform .18s ease, box-shadow .18s ease; }
+.signin-form .btn.primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 113, 159, .2); }
+.signin-form .signin-help { margin: 27px 0 0; padding-top: 18px; border-top: 1px solid #dce8ed; font-size: 11px; line-height: 1.6; }
+@media (prefers-reduced-motion: no-preference) { .signin-shell { animation: signin-enter .45s ease-out both; } }
+@keyframes signin-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 820px) { .signin-page { display: block; padding: 0; background: #f8fbfc; } .signin-shell { display: block; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; } .signin-photo { height: 175px; } .signin-identity { gap: 18px; padding: 23px 26px 27px; } .signin-identity h1 { font-size: 24px; } .signin-identity p { font-size: 12px; } .signin-main { padding: 36px 26px 48px; } }
+@media (max-width: 420px) { .signin-photo { height: 145px; } .signin-identity { padding: 20px 22px 24px; } .signin-identity h1 { font-size: 22px; } .signin-main { padding: 28px 22px 40px; } .signin-form h2 { font-size: 26px; } }
+@media (max-height: 680px) and (min-width: 821px) { .signin-page { padding: 14px; } .signin-shell { min-height: 0; } .signin-photo { height: 185px; } .signin-identity { padding: 24px 32px 28px; } .signin-main { padding: 28px 42px; } }
+@media (prefers-reduced-motion: reduce) { .signin-shell { animation: none; } .signin-form input, .signin-form .btn.primary { transition: none; } .signin-form .btn.primary:hover { transform: none; } }
 .app-sidebar nav { scrollbar-width: none; -ms-overflow-style: none; padding-right: 3px; }
 .app-sidebar nav::-webkit-scrollbar { display: none; }
 .nav-section { margin: 4px 0; }
@@ -354,6 +396,16 @@ progress::-moz-progress-bar { background: var(--teal); }
 .activity-details .detail-grid { margin: 15px 0 0; }
 .activity-details .audit-json { max-width: 100%; overflow: auto; }
 .dues-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-bottom: 20px; }
+.dues-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-bottom: 20px; }
+.dues-guide > div { padding: 20px 22px; border: 1px solid #dce9ef; border-radius: 16px; background: #fff; }
+.dues-guide span { display: block; margin-bottom: 8px; color: #16877e; font-size: 10px; font-weight: 800; letter-spacing: .06em; }
+.dues-guide strong { display: block; color: #142f47; font: 800 15px 'Manrope', sans-serif; }
+.dues-guide p { margin: 8px 0 0; color: #637b8d; font-size: 12px; line-height: 1.55; }
+.dues-list-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 23px 0 12px; }
+.dues-list-heading h2 { margin-bottom: 3px; }
+.dues-list-heading p, .dues-list-heading > span { margin: 0; color: #6d8292; font-size: 12px; }
+.dues-status-note { margin: -5px 0 20px; color: #60798b; font-size: 12px; line-height: 1.6; }
+.dues-status-note strong { color: #23475d; }
 .dues-summary > div { display: grid; gap: 6px; padding: 20px 22px; border: 1px solid #dce9ef; border-radius: 16px; background: #f4f8fb; }
 .dues-summary > div:nth-child(2) { background: #f4f8fb; }
 .dues-summary > div:nth-child(3) { background: #f4f8fb; }
@@ -439,7 +491,8 @@ progress::-moz-progress-bar { background: var(--teal); }
 .calendar-create { margin-top: 20px; }
 .calendar-create .form-grid { margin-top: 20px; }
 @media (max-width: 1180px) { .calendar-shell { grid-template-columns: 1fr; } .calendar-day-panel { display: block; } }
-@media (max-width: 760px) { .dues-summary { grid-template-columns: 1fr; } .due-card summary { flex-wrap: wrap; padding: 15px; } .due-amount { margin-left: auto; } .due-details { padding: 0 15px 18px; } .calendar-toolbar { padding: 18px; } .calendar-day-panel { padding: 19px; } .activity-toolbar { align-items: stretch; flex-direction: column; } .activity-card header { flex-wrap: wrap; } .notification-action { padding: 16px; } }
+@media (max-width: 1000px) { .dues-guide, .dues-summary { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .dues-guide, .dues-summary { grid-template-columns: 1fr; } .dues-list-heading { align-items: flex-start; flex-direction: column; } .due-card summary { flex-wrap: wrap; padding: 15px; } .due-amount { margin-left: auto; } .due-details { padding: 0 15px 18px; } .calendar-toolbar { padding: 18px; } .calendar-day-panel { padding: 19px; } .activity-toolbar { align-items: stretch; flex-direction: column; } .activity-card header { flex-wrap: wrap; } .notification-action { padding: 16px; } }
 
 .topbar-settings-menu { position: relative; }
 .topbar-settings-menu > summary { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid transparent; border-radius: 10px; color: #315b75; cursor: pointer; list-style: none; }

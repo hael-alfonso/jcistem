@@ -8,6 +8,10 @@ Route::get('/', fn () => redirect()->route('login'));
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1')->name('password.update');
 });
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
@@ -24,6 +28,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskSave'])->name('tasks.update');
     Route::get('/tasks', [ChapterController::class, 'tasks'])->name('tasks');
     Route::get('/calendar', [ChapterController::class, 'calendar'])->name('calendar');
+    Route::get('/documents', [ChapterController::class, 'documents'])->name('documents');
     Route::post('/calendar', [ChapterController::class, 'eventSave'])->name('calendar.store');
     Route::post('/projects/{project}/documents', [ChapterController::class, 'upload'])->name('documents.store');
     Route::get('/documents/{document}/download', [ChapterController::class, 'download'])->name('documents.download');
@@ -57,6 +62,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/members/{member}/edit', [RecordController::class, 'memberForm'])->name('members.edit');
     Route::put('/members/{member}', [RecordController::class, 'memberSave'])->name('members.update');
     Route::get('/account', [RecordController::class, 'account'])->name('account');
+    Route::get('/account/photo', [RecordController::class, 'accountPhoto'])->name('account.photo');
     Route::put('/account', [RecordController::class, 'accountSave'])->name('account.update');
 
     // Preserve bookmarked workspace URLs from the original prototype.

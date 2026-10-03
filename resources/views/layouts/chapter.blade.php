@@ -34,8 +34,9 @@
             ['calendar', 'Calendar', 'calendar', []],
         ],
         'DOCUMENTS' => [
-            ['records', 'Letter of Intent', 'fileSignature', ['kind' => 'letters']],
-            ['records', 'Reports', 'report', ['kind' => 'reports']],
+            ['documents', 'Project documents', 'folder', []],
+            ['records', 'External LOIs', 'fileSignature', ['kind' => 'letters']],
+            ['records', 'Project reports', 'report', ['kind' => 'reports']],
         ],
         'FINANCES' => [
             ['finance', 'Financial overview', 'chart', []],
@@ -67,7 +68,7 @@
                     $groupOpen = match ($group) {
                         'OVERVIEW' => request()->routeIs('dashboard'),
                         'PROJECTS' => request()->routeIs('projects*', 'tasks', 'calendar'),
-                        'DOCUMENTS' => request()->routeIs('records*'),
+                        'DOCUMENTS' => request()->routeIs('documents', 'records*'),
                         'FINANCES' => request()->routeIs('finance', 'ledger*', 'dues*'),
                         'CHAPTER' => request()->routeIs('members*', 'notifications', 'activity-log', 'audit'),
                         default => false,
@@ -109,7 +110,7 @@
         </nav>
         <div class="sidebar-account">
             <a href="{{ route('account') }}" aria-label="My account">
-                <span class="avatar">{{ strtoupper(mb_substr($user->name, 0, 1)) }}</span>
+                <span class="avatar">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span>
                 <span><strong>{{ $user->name }}</strong><small>{{ $roleLabel }}</small></span>
             </a>
         </div>
@@ -139,7 +140,7 @@
                         </form>
                     </div>
                 </details>
-                <a class="avatar small" href="{{ route('account') }}" aria-label="My profile">{{ strtoupper(mb_substr($user->name, 0, 1)) }}</a>
+                <a class="avatar small" href="{{ route('account') }}" aria-label="My profile">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</a>
             </div>
         </header>
         <main class="app-content" id="content">
