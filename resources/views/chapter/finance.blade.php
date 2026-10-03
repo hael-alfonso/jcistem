@@ -18,22 +18,13 @@
     $rows = $charts['rows'];
 @endphp
 <div class="stats-grid three">
-    <div class="stat-card"><span>Estimated total funds</span><strong class="money">₱{{ number_format($allocated, 2) }}</strong><small>Budget planned across projects</small></div>
-    <div class="stat-card"><span>Used funds</span><strong class="money">₱{{ number_format($spent, 2) }}</strong><small>Recorded project use</small></div>
+    <div class="stat-card"><span>Allocated budget</span><strong class="money">₱{{ number_format($allocated, 2) }}</strong><small>Recorded project allocations</small></div>
+    <div class="stat-card"><span>Posted expenses</span><strong class="money">₱{{ number_format($spent, 2) }}</strong><small>Recorded project use</small></div>
     <div class="stat-card"><span>Remaining funds</span><strong class="money">₱{{ number_format($allocated - $spent, 2) }}</strong><small>{{ $allocated > 0 ? number_format(100 * $spent / $allocated, 1) : '0.0' }}% of allocation spent</small></div>
 </div>
 
 <div class="dashboard-grid chart-grid finance-chart-grid">
-    <section class="panel chart-panel">
-        <div class="panel-heading"><div><h2>Allocation by project</h2><p>Share of the total project funding plan</p></div></div>
-        @php $funded = $rows->filter(fn ($row) => $row['allocated'] > 0); @endphp
-        @if($funded->isNotEmpty())
-            @include('chapter.partials.pie-chart', ['segments' => $funded->sortByDesc('allocated')->map(fn ($row) => ['label' => $row['project']->title, 'value' => $row['allocated']])->values(), 'center' => 'PHP '.number_format($allocated, 0), 'caption' => 'allocated', 'format' => 'money'])
-            <p class="chart-note">The pie shows each project's share of the funding plan. Open a project below for its spending details.</p>
-        @else
-            <div class="empty-state compact"><h3>No allocations recorded yet</h3><p>The Treasurer can add allocations for each project.</p></div>
-        @endif
-    </section>
+    @include('chapter.partials.budget-expense-chart', ['summary' => false])
     <section class="panel chart-panel">
         <div class="panel-heading">
             <div><h2>Expenses over time</h2><p>Posted spending in each of the last six months</p></div>

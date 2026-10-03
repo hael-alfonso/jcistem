@@ -29,7 +29,7 @@
         </svg>
         <div class="pie-hole"><strong>{{ $center }}</strong><span>{{ $caption }}</span></div>
     </div>
-    <ul class="pie-legend">
+    <ul class="pie-legend" tabindex="0" aria-label="Chart categories">
         @foreach($pieLegend as $item)
             <li><span class="pie-swatch" style="background: {{ $item['color'] }}"></span><span class="pie-label">{{ $item['label'] }}</span><strong>{{ $format === 'money' ? 'PHP '.number_format($item['value'], 2) : number_format($item['value']) }}</strong><small>{{ number_format($item['percent'], 1) }}%</small></li>
         @endforeach

@@ -15,17 +15,23 @@ class ChapterController extends Controller
     {
         $projects = ChapterService::visibleProjects($request->user())->with('chair')->latest()->get();
         $assignedTasks = Task::whereIn('project_id', $projects->pluck('id'))
-            ->whereJsonContains('assignees', $request->user()->id)->orderBy('deadline')->get();
+            ->whereJsonContains('assignees', $request->user()->id)
+            ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END')->orderBy('deadline')->get();
         $tasks = $assignedTasks->where('status', '!=', 'Completed');
-        $dues = MemberDue::with('payments')->where('member_id', $request->user()->id)->get();
         $personalProjects = $projects->filter(fn ($project) => $project->created_by === $request->user()->id
             || $project->chair_id === $request->user()->id || $assignedTasks->contains('project_id', $project->id));
-        $charts = ChapterCharts::projectMix($request->user()->role === 'member' ? $personalProjects : $projects);
+        $dashboardProjects = $request->user()->role === 'member' ? $personalProjects : $projects;
+        $reviewStatuses = [];
+        if ($request->user()->role === 'bod' && $request->user()->concept_reviewer) $reviewStatuses[] = 'Submitted for President Review';
+        if ($request->user()->role === 'bod' && $request->user()->proposal_reviewer) $reviewStatuses = array_merge($reviewStatuses, ['Submitted for Formal Approval', 'Completion Review']);
+        if ($request->user()->role === 'admin') $reviewStatuses = ['Submitted for President Review', 'Submitted for Formal Approval', 'Completion Review'];
+        $pending = $projects->whereIn('status', $reviewStatuses);
+        $myDuesBalance = $request->user()->role === 'member'
+            ? MemberDue::where('member_id', $request->user()->id)->with('payments')->get()->sum('balance') : 0;
+        $charts = ChapterCharts::projectMix($dashboardProjects);
         $taskStatuses = $assignedTasks->countBy('status');
-        $financeCharts = $request->user()->role === 'treasurer'
-            ? ChapterCharts::finances($projects->whereIn('status', Project::APPROVED)) : null;
-        $chapterDues = $financeCharts ? MemberDue::with('payments')->get() : collect();
-        return view('chapter.dashboard', compact('projects', 'personalProjects', 'tasks', 'dues', 'charts', 'taskStatuses', 'financeCharts', 'chapterDues'));
+        $financeCharts = ChapterCharts::finances($projects->whereIn('status', Project::APPROVED));
+        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'reviewStatuses', 'myDuesBalance', 'tasks', 'charts', 'taskStatuses', 'financeCharts'));
     }
 
     public function projects(Request $request)

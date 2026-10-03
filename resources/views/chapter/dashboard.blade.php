@@ -1,22 +1,66 @@
 @extends('layouts.chapter')
-@section('title','Overview')
+@section('title', 'Overview')
 @section('content')
-<div class="page-heading dashboard-heading"><div><div class="eyebrow">YOUR CHAPTER, CONNECTED</div><h1>Good {{ now()->hour < 12 ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening') }}, {{ explode(' ',auth()->user()->name)[0] }}.</h1><p>Move ideas forward. Keep your projects and people in view.</p></div><a class="btn primary" href="{{ route('projects.create') }}">＋ Submit a project concept</a></div>
-@include('chapter.partials.quick-actions')
-@php $active=$projects->whereIn('status',['Approved','Ongoing','Completion Review']); $pending=$projects->whereIn('status',['Submitted for President Review','Submitted for Formal Approval','Completion Review']); @endphp
-<div class="stats-grid">
-<div class="stat-card"><span>Active projects</span><strong>{{ $active->count() }}</strong><small>Approved through completion review</small><x-icon name="briefcase"/></div>
-<div class="stat-card"><span>Awaiting review</span><strong>{{ $pending->count() }}</strong><small>Concepts, proposals & completion</small><x-icon name="fileSignature"/></div>
-<div class="stat-card"><span>My open tasks</span><strong>{{ $tasks->count() }}</strong><small>{{ $tasks->filter(fn($t)=>$t->deadline?->lt(today()))->count() }} past their deadline</small><x-icon name="checklist"/></div>
-<div class="stat-card"><span>My dues balance</span><strong class="money">₱{{ number_format($dues->sum(fn($d)=>$d->balance),2) }}</strong><small>Official member dues records</small><x-icon name="wallet"/></div>
+@php
+    $role = auth()->user()->role;
+    $active = $dashboardProjects->whereIn('status', ['Approved', 'Ongoing', 'Completion Review']);
+@endphp
+<div class="dashboard-page">
+<div class="page-heading dashboard-heading">
+    <div>
+        <div class="eyebrow">YOUR CHAPTER, CONNECTED</div>
+        <h1>Good {{ now()->hour < 12 ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening') }}, {{ explode(' ', auth()->user()->name)[0] }}.</h1>
+        <p>{{ match($role) { 'member' => 'Your projects, assigned work, and membership dues.', 'treasurer' => 'Project allocations and posted spending at a glance.', 'bod' => 'Chapter delivery and reviews assigned to your role.', default => 'Chapter activity, review queues, and funding at a glance.' } }}</p>
+    </div>
+    <a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus"/> Submit a project concept</a>
 </div>
-@include('chapter.partials.project-charts')
-<div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h2>Projects in motion</h2><p>Your chapter's current work</p></div><a class="text-link" href="{{ route('projects') }}">All projects →</a></div>
-@forelse($active->take(5) as $project)<a class="project-row" href="{{ route('projects.show',$project) }}"><span class="project-mark">{{ strtoupper(substr($project->area,0,1)) }}</span><span class="row-main"><strong>{{ $project->title }}</strong><small>{{ $project->area }} · {{ $project->chair?->name ?? 'Chair to be assigned' }}</small></span><span class="row-progress"><span>{{ $project->progress }}%</span><progress value="{{ $project->progress }}" max="100"></progress></span><span class="badge project-status status-{{ $project->status_tone }}">{{ $project->status }}</span></a>@empty<div class="empty-state"><span class="empty-icon"><x-icon name="briefcase"/></span><h3>Great projects begin with an idea.</h3><p>Prepare a short concept letter for the Chapter President. Endorsed ideas move on to a full proposal.</p><a class="btn secondary" href="{{ route('projects.create') }}">Create your first concept</a></div>@endforelse
-</section>
-<section class="panel"><div class="panel-heading"><div><h2>My next steps</h2><p>Tasks that need your attention</p></div><a href="{{ route('tasks',['mine'=>1]) }}" class="text-link">View all →</a></div>
-@forelse($tasks->take(5) as $task)<a class="attention-row" href="{{ route('projects.show',$task->project_id) }}#tasks"><span class="task-dot {{ $task->deadline?->lt(today()) ? 'overdue' : '' }}"></span><span><strong>{{ $task->title }}</strong><small>{{ $task->deadline?->format('M d, Y') }} · {{ $task->status }}</small></span></a>@empty<div class="empty-state compact"><x-icon name="checklist"/><h3>You're all caught up.</h3><p>Your next assigned task will appear here.</p></div>@endforelse</section></div>
-<div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h2>Review attention</h2><p>Keep the project journey moving</p></div></div>@forelse($pending->take(4) as $project)<a class="attention-row" href="{{ route('projects.show',$project) }}"><span class="project-mark light"><x-icon name="fileSignature"/></span><span><strong>{{ $project->title }}</strong><small>{{ $project->reference }} · {{ $project->status }}</small></span><span class="arrow">→</span></a>@empty<p class="panel-empty">No concepts or proposals are awaiting review.</p>@endforelse</section>
+
+<div class="stats-grid" aria-label="Dashboard summary">
+    @if($role === 'treasurer')
+    <div class="stat-card"><span>Allocated funds</span><strong class="money">PHP {{ number_format($financeCharts['allocated'], 2) }}</strong><small>Approved project allocations</small><x-icon name="wallet"/></div>
+    @else
+    <div class="stat-card"><span>{{ $role === 'member' ? 'My active projects' : 'Active projects' }}</span><strong>{{ $active->count() }}</strong><small>Approved through completion review</small><x-icon name="briefcase"/></div>
+    @endif
+    @if($role === 'member')
+    <a class="stat-card" href="{{ route('dues') }}"><span>My dues balance</span><strong class="money">PHP {{ number_format($myDuesBalance, 2) }}</strong><small>Outstanding after posted payments</small><x-icon name="wallet"/></a>
+    @elseif($role === 'treasurer')
+    <a class="stat-card" href="{{ route('ledger') }}"><span>Posted expenses</span><strong class="money">PHP {{ number_format($financeCharts['spent'], 2) }}</strong><small>Posted project debit entries</small><x-icon name="wallet"/></a>
+    @else
+    <div class="stat-card"><span>{{ $role === 'bod' ? 'My review queue' : 'Awaiting review' }}</span><strong>{{ $pending->count() }}</strong><small>Requests matching your role</small><x-icon name="fileSignature"/></div>
+    @endif
+    @if($role === 'treasurer')
+    <div class="stat-card"><span>Remaining funds</span><strong class="money">PHP {{ number_format($financeCharts['allocated'] - $financeCharts['spent'], 2) }}</strong><small>Allocation minus posted spending</small><x-icon name="wallet"/></div>
+    @else
+    <div class="stat-card"><span>Completed projects</span><strong>{{ $dashboardProjects->whereIn('status', ['Completed', 'Archived'])->count() }}</strong><small>Finished and archived work</small><x-icon name="checklist"/></div>
+    @endif
+    <div class="stat-card"><span>My open tasks</span><strong>{{ $tasks->count() }}</strong><small>{{ $tasks->filter(fn ($task) => $task->deadline?->lt(today()))->count() }} past their deadline</small><x-icon name="checklist"/></div>
+</div>
+
+@if($role === 'member')
+    @include('chapter.partials.dashboard-tasks')
+@elseif($role === 'treasurer')
+    @include('chapter.partials.dashboard-finance')
+@else
+    <section class="dashboard-grid chart-grid" aria-label="Chapter overview">
+        <section class="panel chart-panel">
+            <div class="panel-heading"><div><h2>Projects by status</h2><p>Chapter projects in each stage</p></div><a class="text-link" href="{{ route('projects') }}">All projects &rarr;</a></div>
+            @if($charts['total'])
+                @include('chapter.partials.pie-chart', ['segments' => $charts['statuses']->map(fn ($count, $label) => ['label' => $label, 'value' => $count, 'color' => \App\Models\Project::colorForStatus($label)])->values(), 'center' => $charts['total'], 'caption' => 'projects', 'format' => 'count'])
+            @else
+                <div class="empty-state compact"><h3>No project data yet</h3><p>Projects will appear here when added.</p></div>
+            @endif
+        </section>
+        @include('chapter.partials.dashboard-review')
+    </section>
+    @if($role === 'admin')
+        @include('chapter.partials.budget-expense-chart', ['charts' => $financeCharts, 'summary' => true])
+    @endif
+@endif
+<details class="dashboard-more panel">
+    <summary>More dashboard details <span>Project breakdowns, assigned tasks, and finances</span></summary>
+    @include('chapter.partials.project-charts')
+    @if($role !== 'member') @include('chapter.partials.dashboard-tasks') @endif
+    @if($role === 'member' || $role === 'bod') @include('chapter.partials.dashboard-finance') @endif
+</details>
 </div>
 @endsection
-
