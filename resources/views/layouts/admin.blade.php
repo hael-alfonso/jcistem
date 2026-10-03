@@ -23,7 +23,7 @@
             ['projects*', 'Projects', 'briefcase'],
             ['projects.create', 'Create Project', 'filePlus'],
             ['tasks', 'Tasks & Milestones', 'checklist'],
-            ['loi', 'Letters of Intent', 'fileSignature'],
+            ['loi', 'Letter of Intent', 'fileSignature'],
             ['calendar', 'Calendar', 'calendar'],
         ]],
         ['group' => 'Reports & Finance', 'items' => [

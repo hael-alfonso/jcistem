@@ -1,4 +1,4 @@
-    <section class="panel">
+    <section class="panel" id="dashboard-reviews">
         <div class="panel-heading"><div><h2>{{ auth()->user()->role === 'bod' ? 'My review queue' : 'Review attention' }}</h2><p>{{ auth()->user()->role === 'admin' ? 'Chapter review queues for oversight' : 'Requests matching your reviewer permissions' }}</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'review']) }}">View all &rarr;</a></div>
         <div class="dashboard-list-scroll" tabindex="0" aria-label="Dashboard items">
         @forelse($pending->take(5) as $project)

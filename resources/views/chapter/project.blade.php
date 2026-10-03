@@ -55,10 +55,36 @@
 <nav class="anchor-tabs no-print"><a href="#overview">Overview</a><a href="#tasks">Tasks</a><a href="#timeline">Timeline</a><a href="#budget">Budget & expenses</a><a href="#documents">Documents</a><a href="#reports">LOIs & reports</a></nav>
 <section class="panel form-panel" id="overview"><h2>Project concept letter</h2><p class="letter-recipient">To: JCI Carmona Chapter President<br>From: {{ $project->owner?->name }}<br>Subject: Proposed Project — {{ $project->title }}</p><div class="detail-grid">@foreach(\App\Support\ChapterForms::CONCEPT as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->concept[$key]??'Not provided' }}</p></div>@endforeach</div></section>
 @if($project->proposal)<section class="panel form-panel"><h2>Full project proposal</h2><div class="detail-grid">@foreach(\App\Support\ChapterForms::PROPOSAL as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->proposal[$key]??'Not provided' }}</p></div>@endforeach</div></section>@endif
-<section class="panel form-panel" id="tasks"><div class="panel-heading flush"><h2>Tasks & milestones</h2><span>{{ $project->progress }}% complete</span></div><progress value="{{ $project->progress }}" max="100"></progress>
-@forelse($project->tasks as $task)<details class="record-detail"><summary><strong>{{ $task->title }}</strong><span class="badge">{{ $task->status }}</span><span class="muted">Due {{ $task->deadline?->format('M d, Y') }}</span></summary><p>{{ $task->description }}</p><p class="hint">Assigned: {{ $members->whereIn('id',$task->assignees??[])->pluck('name')->join(', ') }} · {{ $task->priority }} priority · {{ $task->milestone }}</p>
-@if($manages || (in_array($u->id,$task->assignees??[],true) && in_array($project->status,['Approved','Ongoing'])))@include('chapter.partials.task-form')@else<p class="preserve-lines">{{ $task->notes }}</p><p>{{ $task->evidence }}</p>@endif</details>@empty<p class="panel-empty">No tasks yet. The assigned Chair can create tasks after project approval.</p>@endforelse
-@if($manages)<details class="record-detail no-print"><summary>＋ Create a task</summary>@include('chapter.partials.task-form',['task'=>new \App\Models\Task])</details>@endif</section>
+<section class="panel form-panel project-tasks-section" id="tasks">
+    <div class="panel-heading flush"><div><h2>Tasks &amp; milestones</h2><p>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</p></div><span>{{ $project->progress }}% complete</span></div>
+    <progress value="{{ $project->progress }}" max="100" aria-label="Project task completion"></progress>
+    <div class="project-task-list">
+        @forelse($project->tasks as $task)
+            @php
+                $taskTone = match($task->status) { 'Completed' => 'done', 'In Progress' => 'working', 'Blocked' => 'blocked', default => 'todo' };
+                $priorityTone = match($task->priority) { 'Urgent' => 'urgent', 'High' => 'high', 'Medium' => 'medium', 'Low' => 'low', default => 'unset' };
+                $assignedNames = $members->whereIn('id', $task->assignees ?? [])->pluck('name')->join(', ');
+                $isOverdue = $task->deadline && $task->deadline->lt(today()) && $task->status !== 'Completed';
+                $canUpdateTask = $manages || (in_array($u->id, $task->assignees ?? [], true) && in_array($project->status, ['Approved', 'Ongoing']));
+            @endphp
+            <article class="project-task-card" id="task-{{ $task->id }}">
+                <div class="project-task-heading"><div><h3>{{ $task->title }}</h3>@if($task->description)<p class="preserve-lines">{{ $task->description }}</p>@endif</div><span class="badge task-status task-status-{{ $taskTone }}">{{ $task->status }}</span></div>
+                <dl class="project-task-meta">
+                    <div><dt>Assigned to</dt><dd>{{ $assignedNames ?: 'Unassigned' }}</dd></div>
+                    <div><dt>Deadline</dt><dd>{{ $task->deadline?->format('M d, Y') ?? 'Not set' }}@if($isOverdue) <span class="danger-text">· Overdue</span>@endif</dd></div>
+                    <div><dt>Priority</dt><dd><span class="task-priority priority-{{ $priorityTone }}">{{ $task->priority ?: 'Not set' }}</span></dd></div>
+                    <div><dt>Milestone</dt><dd>{{ $task->milestone ?: 'None' }}</dd></div>
+                </dl>
+                @if($task->notes)<div class="project-task-note"><strong>Progress notes</strong><p class="preserve-lines">{{ $task->notes }}</p></div>@endif
+                @if($task->evidence)<div class="project-task-note"><strong>Completion evidence</strong><p class="preserve-lines">{{ $task->evidence }}</p></div>@endif
+                @if($canUpdateTask)<details class="task-edit-panel no-print"><summary>Update task</summary>@include('chapter.partials.task-form')</details>@endif
+            </article>
+        @empty
+            <p class="panel-empty">No tasks yet. The assigned Chair can create tasks after project approval.</p>
+        @endforelse
+    </div>
+    @if($manages)<details class="task-edit-panel task-create-panel no-print"><summary>Create a task</summary>@include('chapter.partials.task-form',['task'=>new \App\Models\Task])</details>@endif
+</section>
 <section class="panel form-panel" id="timeline"><h2>Timeline & activities</h2>@forelse($project->events->sortBy('starts_on') as $event)<div class="list-row"><strong>{{ $event->title }}</strong><span>{{ $event->type }} · {{ $event->starts_on?->format('M d, Y') }} · {{ $event->venue }}</span></div>@empty<p class="panel-empty">No activities or milestones scheduled.</p>@endforelse
 @if($manages)<details class="record-detail no-print"><summary>＋ Schedule activity / milestone</summary><form method="POST" action="{{ route('calendar.store') }}" class="form-grid">@csrf<input type="hidden" name="project_id" value="{{ $project->id }}"><x-field name="title" label="Activity title" required/><x-field name="type" label="Activity type" type="select" :options="array_combine(['Activity','Milestone','Meeting','Review'],['Activity','Milestone','Meeting','Review'])" required/><x-field name="starts_on" label="Activity start date" type="date" required/><x-field name="ends_on" label="Activity end date" type="date"/><x-field name="venue" label="Activity venue"/><x-field name="description" label="Activity details" type="textarea"/><div class="full"><button class="btn primary">Save activity</button></div></form></details>@endif</section>
 <section class="panel form-panel" id="budget"><h2>Budget & funds</h2><div class="table-wrap"><table><thead><tr><th>Category</th><th>Approved allocation</th><th>Approving authority</th><th>Date</th></tr></thead><tbody>@forelse($project->allocations as $allocation)<tr><td>{{ $allocation->category }}</td><td>₱{{ number_format($allocation->amount,2) }}</td><td>{{ $allocation->approved_by }}</td><td>{{ $allocation->approved_on?->format('M d, Y') }}</td></tr>@empty<tr><td colspan="4">No budget allocations recorded.</td></tr>@endforelse</tbody></table></div>

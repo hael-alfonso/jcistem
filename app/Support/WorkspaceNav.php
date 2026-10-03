@@ -15,7 +15,7 @@ class WorkspaceNav
                     ['admin.projects', 'Projects', 'briefcase', ['admin.projects', 'admin.projects.show']],
                     ['admin.projects.create', 'Create Project', 'filePlus'],
                     ['admin.tasks', 'Tasks & Milestones', 'checklist'],
-                    ['admin.loi', 'JCI LOI', 'fileSignature'],
+                    ['admin.loi', 'Letter of Intent', 'fileSignature'],
                     ['admin.calendar', 'Calendar', 'calendar'],
                 ]],
                 ['group' => 'Reports & Finance', 'items' => [

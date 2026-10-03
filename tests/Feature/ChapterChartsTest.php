@@ -11,6 +11,18 @@ class ChapterChartsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_dashboard_greeting_uses_the_chapter_time_of_day(): void
+    {
+        $user = User::factory()->create(['name' => 'Jordan Cruz', 'role' => 'member', 'status' => 'active']);
+
+        foreach (['09:00:00' => 'Good morning', '15:00:00' => 'Good afternoon', '20:00:00' => 'Good evening'] as $time => $greeting) {
+            $this->travelTo(\Carbon\Carbon::parse('2026-10-03 '.$time, config('app.timezone')));
+            $this->actingAs($user)->get('/dashboard')->assertOk()->assertSeeText($greeting.', Jordan.');
+        }
+
+        $this->travelBack();
+    }
+
     public function test_charts_count_visible_projects_and_only_posted_expenses_for_approved_projects(): void
     {
         $owner = User::factory()->create();
@@ -52,7 +64,7 @@ class ChapterChartsTest extends TestCase
         $this->assertSame(250.0, $finance['months']->last()['amount']);
         $this->assertSame(100.0, $finance['months']->get(4)['amount']);
     }
-    public function test_role_dashboards_render_with_compact_financial_and_task_details(): void
+    public function test_role_dashboards_render_only_their_essential_sections(): void
     {
         foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
             $user = User::factory()->create(['role' => $role, 'status' => 'active']);
@@ -67,15 +79,24 @@ class ChapterChartsTest extends TestCase
                 'direction' => 'debit', 'status' => 'Posted', 'amount' => 350, 'transaction_date' => today(),
             ]);
 
-            $this->actingAs($user)->get('/dashboard')->assertOk()
-                ->assertSee('Budget vs. expenses')->assertSee('More dashboard details')
-                ->assertSee('Allocated budget')
-                ->assertSee('My next steps')
-                ->assertSee('Projects by status')->assertSee('Projects by focus area')
-                ->assertDontSee('<h2>Project progress</h2>', false)->assertSee('My task status')
-                ->assertDontSee('My dues payments')->assertDontSee('Member dues collection')
+            $dashboard = $this->actingAs($user)->get('/dashboard')->assertOk()
+                ->assertDontSee('More dashboard details')->assertDontSee('dashboard-more')
+                ->assertDontSee('Projects by focus area')->assertSee('stat-content')
+                ->assertSee('<svg class="pie-svg"', false)
                 ->assertViewHas('taskStatuses', fn ($statuses) => $statuses->sum() === 1 && $statuses['Completed'] === 1);
-
+            if ($role === 'treasurer') {
+                $dashboard->assertSee('Budget utilization')->assertSee('Expenses over time')
+                    ->assertSee('Projects over budget')->assertDontSee('My task status')->assertDontSee('Projects by status');
+            } elseif ($role === 'member') {
+                $dashboard->assertSee('My next steps')->assertSee('My task status')
+                    ->assertDontSee('Budget utilization')->assertDontSee('Budget vs. expenses')->assertDontSee('Projects by status');
+            } else {
+                $dashboard->assertSee('Projects by status')->assertDontSee('My task status');
+                if ($role === 'admin') $dashboard->assertSee('Budget vs. expenses');
+                else $dashboard->assertSee('My review queue')->assertDontSee('Budget vs. expenses');
+            }
+            $this->get('/projects')->assertOk()->assertSee('modern-project-card')->assertSee('Budget project '.$role)->assertDontSee('Status colors');
+            $this->get('/tasks')->assertOk()->assertSee('Task summary')->assertSee('Open task')->assertDontSee('tasks-card-grid');
             $this->get('/finance')->assertOk()->assertSee('Budget vs. expenses')
                 ->assertSee('Expenses over time')->assertSee('Budget project '.$role)
                 ->assertSee('Budget project '.$role.' allocated budget: PHP 1,000.00')
@@ -119,10 +140,20 @@ class ChapterChartsTest extends TestCase
     {
         foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
             $user = User::factory()->create(['role' => $role, 'status' => 'active']);
-            $this->actingAs($user)->get('/dashboard')->assertOk()
-                ->assertSee('Budget vs. expenses')->assertSee('More dashboard details')
-                ->assertSee('No project budgets yet')->assertSee('My next steps')
-                ->assertSee('No project data yet')->assertSee('No assigned tasks yet');
+            $dashboard = $this->actingAs($user)->get('/dashboard')->assertOk()
+                ->assertDontSee('More dashboard details')->assertDontSee('Projects by focus area');
+            if ($role === 'treasurer') {
+                $dashboard->assertSee('No project budgets yet')->assertSee('No posted expenses in this period');
+            } elseif ($role === 'member') {
+                $dashboard->assertSee('My next steps')->assertSee('No assigned tasks yet')
+                    ->assertSee("You're all caught up.", false)->assertDontSee('Budget vs. expenses');
+            } else {
+                $dashboard->assertSee('No project data yet')->assertSee('No projects awaiting review');
+                if ($role === 'admin') $dashboard->assertSee('No project budgets yet');
+                else $dashboard->assertDontSee('Budget vs. expenses');
+            }
+            $this->get('/projects')->assertOk()->assertSee('No projects yet');
+            $this->get('/tasks')->assertOk()->assertSee('Task summary')->assertSee('No matching tasks')->assertDontSee('tasks-card-grid');
             $this->get('/finance')->assertOk()->assertSee('Budget vs. expenses')
                 ->assertSee('No project budgets yet')->assertSee('Expenses over time');
         }
@@ -159,5 +190,29 @@ class ChapterChartsTest extends TestCase
             ->assertViewHas('dashboardProjects', fn ($items) => $items->count() === 2 && $items->contains('id', $own->id) && $items->contains('id', $assigned->id))
             ->assertViewHas('tasks', fn ($items) => $items->count() === 1)
             ->assertViewHas('pending', fn ($items) => $items->isEmpty());
+    }
+
+    public function test_finance_displays_exact_cents_and_does_not_report_zero_utilization_without_an_allocation(): void
+    {
+        $user = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
+        $project = Project::create([
+            'created_by' => $user->id, 'title' => 'Unallocated project',
+            'area' => 'Community Impact', 'status' => 'Approved',
+        ]);
+        LedgerEntry::create([
+            'reference' => 'EXACT-CENTS', 'project_id' => $project->id,
+            'direction' => 'debit', 'status' => 'Posted', 'amount' => 123.45,
+            'transaction_date' => today(),
+        ]);
+
+        $this->actingAs($user)->get('/finance')->assertOk()
+            ->assertSee('Over budget by PHP 123.45')
+            ->assertSee('No allocation recorded')->assertSee('No allocation')
+            ->assertSee('PHP -123.45')->assertSee('PHP 123.45')
+            ->assertSee(today()->format('M Y').': PHP 123.45')
+            ->assertDontSee('0.0%')->assertDontSee('PHP 123.00');
+        $this->get('/dashboard')->assertOk()
+            ->assertSee('PHP -123.45')->assertSee('PHP 123.45')
+            ->assertSee('stat-expenses')->assertSee('stat-icon');
     }
 }

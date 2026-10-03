@@ -4,7 +4,7 @@ use App\Http\Controllers\{AuthController, ChapterController, FinanceController, 
 use Illuminate\Support\Facades\Route;
 
 $workspaceRoutes = function () {
-Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : redirect()->route('login'));
+Route::get('/', fn () => redirect()->route('login'));
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');

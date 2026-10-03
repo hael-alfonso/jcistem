@@ -25,9 +25,9 @@ class Project extends ChapterRecord
     public static function colorForStatus(string $status): string
     {
         return [
-            'draft' => '#6988d0', 'review' => '#e4a35e', 'revision' => '#c77d45',
-            'approved' => '#0876a8', 'ongoing' => '#36b3af', 'completed' => '#70a963',
-            'declined' => '#d4788b', 'archived' => '#8294a2',
+            'draft' => '#6655d8', 'review' => '#d68a12', 'revision' => '#dd6326',
+            'approved' => '#0769bd', 'ongoing' => '#089aaa', 'completed' => '#17834f',
+            'declined' => '#c93450', 'archived' => '#566c7e',
         ][self::toneForStatus($status)];
     }
     public function getStatusToneAttribute(): string { return self::toneForStatus($this->status); }

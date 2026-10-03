@@ -3,6 +3,7 @@
   const overlay = document.querySelector('.nav-overlay');
   const settingsMenu = document.querySelector('.topbar-settings-menu');
   const createMenu = document.querySelector('.record-create-dropdown');
+  const calendarDialog = document.querySelector('#calendar-event-dialog');
   const groups = [...document.querySelectorAll('.nav-section')];
   const currentGroup = groups.find((group) => group.querySelector('[aria-current="page"]'));
   let rememberedGroup = null;
@@ -25,6 +26,12 @@
     if (createMenu && !createMenu.contains(event.target)) createMenu.open = false;
   });
   overlay?.addEventListener('click', () => setNavigation(false));
+  document.querySelector('[data-calendar-dialog-open]')?.addEventListener('click', () => {
+    if (calendarDialog?.showModal) calendarDialog.showModal();
+    else calendarDialog?.setAttribute('open', '');
+  });
+  document.querySelectorAll('[data-calendar-dialog-close]').forEach((button) => button.addEventListener('click', () => calendarDialog?.close()));
+  calendarDialog?.addEventListener('click', (event) => { if (event.target === calendarDialog) calendarDialog.close(); });
   document.querySelectorAll('.app-sidebar .side-link').forEach((link) => link.addEventListener('click', () => setNavigation(false)));
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setNavigation(false); if (settingsMenu?.open) { settingsMenu.open = false; settingsMenu.querySelector('summary')?.focus(); } if (createMenu?.open) { createMenu.open = false; createMenu.querySelector('summary')?.focus(); } } });
   document.querySelectorAll('[data-print]').forEach((button) => button.addEventListener('click', () => window.print()));

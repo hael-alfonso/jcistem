@@ -37,7 +37,10 @@ class ChapterController extends Controller
     public function projects(Request $request)
     {
         $request->validate(['q' => 'nullable|string|max:200', 'filter' => 'nullable|string|max:80']);
-        $query = ChapterService::visibleProjects($request->user())->with(['chair', 'owner']);
+        $query = ChapterService::visibleProjects($request->user())
+            ->with(['chair', 'owner'])
+            ->withCount(['tasks', 'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'Completed')])
+            ->withSum('allocations as allocated_amount', 'amount');
         if ($request->filled('q')) $query->where('title', 'like', '%'.$request->string('q').'%');
         if ($request->filter === 'mine') $query->where(fn ($q) => $q->where('created_by', $request->user()->id)->orWhere('chair_id', $request->user()->id)->orWhereHas('tasks', fn ($q) => $q->whereJsonContains('assignees', $request->user()->id)));
         elseif ($request->filter === 'concepts') $query->whereIn('status', ['Draft Concept', 'Submitted for President Review', 'Needs Revision', 'Endorsed for Development', 'Declined']);

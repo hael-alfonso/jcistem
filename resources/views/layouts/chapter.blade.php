@@ -4,6 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @if(request()->attributes->get('workspace'))
+    <meta name="workspace-id" content="{{ request()->attributes->get('workspace') }}">
+    <meta name="new-account-url" content="{{ request()->getBaseUrl() }}/login">
+    <style>html.workspace-tab-pending body { visibility: hidden; }</style>
+    <script>document.documentElement.classList.add('workspace-tab-pending'); setTimeout(() => document.documentElement.classList.remove('workspace-tab-pending'), 700);</script>
+    <script src="{{ asset('assets/js/workspace-tab.js') }}"></script>
+    @endif
     <title>@yield('title', 'Workspace') · JCISTEM</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
@@ -27,7 +34,7 @@
             ['calendar', 'Calendar', 'calendar', []],
         ],
         'DOCUMENTS' => [
-            ['records', 'JCI LOI', 'fileSignature', ['kind' => 'letters']],
+            ['records', 'Letter of Intent', 'fileSignature', ['kind' => 'letters']],
             ['records', 'Reports', 'report', ['kind' => 'reports']],
         ],
         'FINANCES' => [
@@ -126,6 +133,7 @@
                         <div class="topbar-menu-user"><strong>{{ $user->name }}</strong><small>{{ $roleLabel }} workspace</small></div>
                         <a href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user"/><span>My profile</span></a>
                         <a href="{{ route('account') }}#security"><x-icon name="shieldCheck"/><span>Password &amp; security</span></a>
+                        <a href="{{ request()->getBaseUrl() }}/login" target="_blank" rel="noopener noreferrer"><x-icon name="userPlus"/><span>Open another account</span></a>
                         <form method="POST" action="{{ route('logout') }}">@csrf
                             <button type="submit"><x-icon name="logout"/><span>Log out</span></button>
                         </form>

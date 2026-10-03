@@ -169,3 +169,78 @@
 
 .brand-mark { background: #fff !important; border: 1px solid #d7e8ee; box-shadow: 0 4px 12px rgba(19,47,69,.08) !important; }
 .brand-mark:after { content: none !important; display: none !important; }
+
+/* Keep legacy role workspaces aligned with the bright JCI navigation palette. */
+.sidebar {
+  background:#e5f5fb;
+  border-right-color:#b9dfef;
+  box-shadow:6px 0 24px rgba(0,126,174,.08);
+}
+.brand {
+  margin-bottom:8px;
+  border-bottom:1px solid #bfdfec;
+}
+.brand strong{color:#123a55;}
+.brand span{color:#4e7185;}
+.workspace{
+  background:rgba(255,255,255,.58);
+  border-color:#b9dfed;
+}
+.workspace span,.workspace small{color:#587486;}
+.workspace strong{color:#173f58;}
+.nav-label{color:#477086;}
+.nav-link{color:#294d63;}
+.nav-icon{background:#d2edf7;color:#147da8;}
+.nav-link:hover{background:#f7fcfe;color:#075f88;}
+.nav-link.active{
+  background:#008dcc;
+  color:#fff;
+  box-shadow:0 7px 16px rgba(0,119,174,.18);
+}
+.nav-link.active .nav-icon{background:rgba(255,255,255,.2);color:#fff;}
+.nav-count{background:#fff;color:#0076aa;}
+.account-chip{
+  border-color:#b9dfed;
+  background:rgba(255,255,255,.58);
+}
+.account-chip:hover{background:#fff;}
+.account-chip strong{color:#173f58;}
+.account-chip small,.account-chip em{color:#587486;}
+.account-chip .avatar{background:#008dcc;color:#fff;}
+.brand-footer{color:#587486;}
+.topbar{
+  background:rgba(225,244,251,.78);
+  border-bottom-color:rgba(157,207,227,.78);
+  box-shadow:0 7px 22px rgba(0,113,160,.09),inset 0 1px 0 rgba(255,255,255,.72);
+  -webkit-backdrop-filter:blur(18px) saturate(145%);
+  backdrop-filter:blur(18px) saturate(145%);
+}
+.top-eyebrow{color:#247295;}
+.topbar h2{color:#143e59;}
+.top-context{color:#587486;}
+.icon-btn,.profile-pill,.mobile-toggle{
+  border-color:#b9dce9;
+  background:rgba(255,255,255,.66);
+  color:#126f98;
+}
+.icon-btn:hover,.profile-pill:hover,.mobile-toggle:hover{
+  border-color:#82c5df;
+  background:#fff;
+  color:#0079b0;
+}
+.profile-pill .avatar{background:#008dcc;color:#fff;}
+.topbar-logout{
+  border-color:#9dcfe1;
+  background:#fff;
+  color:#086f99;
+}
+.topbar-logout:hover{border-color:#69b9d7;background:#f7fcfe;color:#005f89;}
+@media print{.sidebar,.topbar{background:#fff;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;}}
+
+@media(max-width:820px){
+  .sidebar-overlay{
+    background:rgba(15,67,94,.18);
+    -webkit-backdrop-filter:blur(4px) saturate(110%);
+    backdrop-filter:blur(4px) saturate(110%);
+  }
+}

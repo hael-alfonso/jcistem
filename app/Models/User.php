@@ -55,6 +55,7 @@ class User extends Authenticatable
             'proposal_reviewer' => 'boolean',
             'profile' => 'array',
             'last_login_at' => 'datetime',
+            'active_login_seen_at' => 'datetime',
         ];
     }
 }
