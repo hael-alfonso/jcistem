@@ -7,7 +7,7 @@
         <h1>Project documents</h1>
         <p>Keep the files behind each JCI Carmona project easy to find, from planning through completion.</p>
     </div>
-    <a class="btn primary" href="{{ route('projects') }}">Open projects</a>
+    <a class="btn primary" href="{{ route('projects') }}"><x-icon name="folder" /> Open projects</a>
 </div>
 
 <section class="document-guide" aria-label="Document types">
@@ -15,19 +15,19 @@
         <span class="document-guide-label">01 · INTERNAL REQUEST</span>
         <h2>Project Concept Letters</h2>
         <p>A member's initial project idea addressed to the Chapter President. Review and endorsement happen in the project's concept workflow before a full proposal is prepared.</p>
-        <a class="text-link" href="{{ route('projects', ['filter' => 'concepts']) }}">View project concepts →</a>
+        <a class="text-link" href="{{ route('projects', ['filter' => 'concepts']) }}"><x-icon name="arrow" /> View project concepts</a>
     </article>
     <article class="panel document-guide-card">
         <span class="document-guide-label">02 · EXTERNAL CORRESPONDENCE</span>
         <h2>External LOIs</h2>
         <p>Letters for partners, sponsors, schools, local government units, and other collaborators are linked to a project and tracked through their own review flow.</p>
-        <a class="text-link" href="{{ route('records', 'letters') }}">View external LOIs →</a>
+        <a class="text-link" href="{{ route('records', 'letters') }}"><x-icon name="arrow" /> View external LOIs</a>
     </article>
     <article class="panel document-guide-card">
         <span class="document-guide-label">03 · PROJECT ACCOUNTABILITY</span>
         <h2>Reports &amp; evidence</h2>
         <p>Project progress and completion reports record results. Supporting files such as photos, attendance sheets, approvals, and receipts belong with the relevant project.</p>
-        <a class="text-link" href="{{ route('records', 'reports') }}">View reports →</a>
+        <a class="text-link" href="{{ route('records', 'reports') }}"><x-icon name="arrow" /> View reports</a>
     </article>
 </section>
 
@@ -41,8 +41,8 @@
     </div>
     <form class="list-filters document-search" method="GET" action="{{ route('documents') }}">
         <label><span>Search files</span><input name="q" value="{{ request('q') }}" placeholder="Title, category, or project"></label>
-        <button class="btn secondary" type="submit">Search</button>
-        @if(request()->filled('q'))<a class="text-link" href="{{ route('documents') }}">Clear search</a>@endif
+        <button class="btn secondary" type="submit"><x-icon name="search" /> Search</button>
+        @if(request()->filled('q'))<a class="text-link" href="{{ route('documents') }}"><x-icon name="close" /> Clear search</a>@endif
     </form>
     @if($documents->isNotEmpty())
         <div class="table-wrap"><table>
@@ -53,7 +53,7 @@
                         <td><strong>{{ $document->title }}</strong><small>{{ $document->category }} · {{ $document->original_name }}</small></td>
                         <td><a class="text-link" href="{{ route('projects.show', $document->project) }}#documents">{{ $document->project->title }}</a></td>
                         <td>{{ $document->created_at?->format('M d, Y') ?? '—' }}</td>
-                        <td><a class="text-link" href="{{ route('documents.download', $document) }}">Download ↓</a></td>
+                        <td><a class="text-link" href="{{ route('documents.download', $document) }}"><x-icon name="download" /> Download</a></td>
                     </tr>
                 @endforeach
             </tbody>
@@ -63,7 +63,7 @@
         <div class="empty-state">
             <h3>{{ request()->filled('q') ? 'No matching files' : 'No project files yet' }}</h3>
             <p>{{ request()->filled('q') ? 'Try another title, category, or project name.' : 'Supporting files will appear here after they are uploaded from a project.' }}</p>
-            <a class="btn secondary" href="{{ request()->filled('q') ? route('documents') : route('projects') }}">{{ request()->filled('q') ? 'Show all files' : 'Browse projects' }}</a>
+            <a class="btn secondary" href="{{ request()->filled('q') ? route('documents') : route('projects') }}"><x-icon name="{{ request()->filled('q') ? 'close' : 'folder' }}" /> {{ request()->filled('q') ? 'Show all files' : 'Browse projects' }}</a>
         </div>
     @endif
 </section>

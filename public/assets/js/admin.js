@@ -172,7 +172,8 @@
   function modal(title, body) {
     const wrap = document.createElement('div');
     wrap.className = 'modal-backdrop';
-    wrap.innerHTML = `<div class="modal" role="dialog"><div class="modal-head"><div><h3>${title}</h3></div><button class="icon-btn" data-close type="button" aria-label="Close">×</button></div><div class="modal-body">${body}</div><div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Close</button></div></div>`;
+    const closeIcon = '<span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></span>';
+    wrap.innerHTML = `<div class="modal" role="dialog"><div class="modal-head"><div><h3>${title}</h3></div><button class="icon-btn" data-close type="button" aria-label="Close">${closeIcon}</button></div><div class="modal-body">${body}</div><div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>${closeIcon} Close</button></div></div>`;
     document.body.appendChild(wrap);
     wrap.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => wrap.remove()));
     wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });

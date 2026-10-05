@@ -17,14 +17,20 @@
                 @include('shared.brand')
                 <div>
                     <span class="signin-kicker">JCI CARMONA</span>
-                    <h1>Project management for chapter impact.</h1>
-                    <p>Plan projects, follow progress, and keep chapter records together in JCISTEM.</p>
+                    <h1>Develop leaders. Create positive change.</h1>
+                    <p>A shared workspace for JCI Carmona projects, members, and chapter records.</p>
                 </div>
             </div>
         </section>
         <main class="signin-main">
             <div class="signin-form">
-                @if(session('status'))<div class="alert success" role="status">{{ session('status') }}</div>@endif
+                <div class="signin-feedback-slot" aria-live="polite" aria-atomic="true">
+                    @if($errors->any())
+                        <div class="alert error" role="alert">{{ $errors->first() }}</div>
+                    @elseif(session('status'))
+                        <div class="alert success" role="status">{{ session('status') }}</div>
+                    @endif
+                </div>
                 @yield('auth-content')
             </div>
         </main>

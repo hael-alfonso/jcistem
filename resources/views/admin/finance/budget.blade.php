@@ -8,7 +8,7 @@
         <p>Monitor target/proposed budget, approved allocation, category allocations, and remaining funds.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.finance') }}"><x-icon name="arrow" /> Back</a>
+        <a class="btn btn-secondary" href="{{ route('admin.finance') }}"><x-icon name="arrowLeft" /> Back</a>
     </div>
 </div>
 

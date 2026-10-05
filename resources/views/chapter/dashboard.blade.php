@@ -52,7 +52,7 @@
     @include('chapter.partials.dashboard-tasks')
     @if($active->isNotEmpty())
         <section class="panel dashboard-project-list">
-            <div class="panel-heading"><div><h2>My active projects</h2><p>Your current project work</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'mine']) }}">All my projects &rarr;</a></div>
+            <div class="panel-heading"><div><h2>My active projects</h2><p>Your current project work</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'mine']) }}"><x-icon name="arrow" /> All my projects</a></div>
             @foreach($active->take(3) as $project)
                 <a class="attention-row" href="{{ route('projects.show', $project) }}"><span class="project-mark"><x-icon name="briefcase"/></span><span class="row-main"><strong>{{ $project->title }}</strong><small>{{ $project->status }} · {{ $project->progress }}% tasks completed</small></span><span class="arrow" aria-hidden="true">&rarr;</span></a>
             @endforeach

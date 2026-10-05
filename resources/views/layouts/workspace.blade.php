@@ -78,7 +78,7 @@
             </div>
             <div class="top-actions">
                 @if (Route::has($notifyRoute))
-                    <a class="icon-btn" href="{{ route($notifyRoute) }}" title="Notifications">
+                    <a class="icon-btn" href="{{ route($notifyRoute) }}" aria-label="Notifications" title="Notifications">
                         <x-icon name="bell" />
                         @if(($unread ?? 0))<b class="notification-badge">{{ $unread }}</b>@endif
                     </a>
@@ -90,7 +90,7 @@
                 </a>
                 <form class="topbar-logout-form" method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="topbar-logout">Log out</button>
+                    <button type="submit" class="topbar-logout"><x-icon name="logout" /> Log out</button>
                 </form>
             </div>
         </header>

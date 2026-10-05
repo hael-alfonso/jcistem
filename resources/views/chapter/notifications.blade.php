@@ -4,7 +4,7 @@
 <div class="page-heading">
     <div><div class="eyebrow">STAY IN THE LOOP</div><h1>Notifications</h1><p>Project decisions, assignments, reports, and dues updates in one place.</p></div>
     @if($unreadCount)
-        <form method="POST" action="{{ route('notifications.read') }}">@csrf<button class="btn secondary" type="submit">Mark all as read</button></form>
+        <form method="POST" action="{{ route('notifications.read') }}">@csrf<button class="btn secondary" type="submit"><x-icon name="check" /> Mark all as read</button></form>
     @endif
 </div>
 <nav class="notification-filters" aria-label="Notification filters">
@@ -18,7 +18,7 @@
             <button type="submit" class="notification-action">
                 <span class="notification-status" aria-hidden="true"></span>
                 <span class="notification-copy"><strong>{{ $item->title }}</strong><span>{{ $item->body }}</span><small>{{ $item->created_at->diffForHumans() }}</small></span>
-                <span class="notification-open">Open <span aria-hidden="true">&rarr;</span></span>
+                <span class="notification-open">Open <x-icon name="arrow" /></span>
             </button>
         </form>
     @empty

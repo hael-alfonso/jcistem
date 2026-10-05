@@ -9,7 +9,7 @@
             <option value="">All actions</option>
             @foreach($actions as $option)<option value="{{ $option }}" @selected($action === $option)>{{ \Illuminate\Support\Str::headline($option) }}</option>@endforeach
         </select>
-        <noscript><button class="btn secondary" type="submit">Apply</button></noscript>
+        <noscript><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply</button></noscript>
     </form>
     <span>{{ $records->total() }} {{ \Illuminate\Support\Str::plural('entry', $records->total()) }}</span>
 </div>

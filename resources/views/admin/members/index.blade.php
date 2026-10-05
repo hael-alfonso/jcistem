@@ -43,7 +43,7 @@
                     <td>{{ $u['role'] }}</td>
                     <td><x-badge :text="$u['status']" /></td>
                     <td>{{ \App\Support\JciDemoData::date($u['joined']) }}</td>
-                    <td><button class="icon-action" type="button" data-detail='@json($u)'><x-icon name="eye" /></button></td>
+                    <td><button class="icon-action" type="button" aria-label="View member" data-detail='@json($u)'><x-icon name="eye" /></button></td>
                 </tr>
             @endforeach
             </tbody>

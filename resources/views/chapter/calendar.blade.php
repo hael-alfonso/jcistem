@@ -18,7 +18,7 @@
                     <a class="calendar-today" href="{{ route('calendar') }}">Today</a>
                     <a class="calendar-step" href="{{ route('calendar', ['month' => $month->addMonth()->format('Y-m')]) }}" aria-label="Next month">&rsaquo;</a>
                 </div>
-                <form method="GET" action="{{ route('calendar') }}" class="calendar-jump"><label class="sr-only" for="calendar-month">Jump to month</label><input id="calendar-month" type="month" name="month" value="{{ $month->format('Y-m') }}"><button type="submit">Go</button></form>
+                <form method="GET" action="{{ route('calendar') }}" class="calendar-jump"><label class="sr-only" for="calendar-month">Jump to month</label><input id="calendar-month" type="month" name="month" value="{{ $month->format('Y-m') }}"><button type="submit"><x-icon name="arrow" /> Go</button></form>
                 @if(auth()->user()->role === 'admin')<button class="btn primary calendar-add-button" type="button" data-calendar-dialog-open><x-icon name="calendar"/>Add activity</button>@endif
             </div>
         </header>
@@ -60,7 +60,7 @@
 </div>
 @if(auth()->user()->role === 'admin')
 <dialog class="calendar-event-dialog no-print" id="calendar-event-dialog" aria-labelledby="calendar-event-dialog-title">
-    <div class="calendar-dialog-header"><div><span class="eyebrow">CHAPTER SCHEDULE</span><h2 id="calendar-event-dialog-title">Add an activity</h2><p>Place a meeting, review, or chapter activity on the shared calendar.</p></div><button class="calendar-dialog-close" type="button" data-calendar-dialog-close aria-label="Close dialog">&times;</button></div>
+    <div class="calendar-dialog-header"><div><span class="eyebrow">CHAPTER SCHEDULE</span><h2 id="calendar-event-dialog-title">Add an activity</h2><p>Place a meeting, review, or chapter activity on the shared calendar.</p></div><button class="calendar-dialog-close" type="button" data-calendar-dialog-close aria-label="Close dialog"><x-icon name="close" /></button></div>
     <form method="POST" action="{{ route('calendar.store') }}" class="calendar-dialog-form">@csrf
         <div class="form-grid">
             <x-field name="title" label="Activity title" required/>
@@ -70,7 +70,7 @@
             <x-field name="venue" label="Venue"/>
             <x-field name="description" label="Details" type="textarea"/>
         </div>
-        <div class="calendar-dialog-actions"><button class="btn secondary" type="button" data-calendar-dialog-close>Cancel</button><button class="btn primary" type="submit">Schedule activity</button></div>
+        <div class="calendar-dialog-actions"><button class="btn secondary" type="button" data-calendar-dialog-close><x-icon name="close" /> Cancel</button><button class="btn primary" type="submit"><x-icon name="calendar" /> Schedule activity</button></div>
     </form>
 </dialog>
 @endif

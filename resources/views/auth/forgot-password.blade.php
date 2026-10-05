@@ -1,14 +1,13 @@
 @extends('auth.layout')
-@section('title', 'Forgot password')
+@section('title', 'Account recovery')
 @section('auth-content')
-    <div class="eyebrow">ACCOUNT RECOVERY</div>
-    <h2>Forgot your password?</h2>
-    <p>Enter your registered email address to request a reset link.</p>
-    @if($errors->any())<div class="alert error" role="alert">{{ $errors->first() }}</div>@endif
+    <div class="eyebrow">ACCOUNT RECOVERY · STEP 1 OF 2</div>
+    <h2>Reset your password</h2>
+    <p>Enter the email address registered to your JCI Carmona account. We’ll send a one-time recovery code.</p>
     <form method="POST" action="{{ route('password.email') }}">
         @csrf
-        <x-field name="email" label="Email address" type="email" :value="old('email')" required autocomplete="username" autofocus/>
-        <button class="btn primary" type="submit">Request reset link</button>
+        <x-field name="email" label="Account email address" type="email" :value="old('email')" required autocomplete="email" autofocus/>
+        <button class="btn primary" type="submit"><x-icon name="arrow" /> Send recovery code</button>
     </form>
-    <p class="signin-help"><a href="{{ route('login') }}">← Back to sign in</a></p>
+    <p class="signin-help"><a href="{{ route('login') }}"><x-icon name="arrowLeft" /> Back to sign in</a></p>
 @endsection

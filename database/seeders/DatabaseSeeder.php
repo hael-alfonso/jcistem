@@ -12,10 +12,10 @@ class DatabaseSeeder extends Seeder
             return;
         }
         $accounts = [
-            ['name' => 'Chapter Administrator', 'email' => 'jci.admin@gmail.com', 'role' => 'admin', 'member_no' => 'JCI-001', 'concept_reviewer' => true, 'proposal_reviewer' => false],
-            ['name' => 'Chapter Treasurer', 'email' => 'jci.treasurer@gmail.com', 'role' => 'treasurer', 'member_no' => 'JCI-002', 'concept_reviewer' => false, 'proposal_reviewer' => false],
-            ['name' => 'Board Reviewer', 'email' => 'jci.bod@gmail.com', 'role' => 'bod', 'member_no' => 'JCI-003', 'concept_reviewer' => false, 'proposal_reviewer' => true],
-            ['name' => 'Chapter Member', 'email' => 'jci.member@gmail.com', 'role' => 'member', 'member_no' => 'JCI-004', 'concept_reviewer' => false, 'proposal_reviewer' => false],
+            ['name' => 'Chapter Administrator', 'username' => 'chapter-admin', 'email' => 'jci.admin@gmail.com', 'role' => 'admin', 'member_no' => 'JCI-001', 'concept_reviewer' => true, 'proposal_reviewer' => false],
+            ['name' => 'Chapter Treasurer', 'username' => 'chapter-treasurer', 'email' => 'jci.treasurer@gmail.com', 'role' => 'treasurer', 'member_no' => 'JCI-002', 'concept_reviewer' => false, 'proposal_reviewer' => false],
+            ['name' => 'Board Reviewer', 'username' => 'board-reviewer', 'email' => 'jci.bod@gmail.com', 'role' => 'bod', 'member_no' => 'JCI-003', 'concept_reviewer' => false, 'proposal_reviewer' => true],
+            ['name' => 'Chapter Member', 'username' => 'chapter-member', 'email' => 'jci.member@gmail.com', 'role' => 'member', 'member_no' => 'JCI-004', 'concept_reviewer' => false, 'proposal_reviewer' => false],
         ];
         foreach ($accounts as $account) {
             User::firstOrCreate(['email' => $account['email']], $account + [

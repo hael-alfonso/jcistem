@@ -25,7 +25,7 @@
                     <td>{{ $l['partner'] }}</td>
                     <td>{{ \App\Support\JciDemoData::date($l['date']) }}</td>
                     <td><x-badge :text="$l['status']" /></td>
-                    <td><button class="icon-action" type="button" data-detail='@json($l + ["projectTitle" => $p["title"] ?? "—"])'><x-icon name="eye" /></button></td>
+                    <td><button class="icon-action" type="button" aria-label="View letter of intent" data-detail='@json($l + ["projectTitle" => $p["title"] ?? "—"])'><x-icon name="eye" /></button></td>
                 </tr>
             @endforeach
             </tbody>

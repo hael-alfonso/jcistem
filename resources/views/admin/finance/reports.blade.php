@@ -8,7 +8,7 @@
         <p>Admin receives and monitors submitted financial reports. Treasurer prepares the Overall Financial Report.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.finance') }}"><x-icon name="arrow" /> Back</a>
+        <a class="btn btn-secondary" href="{{ route('admin.finance') }}"><x-icon name="arrowLeft" /> Back</a>
     </div>
 </div>
 
@@ -25,8 +25,8 @@
                     <td><x-badge :text="$r['status']" /></td>
                     <td>
                         <div class="inline-actions">
-                            <button class="icon-action" type="button" data-detail='@json($r)'><x-icon name="eye" /></button>
-                            <button class="icon-action" type="button" data-toast="Download prepared for demo."><x-icon name="download" /></button>
+                            <button class="icon-action" type="button" aria-label="View financial report" data-detail='@json($r)'><x-icon name="eye" /></button>
+                            <button class="icon-action" type="button" aria-label="Download financial report" data-toast="Download prepared for demo."><x-icon name="download" /></button>
                         </div>
                     </td>
                 </tr>

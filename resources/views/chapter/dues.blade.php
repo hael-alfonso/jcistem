@@ -1,7 +1,7 @@
 @extends('layouts.chapter')
 @section('title', $all ? 'Member dues recording' : 'My member dues')
 @section('content')
-<div class="page-heading"><div><div class="eyebrow">JCI CARMONA · CHAPTER MEMBERSHIP</div><h1>{{ $all ? 'Member dues recording' : 'My member dues' }}</h1><p>{{ $all ? 'Maintain monthly assessments and record chapter dues payments in the Treasurer ledger.' : 'Review your JCI Carmona dues periods, outstanding balances, and payments recorded by the Treasurer.' }}</p></div>@if($all)<a class="btn secondary" href="{{ route('ledger') }}">Open Treasurer ledger →</a>@endif</div>
+<div class="page-heading"><div><div class="eyebrow">JCI CARMONA · CHAPTER MEMBERSHIP</div><h1>{{ $all ? 'Member dues recording' : 'My member dues' }}</h1><p>{{ $all ? 'Maintain monthly assessments and record chapter dues payments in the Treasurer ledger.' : 'Review your JCI Carmona dues periods, outstanding balances, and payments recorded by the Treasurer.' }}</p></div>@if($all)<a class="btn secondary" href="{{ route('ledger') }}"><x-icon name="receipt" /> Open Treasurer ledger</a>@endif</div>
 <section class="dues-guide" aria-label="How member dues work">
     <div><span>01 · ASSESSMENT</span><strong>Monthly dues</strong><p>The Treasurer records each period, amount, and due date according to the chapter's approved dues policy.</p></div>
     <div><span>02 · RECORDING</span><strong>Payment and proof</strong><p>The Treasurer records payments against the member and period. Posted payments also appear in the Treasurer ledger.</p></div>
@@ -28,7 +28,7 @@
         <x-field name="member_id" label="Member (leave blank for all active members)" type="select" :options="$members->pluck('name','id')->all()"/>
         <x-field name="amount" label="Dues amount (PHP)" type="number" min="0" step="0.01" required/>
         <x-field name="remarks" label="Policy, adjustment, or waiver reason" type="textarea" required/>
-        <div class="full"><p class="hint">To waive an unpaid assessment, enter zero and explain the reason. Existing posted payments cannot be reduced below the amount already paid.</p><button class="btn primary" type="submit">Save dues period</button></div>
+        <div class="full"><p class="hint">To waive an unpaid assessment, enter zero and explain the reason. Existing posted payments cannot be reduced below the amount already paid.</p><button class="btn primary" type="submit"><x-icon name="save" /> Save dues period</button></div>
     </form>
 </details>
 @endif
@@ -43,7 +43,7 @@
                 <progress value="{{ min($due->paid, (float) $due->amount) }}" max="{{ max(0.01, (float) $due->amount) }}"></progress>
                 <h3>Payment history</h3>
                 <div class="table-wrap"><table><thead><tr><th>Reference</th><th>Date</th><th>Amount</th><th>Status</th><th>Receipt</th></tr></thead><tbody>
-                    @forelse($due->payments as $payment)<tr><td>{{ $payment->reference }}</td><td>{{ $payment->transaction_date?->format('M d, Y') }}</td><td>PHP {{ number_format($payment->amount, 2) }}</td><td>{{ $payment->status }}</td><td>@if($payment->document_path)<a class="text-link" href="{{ route('ledger.receipt', $payment) }}">Download</a>@else<span class="muted">None uploaded</span>@endif</td></tr>
+                    @forelse($due->payments as $payment)<tr><td>{{ $payment->reference }}</td><td>{{ $payment->transaction_date?->format('M d, Y') }}</td><td>PHP {{ number_format($payment->amount, 2) }}</td><td>{{ $payment->status }}</td><td>@if($payment->document_path)<a class="text-link" href="{{ route('ledger.receipt', $payment) }}"><x-icon name="download" /> Download</a>@else<span class="muted">None uploaded</span>@endif</td></tr>
                     @empty<tr><td colspan="5">No payments recorded for this period.</td></tr>@endforelse
                 </tbody></table></div>
                 @if($all && $due->balance > 0)
@@ -54,7 +54,7 @@
                         <x-field name="payment_method" label="Payment method" type="select" :options="array_combine(['Cash','Bank transfer','GCash','Cheque','Other'],['Cash','Bank transfer','GCash','Cheque','Other'])" value="Cash" required/>
                         <x-field name="remarks" label="Payment remarks" type="textarea"/>
                         <x-field name="receipt" label="Receipt or proof (PDF or image)" type="file"/>
-                        <div class="full"><p class="hint">The payment reference must be unique. A recorded payment is posted to the chapter ledger and updates this member's balance.</p><button class="btn primary" type="submit">Record payment</button></div>
+                        <div class="full"><p class="hint">The payment reference must be unique. A recorded payment is posted to the chapter ledger and updates this member's balance.</p><button class="btn primary" type="submit"><x-icon name="plus" /> Record payment</button></div>
                     </form>
                 @endif
             </div>

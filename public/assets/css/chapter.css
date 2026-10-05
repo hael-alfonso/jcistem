@@ -10,3 +10,5 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 @media print{body{background:white;font-size:11px}.app-sidebar,.app-topbar,.app-footer,.no-print,.nav-overlay,.button-row,.journey,.anchor-tabs{display:none!important}.app-main{margin:0}.app-content{padding:0;max-width:none}.panel{border:0;overflow:visible}.panel,.form-panel{padding:10px 0;margin:15px 0}.page-heading h1{font-size:24px}.stats-grid{gap:8px}.stat-card{min-height:100px;padding:10px}.stat-card strong.money{font-size:18px}.table-wrap{overflow:visible}table{font-size:9px}th,td{padding:7px}.detail-grid{gap:18px}.document-letterhead{margin-top:15px}.form-grid,.action-grid,form,.btn{display:none!important}details:not([open]){display:none}.badge{border:1px solid #ccc}.printable-document{break-inside:auto}h2,h3{break-after:avoid}tr{break-inside:avoid}thead{display:table-header-group}}
 
+
+.btn .ico svg{width:16px;height:16px}.back-link{display:inline-flex;align-items:center;gap:7px}.back-link .ico svg{width:16px;height:16px}

@@ -13,4 +13,4 @@
 <x-field name="status" label="Task status" type="select" :options="array_combine(['To Do','In Progress','Blocked','Completed'],['To Do','In Progress','Blocked','Completed'])" :value="$task->status??'To Do'" required/>
 <x-field name="notes" label="Progress notes" type="textarea" :value="$task->notes"/>
 <x-field name="evidence" label="Completion evidence / document references" type="textarea" :value="$task->evidence"/>
-<div class="full"><button class="btn primary">{{ $task->exists?'Save task changes':'Create task' }}</button></div></form>
+<div class="full"><button class="btn primary"><x-icon name="{{ $task->exists ? 'save' : 'plus' }}" /> {{ $task->exists?'Save task changes':'Create task' }}</button></div></form>

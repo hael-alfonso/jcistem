@@ -8,7 +8,7 @@
         <p>Complete the Project Creation Form before validation and submission.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.projects') }}"><x-icon name="arrow" /> Back to Projects</a>
+        <a class="btn btn-secondary" href="{{ route('admin.projects') }}"><x-icon name="arrowLeft" /> Back to Projects</a>
     </div>
 </div>
 
@@ -53,8 +53,8 @@
             </label>
         </div>
         <div class="full form-actions">
-            <button type="button" class="btn btn-secondary" data-toast="Project draft saved.">Save Draft</button>
-            <button type="submit" class="btn btn-primary">Validate &amp; Submit</button>
+            <button type="button" class="btn btn-secondary" data-toast="Project draft saved."><x-icon name="save" /> Save Draft</button>
+            <button type="submit" class="btn btn-primary"><x-icon name="check" /> Validate &amp; Submit</button>
         </div>
     </form>
 </x-card>

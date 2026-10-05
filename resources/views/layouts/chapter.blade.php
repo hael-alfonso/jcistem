@@ -119,7 +119,7 @@
     <div class="app-main">
         <header class="app-topbar">
             <div class="topbar-context">
-                <button class="menu-button" type="button" aria-controls="navigation" aria-expanded="false" aria-label="Open navigation">☰</button>
+                <button class="menu-button" type="button" aria-controls="navigation" aria-expanded="false" aria-label="Open navigation"><x-icon name="menu" /></button>
                 <span><a href="{{ route('dashboard') }}">Workspace</a><span class="muted">/</span><strong>@yield('title', 'Overview')</strong></span>
             </div>
             <div class="topbar-right">
@@ -164,7 +164,7 @@
         <span class="confirm-dialog-icon"><x-icon name="shieldCheck"/></span>
         <h2 id="confirm-dialog-title">Confirm this change</h2>
         <p id="confirm-dialog-message"></p>
-        <div class="confirm-dialog-actions"><button class="btn secondary" type="button" data-dialog-cancel>Cancel</button><button class="btn primary" type="button" data-dialog-confirm>Continue</button></div>
+        <div class="confirm-dialog-actions"><button class="btn secondary" type="button" data-dialog-cancel><x-icon name="close" /> Cancel</button><button class="btn primary" type="button" data-dialog-confirm><x-icon name="check" /> Continue</button></div>
     </div>
 </dialog>
 </body>

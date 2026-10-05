@@ -8,7 +8,7 @@
         <p>Monitor allocated, used, remaining, utilization percentage and variance-related values.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.finance') }}"><x-icon name="arrow" /> Back</a>
+        <a class="btn btn-secondary" href="{{ route('admin.finance') }}"><x-icon name="arrowLeft" /> Back</a>
     </div>
 </div>
 

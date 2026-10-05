@@ -11,7 +11,7 @@
         <x-field name="email" label="Email address" type="email" :value="$email" required autocomplete="username"/>
         <x-field name="password" label="New password" type="password" minlength="10" required autocomplete="new-password"/>
         <x-field name="password_confirmation" label="Confirm new password" type="password" minlength="10" required autocomplete="new-password"/>
-        <button class="btn primary" type="submit">Save new password</button>
+        <button class="btn primary" type="submit"><x-icon name="save" /> Save new password</button>
     </form>
-    <p class="signin-help"><a href="{{ route('login') }}">← Back to sign in</a></p>
+    <p class="signin-help"><a href="{{ route('login') }}"><x-icon name="arrowLeft" /> Back to sign in</a></p>
 @endsection

@@ -9,5 +9,5 @@
 <x-field name="type" label="Document type" type="select" :options="$kind==='letters'?$letterTypeOptions:($project?['Progress'=>'Progress report','Completion'=>'Project completion report']:['Overall Financial'=>'Overall Financial Report'])" :value="$record->type" required/>
 @foreach($kind==='letters'?\App\Support\ChapterForms::LETTER:($project?\App\Support\ChapterForms::REPORT:\App\Support\ChapterForms::FINANCIAL_REPORT) as $key=>$label)<x-field :name="'data['.$key.']'" :label="$label" :type="str_starts_with($key,'period_')?'date':'textarea'" :value="$record->data[$key]??''"/>@endforeach
 <x-field name="attachment" label="Supporting report / letter file (max 10 MB)" type="file"/>
-<div class="full"><p class="hint">Save a draft, then submit the completed document for Admin review. Previous versions are retained.</p><button class="btn primary">Save draft</button></div></div></section></form>
+<div class="full"><p class="hint">Save a draft, then submit the completed document for Admin review. Previous versions are retained.</p><button class="btn primary"><x-icon name="save" /> Save draft</button></div></div></section></form>
 @endsection

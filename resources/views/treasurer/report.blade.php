@@ -1,7 +1,7 @@
 @extends('layouts.workspace')
 @section('content')
 <div class="page-head"><div class="page-copy"><div class="eyebrow">TREASURER</div><h1>Overall Financial Report</h1><p>Treasurer prepares and maintains the official Overall Financial Report.</p></div>
-<div class="page-actions"><button class="btn btn-primary" type="button" data-toast="Financial report draft saved.">Prepare report</button></div></div>
+<div class="page-actions"><button class="btn btn-primary" type="button" data-toast="Financial report draft saved."><x-icon name="filePlus" /> Prepare report</button></div></div>
 <x-card title="Submitted financial reports" subtitle="Chapter-level financial reporting">
     <div class="table-scroll"><table>
         <thead><tr><th>Report</th><th>Submitted by</th><th>Submitted</th><th>Status</th></tr></thead>

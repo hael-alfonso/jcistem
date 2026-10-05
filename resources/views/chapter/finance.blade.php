@@ -8,7 +8,7 @@
         <p>All visible projects. Budgets and posted expenses are all-time totals; monthly spending covers the last six months.</p>
     </div>
     @if(auth()->user()->role === 'treasurer')
-        <a class="btn primary" href="{{ route('ledger') }}">Open Treasurer ledger →</a>
+        <a class="btn primary" href="{{ route('ledger') }}"><x-icon name="receipt" /> Open Treasurer ledger</a>
     @endif
 </div>
 

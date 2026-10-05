@@ -122,7 +122,7 @@
                 </div>
             </div>
             <div class="top-actions">
-                <a class="icon-btn" href="{{ route('notifications') }}" title="Notifications">
+                <a class="icon-btn" href="{{ route('notifications') }}" aria-label="Notifications" title="Notifications">
                     <x-icon name="bell" />
                     @if($unread)<b class="notification-badge">{{ $unread }}</b>@endif
                 </a>

@@ -1172,3 +1172,7 @@ body{
 .tile-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:#EAF7FC;color:#087FA7;}
 .top-context{display:block;color:#8A97A4;font-size:8px;margin-top:3px;}
 @media(max-width:760px){.finance-tiles-simple{grid-template-columns:1fr}.content{padding:12px 12px 16px!important;}}
+
+.btn { gap: 8px; }
+.btn .ico { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 16px; height: 16px; margin-right: 0; }
+.btn .ico svg { width: 16px; height: 16px; }

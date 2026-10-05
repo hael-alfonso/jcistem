@@ -171,7 +171,8 @@ class RecordController extends Controller
     public function memberSave(Request $request, ?User $member = null)
     {
         abort_unless($request->user()->role === 'admin', 403);
-        $data = $request->validate(['name' => 'required|string|max:200', 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($member?->id)], 'password' => [$member ? 'nullable' : 'required', 'confirmed', Password::min(10)], 'role' => ['required', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'status' => ['required', Rule::in(['active', 'inactive'])], 'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member?->id)], 'concept_reviewer' => 'sometimes|boolean', 'proposal_reviewer' => 'sometimes|boolean', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.joined_on' => 'nullable|date', 'profile.emergency_contact' => 'nullable|string|max:500']);
+        $data = $request->validate(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($member?->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($member?->id)], 'password' => [$member ? 'nullable' : 'required', 'confirmed', Password::min(10)], 'role' => ['required', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'status' => ['required', Rule::in(['active', 'inactive'])], 'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member?->id)], 'concept_reviewer' => 'sometimes|boolean', 'proposal_reviewer' => 'sometimes|boolean', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.joined_on' => 'nullable|date', 'profile.emergency_contact' => 'nullable|string|max:500']);
+        $data['username'] = strtolower($data['username']);
         $data['concept_reviewer'] = in_array($data['role'], ['admin', 'bod']) && $request->boolean('concept_reviewer');
         $data['proposal_reviewer'] = in_array($data['role'], ['admin', 'bod']) && $request->boolean('proposal_reviewer');
         if (empty($data['password'])) unset($data['password']);
@@ -201,7 +202,8 @@ class RecordController extends Controller
 
     public function accountSave(Request $request)
     {
-        $data = $request->validate(['name' => 'required|string|max:200', 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($request->user()->id)], 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048', 'remove_photo' => 'nullable|boolean', 'current_password' => 'nullable|required_with:password|current_password', 'password' => ['nullable', 'confirmed', Password::min(10)]]);
+        $data = $request->validate(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($request->user()->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($request->user()->id)], 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048', 'remove_photo' => 'nullable|boolean', 'current_password' => 'nullable|required_with:password|current_password', 'password' => ['nullable', 'confirmed', Password::min(10)]]);
+        $data['username'] = strtolower($data['username']);
         $user = $request->user();
         $oldPhoto = $user->profile['photo_path'] ?? null;
         $newPhoto = $request->hasFile('photo') ? $request->file('photo')->store('profile-photos/'.$user->id, 'local') : null;

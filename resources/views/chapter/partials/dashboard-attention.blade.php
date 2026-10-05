@@ -1,6 +1,6 @@
 <div class="dashboard-grid" aria-label="Projects and tasks requiring attention">
     <section class="panel">
-        <div class="panel-heading"><div><h2>Review attention</h2><p>Concepts, proposals, and completion requests awaiting review</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'review']) }}">View all &rarr;</a></div>
+        <div class="panel-heading"><div><h2>Review attention</h2><p>Concepts, proposals, and completion requests awaiting review</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'review']) }}"><x-icon name="arrow" /> View all</a></div>
         @forelse($pending->take(5) as $project)
             <a class="attention-row" href="{{ route('projects.show', $project) }}">
                 <span class="project-mark light"><x-icon name="fileSignature"/></span>
@@ -12,7 +12,7 @@
         @endforelse
     </section>
     <section class="panel">
-        <div class="panel-heading"><div><h2>My next steps</h2><p>Open tasks ordered by deadline</p></div><a class="text-link" href="{{ route('tasks', ['mine' => 1]) }}">View all &rarr;</a></div>
+        <div class="panel-heading"><div><h2>My next steps</h2><p>Open tasks ordered by deadline</p></div><a class="text-link" href="{{ route('tasks', ['mine' => 1]) }}"><x-icon name="arrow" /> View all</a></div>
         @forelse($tasks->take(5) as $task)
             <a class="attention-row" href="{{ route('projects.show', $task->project_id) }}#tasks">
                 <span class="task-dot {{ $task->deadline?->lt(today()) ? 'overdue' : '' }}"></span>

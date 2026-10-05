@@ -8,7 +8,7 @@
         <p>JCI Carmona member registration structure based on the master form definitions.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.members') }}"><x-icon name="arrow" /> Back to Members</a>
+        <a class="btn btn-secondary" href="{{ route('admin.members') }}"><x-icon name="arrowLeft" /> Back to Members</a>
     </div>
 </div>
 
@@ -38,8 +38,8 @@
             </label>
         </div>
         <div class="full form-actions">
-            <button type="button" class="btn btn-secondary" data-toast="Registration saved.">Save Registration</button>
-            <button type="submit" class="btn btn-primary">Save &amp; Prepare Account</button>
+            <button type="button" class="btn btn-secondary" data-toast="Registration saved."><x-icon name="save" /> Save Registration</button>
+            <button type="submit" class="btn btn-primary"><x-icon name="save" /> Save &amp; Prepare Account</button>
         </div>
     </form>
 </x-card>

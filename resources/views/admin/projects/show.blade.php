@@ -9,7 +9,7 @@
         <p>Monitoring view: scope, progress, tasks, budget, LOI, documents and reports.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.projects') }}"><x-icon name="arrow" /> Back</a>
+        <a class="btn btn-secondary" href="{{ route('admin.projects') }}"><x-icon name="arrowLeft" /> Back</a>
     </div>
 </div>
 

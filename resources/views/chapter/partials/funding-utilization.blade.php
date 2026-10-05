@@ -4,7 +4,7 @@
     $fundRemaining = max(0, $fundAllocation - $fundSpending);
 @endphp
 <section class="panel chart-panel funding-utilization-panel">
-    <div class="panel-heading"><div><h2>Budget utilization</h2><p>Approved project allocations · all time</p></div><a class="text-link" href="{{ route('finance') }}">Details &rarr;</a></div>
+    <div class="panel-heading"><div><h2>Budget utilization</h2><p>Approved project allocations · all time</p></div><a class="text-link" href="{{ route('finance') }}"><x-icon name="arrow" /> Details</a></div>
     @if($fundAllocation > 0)
         @include('chapter.partials.pie-chart', ['segments' => collect([
             ['label' => 'Used allocation', 'value' => min($fundSpending, $fundAllocation), 'color' => '#c46045'],

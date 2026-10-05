@@ -96,6 +96,22 @@ class ChapterController extends Controller
         return view('chapter.project', compact('project', 'members', 'assignableMembers'));
     }
 
+    public function projectMemberPhoto(Request $request, Project $project, User $member)
+    {
+        abort_unless(ChapterService::canView($project, $request->user()), 403);
+        $isChair = $project->chair_id === $member->id;
+        $isAssignee = Task::where('project_id', $project->id)
+            ->whereJsonContains('assignees', $member->id)->exists();
+        abort_unless($isChair || $isAssignee, 404);
+        $path = $member->profile['photo_path'] ?? null;
+        abort_unless($path && str_starts_with($path, 'profile-photos/'.$member->id.'/') && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, null, [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function transition(Request $request, Project $project, ChapterService $service)
     {
         $data = $request->validate(['action' => 'required|string', 'comments' => 'nullable|string|max:5000', 'chair_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('status', 'active')->where('role', '!=', 'admin')]]);
@@ -131,13 +147,15 @@ class ChapterController extends Controller
 
         $tasks = $taskQuery->with('project.chair')
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->orderByRaw("CASE WHEN status = 'Completed' THEN 1 ELSE 0 END")
             ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END')
             ->orderBy('deadline')->paginate(18)->withQueryString();
-        $assigneeNames = User::whereIn('id', $tasks->getCollection()
-            ->flatMap(fn ($task) => $task->assignees ?? [])->unique())->pluck('name', 'id');
+        $assignedMembers = User::whereIn('id', $tasks->getCollection()
+            ->flatMap(fn ($task) => $task->assignees ?? [])->unique())
+            ->get(['id', 'name', 'profile'])->keyBy('id');
 
         return view('chapter.tasks', compact(
-            'tasks', 'assigneeNames', 'visibleProjects', 'statusCounts',
+            'tasks', 'assignedMembers', 'visibleProjects', 'statusCounts',
             'taskTotal', 'doneTasks', 'progress', 'overdueTasks'
         ));
     }

@@ -1,19 +1,16 @@
 @extends('auth.layout')
 @section('title', 'Sign in')
 @section('auth-content')
-    <div class="eyebrow">CHAPTER WORKSPACE</div>
+    <div class="eyebrow">JCI CARMONA · CHAPTER WORKSPACE</div>
     <h2>Welcome back</h2>
-    <p>Sign in with your registered JCI Carmona account.</p>
-    @if($errors->any())<div class="alert error" role="alert">{{ $errors->first() }}</div>@endif
+    <p>Sign in to continue your chapter’s projects, people, and records.</p>
     <form method="POST" action="{{ route('login.attempt') }}">
         @csrf
-        <x-field name="email" label="Email address" type="email" required autocomplete="username" autofocus/>
+        <x-field name="login" label="Username or email address" :value="old('login')" required autocomplete="username" autofocus/>
         <x-field name="password" label="Password" type="password" required autocomplete="current-password"/>
-        <div class="signin-options">
-            <label class="check-field"><input type="checkbox" name="remember" value="1"> Keep me signed in</label>
-            <a href="{{ route('password.request') }}">Forgot password?</a>
-        </div>
-        <button class="btn primary" type="submit">Sign in to workspace <span aria-hidden="true">→</span></button>
+        <div class="signin-options"><span class="signin-security-note">Secure access for JCI Carmona members</span><a href="{{ route('password.request') }}">Forgot password?</a></div>
+        <label class="signin-replace-session"><input type="checkbox" name="replace_session" value="1"><span>Replace an existing sign-in if I can’t access it</span></label>
+        <button class="btn primary" type="submit"><x-icon name="arrow" /> Sign in to workspace</button>
     </form>
-    <p class="signin-help">Need access or help signing in? Contact your JCI Carmona chapter administrator.</p>
+    <p class="signin-help">Need help accessing your account? Contact your JCI Carmona chapter administrator.</p>
 @endsection

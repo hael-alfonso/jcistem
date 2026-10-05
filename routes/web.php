@@ -9,7 +9,12 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
-    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:5,1')->name('password.email');
+    Route::post('/forgot-password', [AuthController::class, 'sendRecoveryOtp'])->middleware('throttle:5,1')->name('password.email');
+    Route::post('/forgot-password/send-code', [AuthController::class, 'sendRecoveryOtp'])->middleware('throttle:3,10')->name('password.otp.send');
+    Route::get('/forgot-password/verify', [AuthController::class, 'showRecoveryOtp'])->name('password.otp');
+    Route::post('/forgot-password/verify', [AuthController::class, 'verifyRecoveryOtp'])->middleware('throttle:8,1')->name('password.otp.verify');
+    Route::get('/forgot-password/reset', [AuthController::class, 'showRecoveryReset'])->name('password.recovery.reset');
+    Route::post('/forgot-password/reset', [AuthController::class, 'updateRecoveryPassword'])->middleware('throttle:5,1')->name('password.recovery.update');
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1')->name('password.update');
 });
@@ -21,6 +26,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
     Route::get('/projects/{project}', [ChapterController::class, 'show'])->name('projects.show')->whereNumber('project');
+    Route::get('/projects/{project}/people/{member}/photo', [ChapterController::class, 'projectMemberPhoto'])->name('projects.people.photo')->whereNumber(['project', 'member']);
     Route::get('/projects/{project}/edit', [ChapterController::class, 'edit'])->name('projects.edit');
     Route::put('/projects/{project}', [ChapterController::class, 'save'])->name('projects.update');
     Route::post('/projects/{project}/transition', [ChapterController::class, 'transition'])->name('projects.transition');

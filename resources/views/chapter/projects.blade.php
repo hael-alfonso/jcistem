@@ -27,8 +27,8 @@
             </optgroup>
         @endforeach
     </select></label>
-    <button class="btn secondary" type="submit">Apply filters</button>
-    @if(request()->filled('q') || request()->filled('filter'))<a class="text-link" href="{{ route('projects') }}">Clear filters</a>@endif
+    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
+    @if(request()->filled('q') || request()->filled('filter'))<a class="text-link" href="{{ route('projects') }}"><x-icon name="close" /> Clear filters</a>@endif
 </form>
 <div class="collection-results"><span>{{ number_format($projects->total()) }} {{ \Illuminate\Support\Str::plural('project', $projects->total()) }}</span><span>Newest first</span></div>
 <div class="project-grid modern-project-grid">
@@ -46,7 +46,7 @@
             </div>
             <div class="project-card-facts">
                 <div><small>Created by</small><strong>{{ $project->owner?->name ?? 'Unknown' }}</strong></div>
-                <div><small>Project chair</small><strong>{{ $project->chair?->name ?? 'Not assigned' }}</strong></div>
+                <div><small>Project chair</small><strong>@if($project->chair)<a href="{{ route('projects.show', $project) }}#chair">{{ $project->chair->name }}</a>@else Not assigned @endif</strong></div>
                 <div><small>Starts</small><strong>{{ $project->starts_on?->format('M d, Y') ?? 'Not set' }}</strong></div>
                 <div><small>Ends</small><strong>{{ $project->ends_on?->format('M d, Y') ?? 'Not set' }}</strong></div>
             </div>
@@ -61,11 +61,11 @@
             <x-icon name="briefcase"/>
             @if(request()->filled('q') || request()->filled('filter'))
                 <h2>No matching projects</h2><p>Try another title or filter.</p>
-                <a class="btn secondary" href="{{ route('projects') }}">Clear filters</a>
+                <a class="btn secondary" href="{{ route('projects') }}"><x-icon name="close" /> Clear filters</a>
             @else
                 <h2>No projects yet</h2>
                 <p>Create a project concept to get started.</p>
-                <a class="btn primary" href="{{ route('projects.create') }}">New project concept</a>
+                <a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus" /> New project concept</a>
             @endif
         </div>
     @endforelse

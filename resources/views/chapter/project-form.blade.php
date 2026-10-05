@@ -16,6 +16,6 @@
 @foreach($proposal?\App\Support\ChapterForms::PROPOSAL:\App\Support\ChapterForms::CONCEPT as $key=>$label)
 <x-field :name="($proposal?'proposal':'concept').'['.$key.']'" :label="$label" type="textarea" :value="($proposal?$project->proposal:$project->concept)[$key]??''" maxlength="15000"/>
 @endforeach</div></section>
-<div class="form-footer"><a class="btn secondary" href="{{ $project->exists?route('projects.show',$project):route('projects') }}">Cancel</a><button class="btn primary">Save {{ $proposal?'proposal':'concept' }} draft</button></div></form>
+<div class="form-footer"><a class="btn secondary" href="{{ $project->exists?route('projects.show',$project):route('projects') }}"><x-icon name="close" /> Cancel</a><button class="btn primary"><x-icon name="save" /> Save {{ $proposal?'proposal':'concept' }} draft</button></div></form>
 @endsection
 

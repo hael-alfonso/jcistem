@@ -65,7 +65,7 @@
                 <div class="project-actions">
                     <a class="btn btn-secondary" href="{{ route('admin.projects.show', $p['id']) }}"><x-icon name="eye" /> View project</a>
                     @if(str_contains($p['status'], 'Review'))
-                        <a class="btn btn-primary" href="{{ route('admin.projects', ['filter' => 'pending']) }}">Review</a>
+                        <a class="btn btn-primary" href="{{ route('admin.projects', ['filter' => 'pending']) }}"><x-icon name="fileSignature" /> Review</a>
                     @endif
                 </div>
             </article>
