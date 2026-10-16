@@ -1,7 +1,7 @@
 @extends('auth.layout')
 @section('title', 'Choose a new password')
 @section('auth-content')
-    <div class="eyebrow">ACCOUNT RECOVERY · PASSWORD</div>
+    <div class="eyebrow">JCISTEM | ACCOUNT RECOVERY | PASSWORD</div>
     <h2>Choose a new password</h2>
     <p>Use at least 10 characters. You’ll be able to sign in with your username or email afterward.</p>
     <form method="POST" action="{{ route('password.recovery.update') }}">

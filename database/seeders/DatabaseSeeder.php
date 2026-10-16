@@ -26,5 +26,6 @@ class DatabaseSeeder extends Seeder
         $this->call(JciCarmonaProjectSeeder::class);
         $this->call(JciCarmonaTaskSeeder::class);
         $this->call(JciCarmonaBudgetSeeder::class);
+        $this->call(JciCarmonaContentSeeder::class);
     }
 }

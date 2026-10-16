@@ -1,7 +1,7 @@
 @extends('auth.layout')
 @section('title', 'Enter recovery code')
 @section('auth-content')
-    <div class="eyebrow">ACCOUNT RECOVERY · STEP 2 OF 2</div>
+    <div class="eyebrow">JCISTEM | ACCOUNT RECOVERY | STEP 2 OF 2</div>
     <h2>Enter your code</h2>
     <p>If the email matches an active account, a six-digit code was sent to <strong>{{ $recoveryEmail }}</strong>. It expires in 10 minutes.</p>
     <form method="POST" action="{{ route('password.otp.verify') }}">
@@ -14,5 +14,5 @@
         <input type="hidden" name="email" value="{{ $recoveryEmail }}">
         <button class="btn secondary" type="submit"><x-icon name="refresh" /> Send a new code</button>
     </form>
-    <p class="signin-help"><a href="{{ route('password.request') }}"><x-icon name="arrowLeft" /> Start over</a></p>
+    <p class="signin-help signin-back-row"><a class="auth-back-button" href="{{ route('password.request') }}" data-auth-nav="back" aria-label="Back to account recovery" title="Back to account recovery"><x-icon name="arrowLeft" /></a></p>
 @endsection

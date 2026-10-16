@@ -1,7 +1,7 @@
 @extends('auth.layout')
 @section('title', 'Reset password')
 @section('auth-content')
-    <div class="eyebrow">ACCOUNT RECOVERY</div>
+    <div class="eyebrow">JCISTEM | ACCOUNT RECOVERY</div>
     <h2>Create a new password</h2>
     <p>Choose a password with at least 10 characters for your JCISTEM account.</p>
     @if($errors->any())<div class="alert error" role="alert">{{ $errors->first() }}</div>@endif
@@ -13,5 +13,5 @@
         <x-field name="password_confirmation" label="Confirm new password" type="password" minlength="10" required autocomplete="new-password"/>
         <button class="btn primary" type="submit"><x-icon name="save" /> Save new password</button>
     </form>
-    <p class="signin-help"><a href="{{ route('login') }}"><x-icon name="arrowLeft" /> Back to sign in</a></p>
+    <p class="signin-help signin-back-row"><a class="auth-back-button" href="{{ route('login') }}" data-auth-nav="back" aria-label="Back to sign in" title="Back to sign in"><x-icon name="arrowLeft" /></a></p>
 @endsection

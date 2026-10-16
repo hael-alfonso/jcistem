@@ -8,7 +8,7 @@
         <p>Complete the Project Creation Form before validation and submission.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.projects') }}"><x-icon name="arrowLeft" /> Back to Projects</a>
+        <a class="btn btn-secondary icon-nav-button" href="{{ route('admin.projects') }}" aria-label="Back to projects" title="Back to projects"><x-icon name="arrowLeft" /></a>
     </div>
 </div>
 

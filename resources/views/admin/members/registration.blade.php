@@ -8,7 +8,7 @@
         <p>JCI Carmona member registration structure based on the master form definitions.</p>
     </div>
     <div class="page-actions">
-        <a class="btn btn-secondary" href="{{ route('admin.members') }}"><x-icon name="arrowLeft" /> Back to Members</a>
+        <a class="btn btn-secondary icon-nav-button" href="{{ route('admin.members') }}" aria-label="Back to members" title="Back to members"><x-icon name="arrowLeft" /></a>
     </div>
 </div>
 
