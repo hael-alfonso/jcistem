@@ -2,6 +2,8 @@
 
 @php
 $icons = [
+    'instagram' => '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>',
+    'eyeOff' => '<path d="m3 3 18 18M10.6 7.1A12 12 0 0 1 12 7c6 0 9.5 5 9.5 5a17 17 0 0 1-3.1 3.3M6.1 8.4A18 18 0 0 0 2.5 12s3.5 5 9.5 5a13 13 0 0 0 3.2-.4M10 10a2.8 2.8 0 0 0 4 4"/>',
     'globe' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 4 5.5 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.5-4-9s1.5-6.5 4-9Z"/>',
     'dashboard' => '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
     'briefcase' => '<rect x="3" y="6.5" width="18" height="13" rx="2.5"/><path d="M8 6.5V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1.5M3 11h18"/>',

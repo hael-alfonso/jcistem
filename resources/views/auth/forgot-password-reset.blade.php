@@ -9,7 +9,7 @@
         @csrf
         <x-auth-field name="password" label="New password" type="password" required minlength="10" autocomplete="new-password"/>
         <x-auth-field name="password_confirmation" label="Confirm new password" type="password" required minlength="10" autocomplete="new-password"/>
-        <button class="button button-primary auth-submit" type="submit"><span data-submit-label>Update password</span><span aria-hidden="true">→</span></button>
+        <x-auth-action label="Update password" icon="check" />
     </form>
     <p class="signin-help">After changing your password, all previous sign-ins for this account will be cleared.</p>
 @endsection

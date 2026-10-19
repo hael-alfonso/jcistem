@@ -24,6 +24,15 @@ The JCI primary logo was downloaded from the existing JCI Europe asset URL: http
 
 ## Behavior and verification
 
+### 20 October 2026 refinements
+
+- Added the user-supplied Instagram account, https://www.instagram.com/jcicarmona/ . The public profile identifies itself as JCI Carmona. Links stay optional and open externally; neither social network is an authentication provider.
+- Added the chapter's [Ngiting Maningning, Batang Masayahin report](https://www.facebook.com/jcicarmonaofficial/posts/pfbid0mgDBh47KkVstoKn6FbSGSU9eakaoWHjZD7sMELtTEAepMW9FZppLJGDg7rjR2827l), posted on 20 August 2026 about the 13 June 2026 activity. The speaker photo is stored locally as `ngiting-maningning.jpg`, from photo ID 122180941562393816. The page distinguishes event and publication dates and does not claim this is an October event.
+- The public Facebook Reels view exposed no playable video or individual video links. No login-dependent embed or invented video was added.
+- Added the [May–June general membership meeting update](https://www.facebook.com/jcicarmonaofficial/posts/pfbid0EHZwX9HR4RLunN33gKUS6fhhYwDXqt5aLcaVX3cKNJ51LjnvVSP5sb4gKbNZPKgHl), posted on 10 July 2026. This is explicitly labeled chapter life rather than a separate community-service project. The locally stored meeting photo comes from photo ID 122176896788393816 and preserves its original 586 × 414 dimensions and credits.
+- Reduced the public header and footer spacing while retaining the chapter's branding. Footer links have at least 40px rows; icon-only auth controls have 50px targets, accessible names, and tooltips. Password visibility uses eye icons and preserves pressed state.
+- Landing motion uses one-time intersection-based reveals, a short hero entrance, and restrained hover feedback. Content stays visible without JavaScript or IntersectionObserver and when reduced motion is requested, including changes to that preference while the page is open.
+
 - Native disclosure elements keep FAQs and mobile navigation usable without JavaScript. JavaScript adds outside-click, Escape, and selection dismissal for mobile navigation.
 - Passwords are masked by default. Show/hide controls appear only when JavaScript is available. They expose their target and pressed state to assistive technology.
 - Authentication fields have explicit labels, autocomplete, validation messages and error associations. Password values are never repopulated.
@@ -31,3 +40,6 @@ The JCI primary logo was downloaded from the existing JCI Europe asset URL: http
 - Recovery describes all three existing steps: request a code, verify it, choose a password. Workspace paths are preserved by the application's existing URL middleware.
 - Recovery email delivery depends on the configured mail transport. The local environment currently uses `MAIL_MAILER=log`, so it logs messages instead of sending them. Configure a working mail transport before expecting inbox delivery.
 - Run focused feature checks with `php artisan test --compact --filter="PublicEntryTest|ExampleTest|LogoutTest"` and compile views with `php artisan view:cache`.
+### Photo viewer
+
+Chapter photos open in a local, keyboard-accessible dialog with captions, previous/next controls, Escape to close, and focus returned to the selected photo. Original image links work without JavaScript. Logos retain their navigation behavior. The viewer supports native video controls for verified local video links; no unverified video or social login embed is included.

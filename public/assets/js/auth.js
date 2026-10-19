@@ -7,9 +7,10 @@
         button.addEventListener('click', () => {
             const visible = input.type === 'password';
             input.type = visible ? 'text' : 'password';
-            button.textContent = visible ? 'Hide' : 'Show';
+            button.classList.toggle('is-revealed', visible);
             button.setAttribute('aria-pressed', String(visible));
             button.setAttribute('aria-label', `${visible ? 'Hide' : 'Show'} ${button.dataset.fieldLabel}`);
+            button.title = button.getAttribute('aria-label');
         });
     });
     document.querySelectorAll('[data-auth-form]').forEach((form) => {

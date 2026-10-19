@@ -18,7 +18,7 @@
     <a class="skip-link" href="#signin-main">Skip to form</a>
     <header class="auth-header shell">
         @include('shared.public-brand', ['homeUrl' => $landingUrl])
-        <a class="auth-home" href="{{ $landingUrl }}"><span aria-hidden="true">←</span> Back to website</a>
+        <a class="auth-home auth-icon-button" href="{{ $landingUrl }}" aria-label="Back to website" title="Back to website"><x-icon name="arrowLeft" /></a>
     </header>
     <div class="auth-shell shell">
         <aside class="auth-intro" aria-label="About the member portal">

@@ -33,7 +33,7 @@ class PublicEntryTest extends TestCase
                 $login = $this->browse('GET', $prefix.'/login', $cookies)->assertOk()
                     ->assertSee('action="http://localhost'.$prefix.'/login"', false)
                     ->assertSee('href="http://localhost'.$prefix.'/forgot-password"', false);
-                preg_match('/class="auth-home" href="([^"]+)"/', $login->getContent(), $homeLink);
+                preg_match('/class="[^"]*\bauth-home\b[^"]*" href="([^"]+)"/', $login->getContent(), $homeLink);
                 $this->assertSame('http://localhost'.$prefix, rtrim($homeLink[1], '/'));
             }
         }

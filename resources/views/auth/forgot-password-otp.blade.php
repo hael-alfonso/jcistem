@@ -8,13 +8,13 @@
     <form method="POST" action="{{ route('password.otp.verify') }}" data-auth-form>
         @csrf
         <x-auth-field name="code" label="6-digit recovery code" :value="old('code')" required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"/>
-        <button class="button button-primary auth-submit" type="submit"><span data-submit-label>Verify code</span><span aria-hidden="true">→</span></button>
+        <x-auth-action label="Verify code" />
     </form>
     <form method="POST" action="{{ route('password.otp.send') }}" class="signin-resend-form">
         @csrf
         <input type="hidden" name="email" value="{{ $recoveryEmail }}">
-        <button class="button button-secondary" type="submit">Send a new code</button>
+        <button class="button button-secondary auth-icon-button" type="submit" aria-label="Send a new code" title="Send a new code"><x-icon name="refresh" /></button>
     </form>
     <p class="signin-help">Check your spam folder. If the code does not arrive, confirm your email address or contact your chapter administrator.</p>
-    <p class="signin-help"><a href="{{ route('password.request') }}" data-auth-nav="back"><span aria-hidden="true">←</span> Use a different email</a></p>
+    <p class="signin-help"><a class="auth-icon-button" href="{{ route('password.request') }}" data-auth-nav="back" aria-label="Use a different email" title="Use a different email"><x-icon name="arrowLeft" /></a></p>
 @endsection

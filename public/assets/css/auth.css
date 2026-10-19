@@ -39,7 +39,7 @@
 .auth-options { display: flex; justify-content: flex-end; margin-top: 10px; }
 .auth-options a { min-height: 35px; display: inline-flex; align-items: center; color: var(--blue); font-size: 12px; font-weight: 600; }
 .auth-options a:hover, .auth-join a:hover, .signin-help a:hover, .auth-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.auth-submit { width: 100%; justify-content: space-between; margin-top: 17px; min-height: var(--auth-control-height); border-radius: 6px; }
+.auth-submit { display: flex; margin: 17px 0 0 auto; min-height: var(--auth-control-height); border-radius: 6px; }
 .auth-submit:disabled { opacity: .75; cursor: wait; }
 .auth-form-panel form > .auth-field + .auth-submit { margin-top: 25px; }
 .auth-session-help { margin-top: 18px; }
@@ -62,7 +62,20 @@
 .signin-help { margin-top: 24px; font-size: 12px; color: var(--muted); line-height: 1.8; }
 .signin-help a { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: var(--blue); }
 .signin-resend-form { margin-top: 13px !important; }
-.signin-resend-form .button { width: 100%; min-height: var(--auth-control-height); border-radius: 6px; }
+.signin-resend-form .button { min-height: var(--auth-control-height); border-radius: 6px; }
+.auth-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px; min-height: 50px; flex-shrink: 0; padding: 0; border-radius: 8px; }
+.auth-home.auth-icon-button, .signin-help .auth-icon-button { background: #fff; border: 1px solid var(--line); }
+.auth-icon-button:hover { transform: translateY(-2px); }
+.auth-icon-button { transition: background .18s, border-color .18s, transform .18s; }
+.auth-icon-button[aria-busy=true] .ico { animation: auth-pulse .8s ease-in-out infinite alternate; }
+.password-toggle { top: 3px; right: 3px; width: 44px; min-width: 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.password-toggle[hidden] { display: none; }
+.password-toggle .ico { width: 20px; height: 20px; }
+.password-toggle .toggle-hide, .password-toggle.is-revealed .toggle-show { display: none; }
+.password-toggle.is-revealed .toggle-hide { display: inline-flex; }
+.auth-input-wrap.has-toggle input { padding-right: 52px; }
+@keyframes auth-pulse { to { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .auth-icon-button:hover { transform: none; } }
 .auth-steps { display: flex; gap: 6px; margin: 22px 0 0; }
 .auth-steps span { width: 32px; height: 3px; border-radius: 2px; background: var(--line); }
 .auth-steps span.is-current { background: var(--blue); }
