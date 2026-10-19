@@ -13,7 +13,7 @@
     <form method="POST" action="{{ route('password.otp.send') }}" class="signin-resend-form">
         @csrf
         <input type="hidden" name="email" value="{{ $recoveryEmail }}">
-        <button class="button button-secondary auth-icon-button" type="submit" aria-label="Send a new code" title="Send a new code"><x-icon name="refresh" /></button>
+        <button class="button button-secondary" type="submit"><span data-submit-label>Send a new code</span></button>
     </form>
     <p class="signin-help">Check your spam folder. If the code does not arrive, confirm your email address or contact your chapter administrator.</p>
     <p class="signin-help"><a class="auth-icon-button" href="{{ route('password.request') }}" data-auth-nav="back" aria-label="Use a different email" title="Use a different email"><x-icon name="arrowLeft" /></a></p>

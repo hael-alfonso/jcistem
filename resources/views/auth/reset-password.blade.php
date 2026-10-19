@@ -10,7 +10,7 @@
         <x-auth-field name="email" label="Email address" type="email" :value="$email" required autocomplete="username" autocapitalize="none" spellcheck="false"/>
         <x-auth-field name="password" label="New password" type="password" minlength="10" required autocomplete="new-password"/>
         <x-auth-field name="password_confirmation" label="Confirm new password" type="password" minlength="10" required autocomplete="new-password"/>
-        <x-auth-action label="Save new password" icon="check" />
+        <x-auth-action label="Save new password" />
     </form>
     <p class="signin-help"><a class="auth-icon-button" href="{{ route('login') }}" data-auth-nav="back" aria-label="Back to sign in" title="Back to sign in"><x-icon name="arrowLeft" /></a></p>
 @endsection

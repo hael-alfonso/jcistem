@@ -346,8 +346,9 @@ progress::-moz-progress-bar { background: var(--teal); }
 .nav-section { margin: 4px 0; }
 .nav-section > summary { display: flex; align-items: center; justify-content: space-between; min-height: 42px; padding: 10px 12px; border-radius: 10px; color: #315d75; cursor: pointer; font-size: 10px; font-weight: 800; letter-spacing: 1.1px; list-style: none; user-select: none; }
 .nav-section > summary::-webkit-details-marker { display: none; }
-.nav-section > summary::after { content: ''; width: 7px; height: 7px; border-right: 2px solid #6e9aac; border-bottom: 2px solid #6e9aac; transform: rotate(45deg); transition: transform .18s ease; }
-.nav-section[open] > summary::after { transform: rotate(225deg); }
+.nav-section > summary::after { content: ''; width: 7px; height: 7px; flex: 0 0 7px; margin-left: 10px; border-right: 2px solid #6e9aac; border-bottom: 2px solid #6e9aac; transform: rotate(-45deg); transition: transform .18s ease; }
+.nav-section[open] > summary::after { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { .nav-section > summary::after { transition: none; } }
 .nav-section > summary:hover, .nav-section[open] > summary { background: #e2f2f7; color: #075e84; }
 .nav-items { padding: 2px 0 8px; }
 .nav-section .side-link { margin: 2px 0; }
@@ -1178,11 +1179,11 @@ a.stat-card:hover { border-color: var(--stat-color); box-shadow: 0 4px 16px #152
 .sidebar-account small { color: #587486; }
 
 .app-topbar {
-    background: rgba(225, 244, 251, .78);
+    background: #e5f5fb;
     border-bottom: 1px solid rgba(157, 207, 227, .78);
     box-shadow: 0 7px 22px rgba(0, 113, 160, .09), inset 0 1px 0 rgba(255, 255, 255, .72);
-    -webkit-backdrop-filter: blur(18px) saturate(145%);
-    backdrop-filter: blur(18px) saturate(145%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 .topbar-context { color: #527083; }
 .topbar-context a { color: #176684; }

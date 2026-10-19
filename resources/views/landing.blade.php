@@ -10,6 +10,7 @@
     <meta property="og:type" content="website">
     <title>JCI Carmona | Lead with purpose</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
+    @include('shared.public-fonts')
     <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/landing.css') }}?v={{ filemtime(public_path('assets/css/landing.css')) }}">
     <script defer src="{{ asset('assets/js/landing.js') }}?v={{ filemtime(public_path('assets/js/landing.js')) }}"></script>

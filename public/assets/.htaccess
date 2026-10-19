@@ -1,0 +1,19 @@
+# Static assets only: never cache authenticated HTML or private documents here.
+<IfModule mod_filter.c>
+    <IfModule mod_deflate.c>
+        AddOutputFilterByType DEFLATE text/css text/javascript application/javascript image/svg+xml application/json
+    </IfModule>
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 hour"
+    ExpiresByType text/javascript "access plus 1 hour"
+    ExpiresByType application/javascript "access plus 1 hour"
+    ExpiresByType image/svg+xml "access plus 1 day"
+    ExpiresByType image/png "access plus 1 day"
+    ExpiresByType image/jpeg "access plus 1 day"
+    ExpiresByType image/webp "access plus 1 day"
+    ExpiresByType image/x-icon "access plus 1 day"
+    ExpiresByType font/woff2 "access plus 1 week"
+</IfModule>

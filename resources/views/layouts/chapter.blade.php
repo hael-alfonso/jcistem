@@ -9,14 +9,15 @@
     <meta name="new-account-url" content="{{ request()->getBaseUrl() }}/login">
     <style>html.workspace-tab-pending body { visibility: hidden; }</style>
     <script>document.documentElement.classList.add('workspace-tab-pending'); setTimeout(() => document.documentElement.classList.remove('workspace-tab-pending'), 700);</script>
-    <script src="{{ asset('assets/js/workspace-tab.js') }}"></script>
+    <script src="{{ asset('assets/js/workspace-tab.js') }}?v={{ filemtime(public_path('assets/js/workspace-tab.js')) }}"></script>
     @endif
     <title>@yield('title', 'Workspace') · JCISTEM</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}">
-    <script defer src="{{ asset('assets/js/chapter.js') }}"></script>
+    @include('shared.public-fonts')
+    <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}?v={{ filemtime(public_path('assets/css/chapter.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}?v={{ filemtime(public_path('assets/css/jci-theme.css')) }}">
+    <script defer src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
 </head>
 <body>
 @php

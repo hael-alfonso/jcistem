@@ -1,4 +1,4 @@
-<footer class="site-footer" aria-label="JCI Carmona footer">
+<footer class="site-footer" id="footer" aria-label="JCI Carmona footer">
     <div class="shell footer-main">
         <div class="footer-brand">
             @include('shared.public-brand', ['homeUrl' => '#top'])

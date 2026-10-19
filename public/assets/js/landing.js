@@ -1,4 +1,10 @@
 (() => {
+    const header = document.querySelector('.site-header');
+    if (header && 'ResizeObserver' in window) {
+        const updateHeaderHeight = () => document.documentElement.style.setProperty('--public-header-height', `${header.getBoundingClientRect().height}px`);
+        updateHeaderHeight();
+        new ResizeObserver(updateHeaderHeight).observe(header);
+    }
     const viewer = document.querySelector('.media-viewer');
     const mediaLinks = [...document.querySelectorAll('[data-media]')];
     if (viewer && typeof viewer.showModal === 'function' && mediaLinks.length) {

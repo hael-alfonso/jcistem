@@ -9,7 +9,7 @@
         <x-auth-field name="login" label="Username or email address" :value="old('login')" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="200"/>
         <x-auth-field name="password" label="Password" type="password" required autocomplete="current-password"/>
         <div class="auth-options"><a href="{{ route('password.request') }}" data-auth-nav="forward">Forgot password?</a></div>
-        <x-auth-action label="Sign in to JCISTEM" />
+        <x-auth-action label="Sign in" />
         <details class="auth-session-help" @if($errors->has('login') && str_contains($errors->first('login'), 'already signed in')) open @endif>
             <summary>Already signed in on another device?</summary>
             <p>If you cannot access that session, select the option below, then sign in. This will sign out your previous session.</p>

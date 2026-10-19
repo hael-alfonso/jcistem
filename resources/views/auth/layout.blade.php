@@ -8,6 +8,7 @@
     <meta name="description" content="Sign in to JCISTEM, the JCI Carmona member portal for chapter projects, tasks, schedules, and records.">
     <title>@yield('title', 'Member sign in') | JCISTEM · JCI Carmona</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
+    @include('shared.public-fonts')
     <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/auth.css') }}?v={{ filemtime(public_path('assets/css/auth.css')) }}">
     <script defer src="{{ asset('assets/js/auth-transition.js') }}?v={{ filemtime(public_path('assets/js/auth-transition.js')) }}"></script>
