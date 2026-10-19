@@ -1,63 +1,45 @@
 <!doctype html>
-<html lang="en" class="{{ request()->routeIs('login', 'scoped.login') ? 'auth-flow-back' : 'auth-flow-forward' }}">
+<html lang="en" class="{{ request()->routeIs('login') ? 'auth-flow-back' : 'auth-flow-forward' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Sign in') | JCI Carmona Member Portal</title>
+    <meta name="theme-color" content="#132b46">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Sign in to JCISTEM, the JCI Carmona member portal for chapter projects, tasks, schedules, and records.">
+    <title>@yield('title', 'Member sign in') | JCISTEM · JCI Carmona</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}?v={{ filemtime(public_path('assets/css/jci-theme.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/auth.css') }}?v={{ filemtime(public_path('assets/css/auth.css')) }}">
     <script defer src="{{ asset('assets/js/auth-transition.js') }}?v={{ filemtime(public_path('assets/js/auth-transition.js')) }}"></script>
+    <script defer src="{{ asset('assets/js/auth.js') }}?v={{ filemtime(public_path('assets/js/auth.js')) }}"></script>
 </head>
-<body class="signin-page">
-    @php
-        $landingUrl = request()->routeIs('scoped.*')
-            ? url('/workspaces/'.request()->route('workspace'))
-            : url('/');
-    @endphp
-    <div class="signin-shell">
-        <section class="signin-intro" aria-label="About JCI Carmona">
-            <a class="signin-home-link" href="{{ $landingUrl }}" aria-label="Back to JCI Carmona home" title="Back to JCI Carmona home"><span aria-hidden="true">&larr;</span></a>
-            <div class="signin-identity">
-                <div class="signin-jci-brand signin-system-brand">
-                    <img src="{{ asset('assets/images/brand/logo.png') }}" alt="JCISTEM system logo">
-                    <span></span><strong>JCI CARMONA<small>CHAPTER MANAGEMENT SYSTEM</small></strong>
+<body class="auth-page">
+    @php($landingUrl = url('/'))
+    <a class="skip-link" href="#signin-main">Skip to form</a>
+    <header class="auth-header shell">
+        @include('shared.public-brand', ['homeUrl' => $landingUrl])
+        <a class="auth-home" href="{{ $landingUrl }}"><span aria-hidden="true">←</span> Back to website</a>
+    </header>
+    <div class="auth-shell shell">
+        <aside class="auth-intro" aria-label="About the member portal">
+            <div class="auth-system"><img src="{{ asset('assets/images/brand/logo.png') }}" width="49" height="60" alt=""><span>{{ config('chapter.system_name') }}<small>JCI Carmona member portal</small></span></div>
+            <div class="auth-intro-copy"><p class="eyebrow">Connected by purpose</p><h2>Good things happen<br>when we work<br><span>together.</span></h2><p>Your space to organize chapter work and take the next step with JCI Carmona.</p></div>
+            <div class="auth-features"><div><x-icon name="clipboardCheck" /><span><strong>Keep projects moving</strong>Follow progress and your assigned tasks.</span></div><div><x-icon name="calendar" /><span><strong>Stay in the loop</strong>Check schedules and chapter updates.</span></div><div><x-icon name="report" /><span><strong>Find what you need</strong>Access records available to your role.</span></div></div>
+            <div class="auth-intro-footer"><span>Lead. Connect. Contribute.</span><span>Carmona City, Cavite</span></div>
+        </aside>
+        <main class="auth-main" id="signin-main">
+            <div class="auth-form-wrap"><div class="auth-form-panel" data-auth-panel>
+                <div class="auth-feedback" aria-live="polite" aria-atomic="true">
+                    @if($errors->any())
+                        <div class="alert error" role="alert">{{ request()->routeIs('login') && $errors->has('email') ? $errors->first('email') : ($errors->has('token') ? $errors->first('token') : 'Please check the details below and try again.') }}</div>
+                    @elseif(session('status'))
+                        <div class="alert success" role="status">{{ session('status') }}</div>
+                    @endif
                 </div>
-                <div class="signin-intro-copy">
-                    <span class="signin-kicker">OFFICIAL CHAPTER MEMBER PORTAL</span>
-                    <h1>One chapter.<br>One shared purpose.</h1>
-                    <p>JCISTEM gives JCI Carmona members one organized workspace for projects, chapter records, finances, and collaboration.</p>
-                </div>
-                <div class="signin-organization-card">
-                    <span>BUILT FOR THE ORGANIZATION</span>
-                    <strong>One secure chapter workspace</strong>
-                    <p>Projects, members, records, finances, and collaboration in one place.</p>
-                </div>
-                <div class="signin-pillars"><span>LEAD</span><i></i><span>CONNECT</span><i></i><span>SERVE</span></div>
-            </div>
-        </section>
-        <main class="signin-main">
-            <div class="signin-form">
-                <a class="signin-system-mark" href="{{ $landingUrl }}" aria-label="JCISTEM, JCI Carmona member workspace">
-                    <img src="{{ asset('assets/images/brand/logo.png') }}" alt="">
-                    <span><strong>JCISTEM</strong><small>JCI CARMONA MEMBER WORKSPACE</small></span>
-                </a>
-                <div class="signin-form-viewport">
-                    <div class="signin-form-panel" data-auth-panel>
-                        <div class="signin-feedback-slot" aria-live="polite" aria-atomic="true">
-                            @if($errors->any())
-                                <div class="alert error" role="alert">{{ $errors->first() }}</div>
-                            @elseif(session('status'))
-                                <div class="alert success" role="status">{{ session('status') }}</div>
-                            @endif
-                        </div>
-                        @yield('auth-content')
-                    </div>
-                </div>
-                <div class="signin-social"><span>JCI Carmona 2026</span><a href="https://www.facebook.com/jcicarmonaofficial" target="_blank" rel="noopener noreferrer">Official Facebook &#8599;</a><a href="{{ $landingUrl }}#impact">Community impact</a></div>
-            </div>
+                @yield('auth-content')
+            </div></div>
         </main>
     </div>
+    <footer class="auth-footer shell"><span>&copy; {{ now()->year }} {{ config('chapter.name') }} · JCISTEM</span><div><a href="{{ $landingUrl }}#questions">Help &amp; account access</a><a href="{{ $landingUrl }}#about">About JCI Carmona</a></div></footer>
 </body>
 </html>

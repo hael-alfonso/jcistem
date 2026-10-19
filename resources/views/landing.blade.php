@@ -3,272 +3,83 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#111936">
-    <meta name="description" content="JCI Carmona is a youth-led nonprofit organization developing leaders and creating positive change through community action in Carmona City.">
-    <title>JCI Carmona | Developing Leaders for a Changing World</title>
+    <meta name="theme-color" content="#132b46">
+    <meta name="description" content="Get to know JCI Carmona: young leaders taking action in Carmona City, Cavite. Explore community stories, learn how to get involved, or sign in to JCISTEM.">
+    <meta property="og:title" content="JCI Carmona | Lead with purpose">
+    <meta property="og:description" content="Leadership, connection, and community action in Carmona City, Cavite. Discover JCI Carmona and the JCISTEM member portal.">
+    <meta property="og:type" content="website">
+    <title>JCI Carmona | Lead with purpose</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('assets/css/landing.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/landing.css') }}?v={{ filemtime(public_path('assets/css/landing.css')) }}">
+    <script defer src="{{ asset('assets/js/landing.js') }}?v={{ filemtime(public_path('assets/js/landing.js')) }}"></script>
 </head>
-<body>
-@php
-    $loginUrl = request()->routeIs('scoped.*')
-        ? route('scoped.login', ['workspace' => request()->route('workspace')])
-        : route('login');
-@endphp
-
+<body id="top">
+@php($loginUrl = route('login'))
 <a class="skip-link" href="#main">Skip to content</a>
-
-<div class="utility-bar">
-    <div class="shell utility-inner">
-        <span><i aria-hidden="true"></i> A local organization of JCI Philippines</span>
-        <span>Carmona City, Cavite</span>
-    </div>
-</div>
-
+<div class="utility-bar"><div class="shell"><span>Local action. A worldwide connection.</span><a href="{{ config('chapter.international_url') }}" target="_blank" rel="noopener noreferrer">Discover JCI worldwide <span aria-hidden="true">↗</span></a></div></div>
 <header class="site-header">
     <div class="shell header-inner">
-        <a class="chapter-logo" href="#top" aria-label="JCI Carmona home">
-            <img src="https://jcieurope.cc/wp-content/smush-webp/2025/12/New_JCI_Logo_Primary-1-scaled.png.webp" alt="Junior Chamber International">
-            <span aria-hidden="true"></span>
-            <strong>CARMONA<small>JCI PHILIPPINES</small></strong>
-        </a>
-
-        <nav class="desktop-nav" aria-label="Main navigation">
-            <a href="#about">Who we are</a>
-            <a href="#opportunities">What we do</a>
-            <a href="#impact">Our impact</a>
-            <a href="#join">Get involved</a>
-        </nav>
-
-        <a class="portal-button" href="{{ $loginUrl }}">Member portal <span aria-hidden="true">&#8599;</span></a>
-
-        <details class="mobile-menu">
-            <summary>Menu</summary>
-            <nav aria-label="Mobile navigation">
-                <a href="#about">Who we are</a>
-                <a href="#opportunities">What we do</a>
-                <a href="#impact">Our impact</a>
-                <a href="#join">Get involved</a>
-                <a href="{{ $loginUrl }}">Member portal</a>
-            </nav>
-        </details>
+        @include('shared.public-brand', ['homeUrl' => '#top'])
+        <nav class="desktop-nav" aria-label="Main navigation"><a href="#about">About us</a><a href="#opportunities">What we do</a><a href="#impact">Community stories</a><a href="#join">Get involved</a></nav>
+        <a class="button button-primary header-login" href="{{ $loginUrl }}">Member sign in <span aria-hidden="true">↗</span></a>
+        <details class="mobile-menu"><summary aria-label="Open navigation menu"><span class="menu-lines" aria-hidden="true"></span>Menu</summary><nav aria-label="Mobile navigation"><a href="#about">About us</a><a href="#opportunities">What we do</a><a href="#impact">Community stories</a><a href="#portal">Member portal</a><a href="#join">Get involved</a><a href="{{ $loginUrl }}">Member sign in <span aria-hidden="true">↗</span></a></nav></details>
     </div>
 </header>
-
 <main id="main">
-    <section class="hero" id="top">
-        <div class="shell hero-layout">
-            <div class="hero-copy">
-                <p class="eyebrow eyebrow-light"><span></span> JCI CARMONA 2026</p>
-                <h1>Developing leaders for a <em>changing Carmona.</em></h1>
-                <p>Young active citizens turn ideas into action through leadership development, community partnerships, and projects that create lasting local impact.</p>
-                <div class="hero-actions">
-                    <a class="button button-teal" href="#join">Become part of JCI Carmona <span aria-hidden="true">&#8599;</span></a>
-                    <a class="text-link text-link-light" href="#opportunities">Explore what we do <span aria-hidden="true">&#8595;</span></a>
-                </div>
-                <div class="hero-tags" aria-label="Chapter priorities">
-                    <span>Lead</span><i></i><span>Connect</span><i></i><span>Serve</span><i></i><span>Create impact</span>
-                </div>
-            </div>
+    <section class="hero" aria-labelledby="hero-title"><div class="shell hero-layout">
+        <div class="hero-copy"><p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span>Young leaders. Local action.</p><h1 id="hero-title">Lead with purpose.<br>Make a difference<br><span>in Carmona.</span></h1><p>Grow as a leader. Connect with people who care. Join JCI Carmona in turning ideas into action for our community.</p><div class="hero-actions"><a class="button button-primary" href="#join">Get involved <span aria-hidden="true">↗</span></a><a class="button button-secondary" href="#about">Discover our chapter <span aria-hidden="true">↓</span></a></div><div class="hero-location"><x-icon name="globe" /><span>{{ config('chapter.location') }}<small>Connected through JCI Philippines</small></span></div></div>
+        <figure class="hero-visual"><div class="hero-photo"><img src="{{ asset('assets/images/community/project-lapis.webp') }}" alt="Volunteers and learners at a Project LAPIS literacy session in Barangay Milagrosa, Carmona" width="1200" height="756" fetchpriority="high"><span class="photo-tag">Community in action</span></div><figcaption><div><span class="eyebrow">Learning together</span><strong>Small steps. Meaningful change.</strong><p>Project LAPIS · Carmona City · January 2026</p></div><a href="#impact" aria-label="Explore the Project LAPIS story"><span aria-hidden="true">↗</span></a></figcaption><a class="photo-credit" href="https://mb.com.ph/2026/02/02/carmona-lgu-rolls-out-literacy-project-for-out-of-school-children-youth" target="_blank" rel="noopener noreferrer">Photo: Leonard Danniel M. Diaz / Manila Bulletin ↗</a></figure>
+    </div></section>
 
-            <div class="hero-image">
-                <img src="https://mb.com.ph/manilabulletin/uploads/images/2026/02/02/76134.webp" alt="JCI Carmona volunteers supporting learners during Project LAPIS" fetchpriority="high">
-                <div class="image-label"><small>COMMUNITY IMPACT</small><strong>Project LAPIS</strong><span>Carmona City | 2026</span></div>
-            </div>
-        </div>
+    <div class="chapter-paths"><div class="shell paths-grid">
+        <a href="#opportunities"><span class="path-icon"><x-icon name="users" /></span><span><strong>Find your opportunity</strong><small>Learn, connect, and contribute</small></span><b aria-hidden="true">↗</b></a>
+        <a href="#impact"><span class="path-icon"><x-icon name="globe" /></span><span><strong>See community action</strong><small>Explore stories from Carmona</small></span><b aria-hidden="true">↗</b></a>
+        <a href="{{ $loginUrl }}"><span class="path-icon"><x-icon name="dashboard" /></span><span><strong>Already a member?</strong><small>Sign in to your JCISTEM workspace</small></span><b aria-hidden="true">↗</b></a>
+    </div></div>
+
+    <section class="section shell about-layout" id="about" aria-labelledby="about-title">
+        <div class="section-heading"><p class="eyebrow">Meet JCI Carmona</p><h2 id="about-title">A place to grow.<br>A community to<br><span>grow with.</span></h2><a class="text-link" href="{{ config('chapter.national_url') }}" target="_blank" rel="noopener noreferrer">Meet the JCI Philippines network <span aria-hidden="true">↗</span></a></div>
+        <div class="about-copy"><p class="lead">Leadership starts with people willing to take part.</p><p>JCI Carmona brings young people together around leadership and community action in Carmona City, Cavite. Our chapter connects local participation with the wider JCI movement.</p><p>Through shared projects, learning, and collaboration, members have opportunities to take responsibility, develop their skills, and contribute to their community.</p><div class="mission-card"><span class="eyebrow">The mission we share with JCI</span><p>To provide leadership development opportunities that empower young people to create positive change.</p><a class="text-link" href="https://jci.cc/about/" target="_blank" rel="noopener noreferrer">JCI mission and vision <span aria-hidden="true">↗</span></a></div></div>
     </section>
 
-    <section class="feature-rail shell" aria-label="JCI Carmona highlights">
-        <a class="feature-card feature-photo" href="https://mb.com.ph/2026/02/02/carmona-lgu-rolls-out-literacy-project-for-out-of-school-children-youth" target="_blank" rel="noopener noreferrer">
-            <img src="https://mb.com.ph/manilabulletin/uploads/images/2026/02/02/76132.webp" alt="Project LAPIS small group learning session" loading="lazy">
-            <span class="feature-overlay"></span>
-            <span class="feature-content"><small>2026 EDUCATION INITIATIVE</small><strong>Learning support where it matters</strong><b>Read the story &#8599;</b></span>
-        </a>
-        <a class="feature-card feature-photo" href="https://pnvsca.gov.ph/?p=9684" target="_blank" rel="noopener noreferrer">
-            <img src="https://pnvsca.gov.ph/wp-content/uploads/2026/07/Forum-Title-with-Mayor-and-Host-1024x483.png" alt="Carmona hosts the CALABARZON International Volunteer Year forum" loading="lazy">
-            <span class="feature-overlay"></span>
-            <span class="feature-content"><small>REGIONAL VOLUNTEERISM</small><strong>Every contribution matters</strong><b>View the forum &#8599;</b></span>
-        </a>
-        <a class="feature-card feature-portal" href="{{ $loginUrl }}">
-            <img src="{{ asset('assets/images/brand/logo.png') }}" alt="" aria-hidden="true">
-            <span><small>FOR CHAPTER MEMBERS</small><strong>JCISTEM</strong><p>Projects, members, records, and chapter work in one secure workspace.</p><b>Open member portal &#8594;</b></span>
-        </a>
+    <section class="section opportunities" id="opportunities" aria-labelledby="opportunity-title"><div class="shell">
+        <div class="section-heading split-heading"><div><p class="eyebrow">Four areas of opportunity</p><h2 id="opportunity-title">More ways to grow.<br><span>More ways to contribute.</span></h2></div><p>JCI's four areas connect personal development with opportunities to work with others, locally and around the world.</p></div>
+        <div class="opportunity-grid">
+            <article class="opportunity-card"><div class="opportunity-top"><x-icon name="users" /><span>01</span></div><h3>Individual<br> Development</h3><p>Practice communication, teamwork, and leadership by learning and taking responsibility.</p><span class="opportunity-note">Build your confidence</span></article>
+            <article class="opportunity-card"><div class="opportunity-top"><x-icon name="globe" /><span>02</span></div><h3>Community<br> Impact</h3><p>Work with others to understand local needs and take thoughtful, practical action.</p><span class="opportunity-note">Contribute where you live</span></article>
+            <article class="opportunity-card"><div class="opportunity-top"><x-icon name="briefcase" /><span>03</span></div><h3>Business &amp;<br> Entrepreneurship</h3><p>Exchange ideas, develop an enterprising mindset, and build professional connections.</p><span class="opportunity-note">Explore new possibilities</span></article>
+            <article class="opportunity-card"><div class="opportunity-top"><x-icon name="globe" /><span>04</span></div><h3>International<br> Cooperation</h3><p>Learn from different cultures and connect with young leaders across the JCI network.</p><span class="opportunity-note">Broaden your perspective</span></article>
+        </div><a class="text-link opportunity-source" href="{{ config('chapter.international_url') }}" target="_blank" rel="noopener noreferrer">Explore the four areas at JCI Worldwide <span aria-hidden="true">↗</span></a>
+    </div></section>
+
+    <section class="section shell" id="impact" aria-labelledby="impact-title">
+        <div class="section-heading split-heading"><div><p class="eyebrow">Community stories</p><h2 id="impact-title">Local action.<br><span>Shared purpose.</span></h2></div><p>A closer look at initiatives involving JCI Carmona, as reported by community and public sources.</p></div>
+        <div class="story-grid">
+            <article class="story-card"><div class="story-image"><img src="{{ asset('assets/images/community/lapis-learning.webp') }}" alt="A Project LAPIS volunteer supports learners during a literacy activity" width="1200" height="756" loading="lazy"></div><div class="story-body"><div class="story-meta"><span>Education &amp; community</span><time datetime="2026-02-02">2 February 2026</time></div><h3>Learning opens doors.</h3><p>JCI Carmona was among the partners in Carmona City's Project LAPIS, a literacy initiative for out-of-school children and youth. Pilot learning sessions began in Barangay Milagrosa in January 2026.</p><a class="text-link" href="https://mb.com.ph/2026/02/02/carmona-lgu-rolls-out-literacy-project-for-out-of-school-children-youth" target="_blank" rel="noopener noreferrer">Read in Manila Bulletin <span aria-hidden="true">↗</span></a><small class="story-credit">Photo: Leonard Danniel M. Diaz / Manila Bulletin</small></div></article>
+            <article class="story-card"><div class="forum-art" aria-hidden="true"><span>CALABARZON · 2026</span><strong>Every<br>contribution<br><em>matters.</em></strong><div>International Volunteer Year<span>14 July 2026</span></div></div><div class="story-body"><div class="story-meta"><span>Volunteerism &amp; connection</span><time datetime="2026-07-31">31 July 2026</time></div><h3>Every contribution matters.</h3><p>At the CALABARZON International Volunteer Year forum on 14 July 2026, JCI Carmona shared perspectives on mobilizing young people to support vulnerable groups.</p><a class="text-link" href="https://pnvsca.gov.ph/?p=9684" target="_blank" rel="noopener noreferrer">Read the PNVSCA report <span aria-hidden="true">↗</span></a><small class="story-credit">Source: Philippine National Volunteer Service Coordinating Agency</small></div></article>
+        </div>
+        @include('shared.chapter-gallery')
     </section>
 
-    <section class="purpose section shell" id="about">
-        <div class="section-heading purpose-heading">
-            <p class="eyebrow">WHO WE ARE</p>
-            <h2>Built for local leaders.<br><em>Driven by purpose.</em></h2>
-        </div>
-        <div class="purpose-copy">
-            <p class="lead">JCI Carmona is a youth-led nonprofit organization creating opportunities for young people to grow while helping build a stronger Carmona City.</p>
-            <p>Connected to JCI Philippines and a worldwide movement, the chapter develops leadership through real projects, practical responsibility, collaboration, and service.</p>
-            <div class="network-row">
-                <div><strong>JCI Carmona</strong><span>Local action</span></div>
-                <div><strong>JCI Philippines</strong><span>National network</span></div>
-                <div><strong>JCI</strong><span>Global movement</span></div>
-            </div>
-        </div>
-    </section>
+    <section class="portal-section" id="portal" aria-labelledby="portal-title"><div class="shell portal-layout">
+        <div class="portal-copy"><div class="portal-system"><img src="{{ asset('assets/images/brand/logo.png') }}" width="49" height="60" alt=""><span>{{ config('chapter.system_name') }}<small>JCI Carmona member portal</small></span></div><p class="eyebrow">For our chapter members</p><h2 id="portal-title">Your chapter work.<br>One connected space.</h2><p>JCISTEM helps members and officers stay organized, follow up on responsibilities, and keep chapter work moving.</p><a class="button button-white" href="{{ $loginUrl }}">Sign in to JCISTEM <span aria-hidden="true">→</span></a><small>Use the account provided by your chapter administrator.</small></div>
+        <div class="portal-features"><article><span><x-icon name="clipboardCheck" /></span><div><h3>Projects &amp; tasks</h3><p>Follow project progress, check assignments, and coordinate your next steps.</p></div></article><article><span><x-icon name="calendar" /></span><div><h3>Calendar &amp; updates</h3><p>Keep track of chapter schedules and notifications in your workspace.</p></div></article><article><span><x-icon name="report" /></span><div><h3>Documents &amp; records</h3><p>Find the project files and chapter records available to your role.</p></div></article><article><span><x-icon name="receipt" /></span><div><h3>Membership dues</h3><p>Check your dues and payment records. Finance tools are available to authorized officers.</p></div></article></div>
+    </div></section>
 
-    <section class="purpose-gallery shell" aria-label="JCI Carmona community work">
-        <figure class="gallery-tall">
-            <img src="https://pnvsca.gov.ph/wp-content/uploads/2026/07/Group_IVY-4A_Forum-1024x856.png" alt="Participants in the 2026 CALABARZON volunteerism forum" loading="lazy">
-            <figcaption><span>01</span><strong>Young leaders in regional action</strong></figcaption>
-        </figure>
-        <figure>
-            <img src="https://pnvsca.gov.ph/wp-content/uploads/2026/07/Workshop-1024x407.png" alt="Interactive workshop during the 2026 volunteerism forum" loading="lazy">
-            <figcaption><span>02</span><strong>Ideas shaped through collaboration</strong></figcaption>
-        </figure>
-        <div class="purpose-statement">
-            <p class="eyebrow eyebrow-light">OUR SHARED DIRECTION</p>
-            <blockquote>Leadership becomes meaningful when it moves people to act together.</blockquote>
-        </div>
-    </section>
+    <section class="section shell" id="join" aria-labelledby="join-title"><div class="section-heading join-heading"><p class="eyebrow">Start a conversation</p><h2 id="join-title">There's a place for<br><span>your next step.</span></h2><p>Interested in membership, a community initiative, or working together? Connect with the chapter to learn how you can take part.</p></div><div class="join-grid">
+        <article><span class="join-number">01 / Become a member</span><h3>Grow with the chapter.</h3><p>Ask about membership, orientation, and the next opportunity to meet JCI Carmona.</p><a class="text-link" href="{{ config('chapter.facebook_url') }}" target="_blank" rel="noopener noreferrer">Connect on Facebook <span aria-hidden="true">↗</span></a></article>
+        <article><span class="join-number">02 / Work together</span><h3>Bring an idea to life.</h3><p>Discuss a community need, a collaboration, or ways your organization could contribute.</p><a class="text-link" href="{{ config('chapter.facebook_url') }}" target="_blank" rel="noopener noreferrer">Talk to the chapter <span aria-hidden="true">↗</span></a></article>
+        <article><span class="join-number">03 / Explore the network</span><h3>Find your connection.</h3><p>Use JCI Philippines' membership inquiry form to be referred to a local chapter.</p><a class="text-link" href="{{ config('chapter.membership_url') }}" target="_blank" rel="noopener noreferrer">Visit JCI Philippines <span aria-hidden="true">↗</span></a></article>
+    </div></section>
 
-    <section class="opportunities section" id="opportunities">
-        <div class="shell">
-            <div class="section-heading split-heading">
-                <div>
-                    <p class="eyebrow">FOUR AREAS OF OPPORTUNITY</p>
-                    <h2>Grow through experience.<br><em>Lead through action.</em></h2>
-                </div>
-                <p>JCI develops young leaders through four connected areas that turn personal growth into meaningful community results.</p>
-            </div>
-
-            <div class="opportunity-grid">
-                <article class="opportunity-card opportunity-blue">
-                    <span class="card-number">01</span>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19V9m8 10V5m8 14v-7M2 19h20"/></svg>
-                    <h3>Business &amp;<br>Entrepreneurship</h3>
-                    <p>Turn ideas into sustainable ventures through innovation, enterprise, and purposeful connections.</p>
-                </article>
-                <article class="opportunity-card opportunity-navy">
-                    <span class="card-number">02</span>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.5 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3Z"/></svg>
-                    <h3>International<br>Cooperation</h3>
-                    <p>Connect Carmona's young leaders with people, cultures, and ideas beyond local borders.</p>
-                </article>
-                <article class="opportunity-card opportunity-cyan">
-                    <span class="card-number">03</span>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 8.5 9.5 2 13l6.5 3.5L12 23l3.5-6.5L22 13l-6.5-3.5L12 3Z"/></svg>
-                    <h3>Individual<br>Development</h3>
-                    <p>Build communication, confidence, and practical leadership through real responsibility.</p>
-                </article>
-                <article class="opportunity-card opportunity-teal">
-                    <span class="card-number">04</span>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20v-7a8 8 0 0 1 16 0v7M8 20v-5h8v5M9 7.5 12 4l3 3.5"/></svg>
-                    <h3>Community<br>Impact</h3>
-                    <p>Work with partners on inclusive and sustainable responses to real community needs.</p>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <section class="chapter-numbers" aria-label="2026 chapter snapshot">
-        <div class="shell numbers-grid">
-            <div><p class="eyebrow eyebrow-light">2026 AT A GLANCE</p><strong>Local action, wider reach.</strong></div>
-            <div><b>04</b><span>Areas of<br>opportunity</span></div>
-            <div><b>~400</b><span>Regional forum<br>participants</span></div>
-            <div><b>05</b><span>CALABARZON provinces<br>represented</span></div>
-        </div>
-    </section>
-
-    <section class="impact section" id="impact">
-        <div class="shell">
-            <div class="section-heading split-heading impact-heading">
-                <div>
-                    <p class="eyebrow">IMPACT IN ACTION</p>
-                    <h2>For Carmona.<br><em>With Carmona.</em></h2>
-                </div>
-                <p>The chapter works alongside public institutions, youth groups, and community partners to turn shared concerns into organized action.</p>
-            </div>
-
-            <div class="story-grid">
-                <article class="story-card story-featured">
-                    <a class="story-image" href="https://mb.com.ph/2026/02/02/carmona-lgu-rolls-out-literacy-project-for-out-of-school-children-youth" target="_blank" rel="noopener noreferrer">
-                        <img src="https://mb.com.ph/manilabulletin/uploads/images/2026/02/02/76132.webp" alt="A literacy learning session under Project LAPIS" loading="lazy">
-                    </a>
-                    <div class="story-copy">
-                        <span>EDUCATION | SDG 4 | 2026</span>
-                        <h3>Project LAPIS</h3>
-                        <p>JCI Carmona joined the City of Carmona and local youth organizations in a community-based literacy initiative supporting struggling readers and out-of-school children and youth.</p>
-                        <a href="https://mb.com.ph/2026/02/02/carmona-lgu-rolls-out-literacy-project-for-out-of-school-children-youth" target="_blank" rel="noopener noreferrer">Read the project story &#8599;</a>
-                    </div>
-                </article>
-
-                <article class="story-card">
-                    <a class="story-image" href="https://pnvsca.gov.ph/?p=9684" target="_blank" rel="noopener noreferrer">
-                        <img src="https://pnvsca.gov.ph/wp-content/uploads/2026/07/Forum-Title-with-Mayor-and-Host-1024x483.png" alt="Regional International Volunteer Year forum hosted by Carmona" loading="lazy">
-                    </a>
-                    <div class="story-copy">
-                        <span>VOLUNTEERISM | 2026</span>
-                        <h3>Every Contribution Matters</h3>
-                        <p>At the CALABARZON forum, JCI Carmona shared how youth-led mobilization can support vulnerable groups and strengthen community action.</p>
-                        <a href="https://pnvsca.gov.ph/?p=9684" target="_blank" rel="noopener noreferrer">View the forum story &#8599;</a>
-                    </div>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <section class="creed">
-        <div class="shell creed-inner">
-            <p class="eyebrow eyebrow-light">THE JCI CREED</p>
-            <blockquote>&ldquo;Service to humanity is the best work of life.&rdquo;</blockquote>
-            <p>Leadership is practiced through service: listening well, acting responsibly, and bringing people together for a greater purpose.</p>
-            <a class="text-link text-link-light" href="https://jci.cc/about/" target="_blank" rel="noopener noreferrer">Learn about JCI worldwide <span aria-hidden="true">&#8599;</span></a>
-        </div>
-    </section>
-
-    <section class="join section" id="join">
-        <div class="shell join-panel">
-            <div>
-                <p class="eyebrow eyebrow-light">READY TO LEAD?</p>
-                <h2>Your next chapter<br>starts in Carmona.</h2>
-                <p>Grow through experience, find your community, and help create positive change where it matters most.</p>
-                <div class="join-actions">
-                    <a class="button button-white" href="https://jciphilippines.com/get-involved/join-us/" target="_blank" rel="noopener noreferrer">Become a member <span aria-hidden="true">&#8599;</span></a>
-                    <a class="text-link text-link-light" href="{{ $loginUrl }}">Already a member? Open JCISTEM <span aria-hidden="true">&#8594;</span></a>
-                </div>
-            </div>
-            <div class="join-list">
-                <div><span>01</span><p><strong>Develop practical leadership</strong>Learn by planning, deciding, collaborating, and leading real initiatives.</p></div>
-                <div><span>02</span><p><strong>Build meaningful connections</strong>Meet people who share your drive to grow and contribute.</p></div>
-                <div><span>03</span><p><strong>Create visible impact</strong>Help shape projects that respond to real needs in Carmona.</p></div>
-            </div>
-        </div>
-    </section>
-
-    <section class="social-strip" aria-labelledby="social-title">
-        <div class="shell social-inner">
-            <div><p class="eyebrow">STAY CONNECTED</p><h2 id="social-title">Follow JCI Carmona.</h2></div>
-            <p>See chapter activities, community partnerships, announcements, and opportunities to participate.</p>
-            <div class="social-actions">
-                <a href="https://www.facebook.com/jcicarmonaofficial" target="_blank" rel="noopener noreferrer"><span>f</span><strong>Official Facebook</strong><b>&#8599;</b></a>
-                <a href="https://m.me/jcicarmonaofficial" target="_blank" rel="noopener noreferrer"><span>m</span><strong>Messenger</strong><b>&#8599;</b></a>
-            </div>
-        </div>
-    </section>
+    <section class="faq-section" id="questions" aria-labelledby="faq-title"><div class="shell faq-layout"><div class="section-heading"><p class="eyebrow">A little guidance</p><h2 id="faq-title">Good to know.</h2><p>A few answers to help you find your way.</p></div><div class="faq-list">
+        <details><summary>What is JCI Carmona?<span aria-hidden="true">+</span></summary><p>JCI Carmona is a local chapter connected to JCI Philippines and Junior Chamber International. JCI provides opportunities for young people to develop leadership skills and create positive change.</p></details>
+        <details><summary>How do I get involved?<span aria-hidden="true">+</span></summary><p>Contact <a href="{{ config('chapter.facebook_url') }}" target="_blank" rel="noopener noreferrer">JCI Carmona on Facebook ↗</a> to ask about membership, orientation, or collaboration. The chapter can explain current opportunities and requirements.</p></details>
+        <details><summary>Who can sign in to JCISTEM?<span aria-hidden="true">+</span></summary><p>Members and officers with an active account provided by the chapter administrator can sign in. The tools and records you can access depend on your assigned role. Membership inquiries are handled separately from portal access.</p></details>
+        <details><summary>I am a member. How do I access my account?<span aria-hidden="true">+</span></summary><p>Choose <a href="{{ $loginUrl }}">Member sign in</a> and enter your username or registered email and password. If you have forgotten your password, choose <a href="{{ route('password.request') }}">Forgot password?</a> on the sign-in page. If you do not have an account yet, contact your chapter administrator.</p></details>
+    </div></div></section>
 </main>
-
-<footer class="site-footer">
-    <div class="shell footer-main">
-        <div class="footer-brand">
-            <a class="chapter-logo" href="#top" aria-label="Back to top">
-                <img src="https://jcieurope.cc/wp-content/smush-webp/2025/12/New_JCI_Logo_Primary-1-scaled.png.webp" alt="Junior Chamber International">
-                <span aria-hidden="true"></span>
-                <strong>CARMONA<small>JCI PHILIPPINES</small></strong>
-            </a>
-            <p>Young active citizens creating positive change in Carmona City, Cavite.</p>
-        </div>
-        <nav class="footer-links" aria-label="Explore"><strong>Explore</strong><a href="#about">Who we are</a><a href="#opportunities">What we do</a><a href="#impact">Our impact</a><a href="#join">Get involved</a></nav>
-        <nav class="footer-links" aria-label="Connect"><strong>Connect</strong><a href="https://www.facebook.com/jcicarmonaofficial" target="_blank" rel="noopener noreferrer">Official Facebook &#8599;</a><a href="https://jciphilippines.com/" target="_blank" rel="noopener noreferrer">JCI Philippines &#8599;</a><a href="https://jci.cc/" target="_blank" rel="noopener noreferrer">JCI Worldwide &#8599;</a><a href="{{ $loginUrl }}">JCISTEM member portal</a></nav>
-    </div>
-    <div class="shell footer-bottom"><span>&copy; {{ date('Y') }} JCI Carmona</span><span>Leadership | Fellowship | Service</span></div>
-</footer>
+@include('shared.public-footer')
 </body>
 </html>

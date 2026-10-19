@@ -1,16 +1,21 @@
 @extends('auth.layout')
-@section('title', 'Sign in')
+@section('title', 'Member sign in')
 @section('auth-content')
-    <div class="eyebrow">JCISTEM | SECURE MEMBER PORTAL</div>
-    <h2>Welcome, JCI Carmona member.</h2>
-    <p>Sign in to manage chapter work, coordinate projects, and keep the organization moving together.</p>
-    <form method="POST" action="{{ route('login.attempt') }}">
+    <p class="eyebrow">JCISTEM member portal</p>
+    <h1>Welcome back.</h1>
+    <p class="auth-description">Sign in to your JCI Carmona workspace.</p>
+    <form method="POST" action="{{ route('login.attempt') }}" data-auth-form>
         @csrf
-        <x-field name="login" label="Username or email address" :value="old('login')" required autocomplete="username" autofocus/>
-        <x-field name="password" label="Password" type="password" required autocomplete="current-password"/>
-        <div class="signin-options"><span class="signin-security-note">Secure access for JCI Carmona members</span><a href="{{ route('password.request') }}" data-auth-nav="forward">Forgot password?</a></div>
-        <label class="signin-replace-session"><input type="checkbox" name="replace_session" value="1"><span>Replace an existing sign-in if I cannot access it</span></label>
-        <button class="btn primary" type="submit"><x-icon name="arrow" /> Enter member workspace</button>
+        <x-auth-field name="login" label="Username or email address" :value="old('login')" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="200"/>
+        <x-auth-field name="password" label="Password" type="password" required autocomplete="current-password"/>
+        <div class="auth-options"><a href="{{ route('password.request') }}" data-auth-nav="forward">Forgot password?</a></div>
+        <button class="button button-primary auth-submit" type="submit"><span data-submit-label>Sign in to JCISTEM</span><span aria-hidden="true">→</span></button>
+        <details class="auth-session-help" @if($errors->has('login') && str_contains($errors->first('login'), 'already signed in')) open @endif>
+            <summary>Already signed in on another device?</summary>
+            <p>If you cannot access that session, select the option below, then sign in. This will sign out your previous session.</p>
+            <label><input type="checkbox" name="replace_session" value="1"><span>Replace any existing sign-in</span></label>
+        </details>
     </form>
-    <p class="signin-help">Need help accessing your account? Contact your JCI Carmona chapter administrator.</p>
+    <div class="auth-account-help"><strong>Need an account?</strong><p>Accounts are provided by the chapter administrator. Contact them to request access or check your account status.</p></div>
+    <p class="auth-join">New to JCI Carmona? <a href="{{ url('/') }}#join">Learn how to get involved <span aria-hidden="true">↗</span></a></p>
 @endsection

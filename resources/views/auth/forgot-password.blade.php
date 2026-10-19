@@ -1,13 +1,15 @@
 @extends('auth.layout')
 @section('title', 'Account recovery')
 @section('auth-content')
-    <div class="eyebrow">JCISTEM | ACCOUNT RECOVERY | STEP 1 OF 2</div>
-    <h2>Reset your password</h2>
-    <p>Enter the email address registered to your JCI Carmona account. We’ll send a one-time recovery code.</p>
-    <form method="POST" action="{{ route('password.email') }}">
+    <p class="eyebrow">Account recovery · Step 1 of 3</p>
+    <h1>Forgot your password?</h1>
+    <p class="auth-description">Enter your registered email address to request a six-digit recovery code.</p>
+    <div class="auth-steps" aria-hidden="true"><span class="is-current"></span><span></span><span></span></div>
+    <form method="POST" action="{{ route('password.email') }}" data-auth-form>
         @csrf
-        <x-field name="email" label="Account email address" type="email" :value="old('email')" required autocomplete="email" autofocus/>
-        <button class="btn primary" type="submit"><x-icon name="arrow" /> Send recovery code</button>
+        <x-auth-field name="email" label="Account email address" type="email" :value="old('email')" required autocomplete="email" autocapitalize="none" spellcheck="false" maxlength="200"/>
+        <button class="button button-primary auth-submit" type="submit"><span data-submit-label>Send recovery code</span><span aria-hidden="true">→</span></button>
     </form>
-    <p class="signin-help signin-back-row"><a class="auth-back-button" href="{{ route('login') }}" data-auth-nav="back" aria-label="Back to sign in" title="Back to sign in"><x-icon name="arrowLeft" /></a></p>
+    <p class="signin-help">No longer have access to that email? Contact your chapter administrator for help.</p>
+    <p class="signin-help"><a href="{{ route('login') }}" data-auth-nav="back"><span aria-hidden="true">←</span> Back to sign in</a></p>
 @endsection

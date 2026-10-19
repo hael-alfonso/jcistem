@@ -10,10 +10,13 @@ class ExampleTest extends TestCase
     /**
      * A basic test example.
      */
-    public function test_guest_visiting_the_homepage_is_redirected_to_login(): void
+    public function test_guest_can_read_the_public_chapter_homepage(): void
     {
         $response = $this->get('/');
 
-        $response->assertRedirect(route('login'));
+        $response->assertOk()
+            ->assertSee('Lead with purpose.')
+            ->assertSee('Member sign in')
+            ->assertSee('href="'.route('login').'"', false);
     }
 }

@@ -31,5 +31,6 @@
         window.clearTimeout(navigationTimer);
         panel.classList.remove('is-leaving-left', 'is-leaving-right');
         panel.removeAttribute('aria-hidden');
+        document.querySelectorAll('a[data-auth-nav]').forEach((link) => link.removeAttribute('aria-disabled'));
     });
 })();
