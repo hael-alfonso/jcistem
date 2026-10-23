@@ -1,7 +1,7 @@
 @extends('layouts.chapter')
-@section('title','My profile')
+@section('title','Settings')
 @section('content')
-<div class="page-heading"><div><div class="eyebrow">JCI CARMONA · MY ACCOUNT</div><h1>My profile</h1><p>Keep your chapter contact details and profile photo current.</p></div></div>
+<div class="page-heading"><div><div class="eyebrow">JCI CARMONA · ACCOUNT SETTINGS</div><h1>Settings</h1><p>Keep your member profile, contact details, and password current.</p></div></div>
 <form method="POST" action="{{ route('account.update') }}" enctype="multipart/form-data">
     @csrf @method('PUT')
     <section class="panel form-panel">
@@ -21,6 +21,9 @@
             <x-field name="profile[nickname]" label="Nickname" :value="$member->profile['nickname'] ?? ''"/>
             <x-field name="profile[phone]" label="Contact number" :value="$member->profile['phone'] ?? ''"/>
             <x-field name="profile[address]" label="Address" type="textarea" :value="$member->profile['address'] ?? ''"/>
+            @if(!empty($member->profile['occupation']) || !empty($member->profile['organization']) || !empty($member->profile['interests']))
+                <div class="full"><h2>Application details</h2><p class="hint">Details you provided when you applied for membership.</p><p><strong>Current status:</strong> {{ $member->profile['occupation'] ?? 'Not provided' }} · <strong>School or organization:</strong> {{ $member->profile['organization'] ?? 'Not provided' }}</p><p><strong>Areas of interest:</strong> {{ implode(', ', $member->profile['interests'] ?? []) ?: 'Not provided' }}</p></div>
+            @endif
             <div class="full" id="security"><h2>Change password</h2><p class="hint">Leave these fields empty to keep your existing password.</p></div>
             <x-field name="current_password" label="Current password" type="password" autocomplete="current-password"/>
             <x-field name="password" label="New password (at least 10 characters)" type="password" minlength="10" autocomplete="new-password"/>

@@ -36,6 +36,18 @@ class FinanceController extends Controller
         return back()->with('success', 'Budget allocation saved.');
     }
 
+    public function liquidationReport(Request $request, Project $project)
+    {
+        $this->treasurer($request);
+        $project->load(['owner', 'chair', 'allocations']);
+        $entries = $project->transactions()->where('status', 'Posted')->orderBy('transaction_date')->orderBy('id')->get();
+        $expenses = $entries->where('direction', 'debit');
+        $income = $entries->where('direction', 'credit');
+        $spentByCategory = $expenses->groupBy('category')->map(fn ($rows) => $rows->sum('amount'));
+
+        return view('chapter.liquidation-report', compact('project', 'entries', 'expenses', 'income', 'spentByCategory'));
+    }
+
     public function ledger(Request $request)
     {
         $this->treasurer($request);

@@ -10,6 +10,7 @@
 <x-field name="profile[nickname]" label="Nickname" :value="$member->profile['nickname']??''"/>
 <x-field name="profile[phone]" label="Contact number" :value="$member->profile['phone']??''"/>
 <x-field name="profile[address]" label="Address" type="textarea" :value="$member->profile['address']??''"/>
+@if(!empty($member->profile['occupation']) || !empty($member->profile['organization']) || !empty($member->profile['interests']))<div class="full"><h3>Membership application details</h3><p><strong>Current status:</strong> {{ $member->profile['occupation'] ?? 'Not provided' }} · <strong>School or organization:</strong> {{ $member->profile['organization'] ?? 'Not provided' }}</p><p><strong>Areas of interest:</strong> {{ implode(', ', $member->profile['interests'] ?? []) ?: 'Not provided' }}</p></div>@endif
 <x-field name="profile[joined_on]" label="Membership date" type="date" :value="$member->profile['joined_on']??''"/>
 <x-field name="profile[emergency_contact]" label="Emergency contact (optional)" :value="$member->profile['emergency_contact']??''"/>
 <x-field name="password" :label="$member->exists?'New password (leave blank to keep current)':'Initial password'" type="password" :required="!$member->exists" minlength="10" autocomplete="new-password"/>

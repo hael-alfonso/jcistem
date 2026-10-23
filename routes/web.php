@@ -32,6 +32,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
     Route::get('/projects/{project}', [ChapterController::class, 'show'])->name('projects.show')->whereNumber('project');
+    Route::get('/projects/{project}/proposal', [ChapterController::class, 'proposalPacket'])->name('projects.proposal')->whereNumber('project');
     Route::get('/projects/{project}/people/{member}/photo', [ChapterController::class, 'projectMemberPhoto'])->name('projects.people.photo')->whereNumber(['project', 'member']);
     Route::get('/projects/{project}/edit', [ChapterController::class, 'edit'])->name('projects.edit');
     Route::put('/projects/{project}', [ChapterController::class, 'save'])->name('projects.update');
@@ -54,6 +55,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/inquiries/{inquiry}', [ContactInquiryController::class, 'update'])->middleware('permission:inquiries.manage')->name('inquiries.update');
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
     Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->middleware('permission:finance.manage')->name('budget.store');
+    Route::get('/projects/{project}/liquidation', [FinanceController::class, 'liquidationReport'])->middleware('permission:finance.manage')->name('projects.liquidation');
     Route::get('/ledger/export', [FinanceController::class, 'export'])->middleware('permission:finance.manage')->name('ledger.export');
     Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:finance.manage')->name('ledger');
     Route::post('/ledger', [FinanceController::class, 'store'])->middleware('permission:finance.manage')->name('ledger.store');

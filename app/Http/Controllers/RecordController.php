@@ -44,7 +44,18 @@ class RecordController extends Controller
         $project = $request->filled('project_id') ? Project::findOrFail($request->project_id) : null;
         if ($project) abort_unless($project->canManage($request->user()), 403);
         else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
-        $record = new $class(['project_id' => $project?->id, 'type' => $project ? ($kind === 'letters' ? 'JCI LOI' : 'Progress') : 'Overall Financial', 'data' => []]);
+        $record = new $class([
+            'project_id' => $project?->id,
+            'title' => $kind === 'letters' ? 'Project Proposal and Invitation for Partnership – '.$project->title : null,
+            'type' => $project ? ($kind === 'letters' ? 'JCI LOI' : 'Progress') : 'Overall Financial',
+            'data' => $kind === 'letters' ? [
+                'letter_date' => now()->format('Y-m-d'),
+                'purpose' => $project->proposal['rationale'] ?? '',
+                'project_action' => $project->proposal['description'] ?? '',
+                'beneficiary_count' => $project->concept['participants'] ?? '',
+                'signatory' => $project->chair?->name ?? '',
+            ] : [],
+        ]);
         return view('chapter.record-form', compact('record', 'project', 'kind'));
     }
 
@@ -68,6 +79,7 @@ class RecordController extends Controller
         $labels = $kind === 'letters' ? ChapterForms::LETTER : ($project ? ChapterForms::REPORT : ChapterForms::FINANCIAL_REPORT);
         $rules = ['title' => 'required|string|max:200', 'type' => ['required', Rule::in($kind === 'letters' ? ['JCI LOI', 'External Partner Letter'] : ($project ? ['Progress', 'Completion'] : ['Overall Financial']))], 'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png|max:10240'];
         foreach ($labels as $key => $label) $rules['data.'.$key] = 'nullable|string|max:20000';
+        if ($kind === 'letters') $rules['data.letter_date'] = 'nullable|date_format:Y-m-d';
         if (!$project) {
             $rules['data.period_start'] = 'required|date_format:Y-m-d';
             $rules['data.period_end'] = 'required|date_format:Y-m-d|after_or_equal:data.period_start';
@@ -82,7 +94,7 @@ class RecordController extends Controller
                 if ($record) $versions[] = ['version' => $record->version, 'saved_at' => now()->toIso8601String(), 'title' => $record->title, 'status' => $record->status, 'data' => $record->data];
                 $record ??= new $class(['project_id' => $project?->id, 'created_by' => $request->user()->id, 'status' => 'Draft', 'version' => 0]);
                 $body = $data['data'] ?? [];
-                if ($project) $body['project_snapshot'] = ['reference' => $project->reference, 'title' => $project->title, 'description' => $project->proposal['description'] ?? '', 'date' => $project->starts_on?->format('Y-m-d'), 'venue' => $project->venue, 'allocated' => $project->allocated, 'expenses' => $project->spent, 'remaining' => $project->remaining];
+                if ($project) $body['project_snapshot'] = ['reference' => $project->reference, 'title' => $project->title, 'area' => $project->area, 'description' => $project->proposal['description'] ?? '', 'date' => $project->starts_on?->format('Y-m-d'), 'end_date' => $project->ends_on?->format('Y-m-d'), 'venue' => $project->venue, 'allocated' => $project->allocated, 'expenses' => $project->spent, 'remaining' => $project->remaining];
                 if ($path) { $body['attachment_path'] = $path; $body['attachment_name'] = $request->file('attachment')->getClientOriginalName(); }
                 elseif (isset($record->data['attachment_path'])) { $body['attachment_path'] = $record->data['attachment_path']; $body['attachment_name'] = $record->data['attachment_name']; }
                 $record->fill(['title' => $data['title'], 'type' => $data['type'], 'data' => $body, 'versions' => $versions, 'version' => $record->version + 1])->save();
@@ -112,11 +124,26 @@ class RecordController extends Controller
             $action = $data['action'];
             if ($action === 'submit') {
                 abort_unless($this->editable($record, $request), 403);
-                ChapterService::requireFields($record->data ?? [], $kind === 'letters' ? ChapterForms::LETTER : ($record->project_id ? ChapterForms::REPORT : ChapterForms::FINANCIAL_REPORT), 'data');
+                ChapterService::requireFields($record->data ?? [], $kind === 'letters' ? ChapterForms::LETTER_REQUIRED : ($record->project_id ? ChapterForms::REPORT : ChapterForms::FINANCIAL_REPORT), 'data');
                 if (!$record->project_id) {
                     $body = $record->data;
                     $entries = LedgerEntry::where('status', 'Posted')->whereBetween('transaction_date', [$body['period_start'], $body['period_end']])->get();
                     $body['financial_snapshot'] = ['income' => $entries->where('direction', 'credit')->sum('amount'), 'expenses' => $entries->where('direction', 'debit')->sum('amount'), 'transactions' => $entries->map(fn ($e) => $e->only(['reference', 'transaction_date', 'type', 'direction', 'amount', 'description']))->all(), 'captured_at' => now()->toIso8601String()];
+                    $record->data = $body;
+                } elseif ($kind === 'reports') {
+                    $body = $record->data;
+                    $project = $record->project;
+                    $posted = $project->transactions()->where('status', 'Posted')->get();
+                    $debits = $posted->where('direction', 'debit');
+                    $body['financial_snapshot'] = [
+                        'projected_income' => $project->proposal['projected_income'] ?? null,
+                        'projected_expenses' => $project->proposed_budget,
+                        'actual_income' => $posted->where('direction', 'credit')->sum('amount'),
+                        'actual_expenses' => $debits->sum('amount'),
+                        'pending_liquidation' => $debits->where('liquidation_status', '!=', 'Liquidated')->count(),
+                        'missing_evidence' => $debits->filter(fn ($entry) => !$entry->document_path)->count(),
+                        'captured_at' => now()->toIso8601String(),
+                    ];
                     $record->data = $body;
                 }
                 $record->status = $kind === 'letters' ? 'For Review' : 'Submitted';
@@ -182,6 +209,7 @@ class RecordController extends Controller
             if ($member && $member->role === 'admin' && ($data['role'] !== 'admin' || $data['status'] !== 'active') && $admins->count() <= 1) throw \Illuminate\Validation\ValidationException::withMessages(['role' => 'Keep at least one active administrator.']);
             $before = $member?->toArray() ?? [];
             $member ??= new User;
+            if ($member->exists) $data['profile'] = array_merge($member->profile ?? [], $data['profile'] ?? []);
             $member->fill($data)->save();
             ChapterService::audit('member_account_saved', $member, $before);
         });

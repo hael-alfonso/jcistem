@@ -17,6 +17,7 @@
     @include('shared.public-fonts')
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}?v={{ filemtime(public_path('assets/css/chapter.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}?v={{ filemtime(public_path('assets/css/jci-theme.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/project-documents.css') }}?v={{ filemtime(public_path('assets/css/project-documents.css')) }}">
     <script defer src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
 </head>
 <body>
@@ -24,23 +25,20 @@
     $user = auth()->user();
     $unread = \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')->count();
     $roleLabel = \App\Support\WorkspaceNav::label($user->role);
+    $projectMonitoringActive = request()->routeIs('projects*') && !request()->routeIs('projects.liquidation') && request()->query('filter') !== 'concepts';
+    $financialMonitoringActive = request()->routeIs('finance', 'projects.liquidation');
     $navigation = [
-        'OVERVIEW' => [
-            ['dashboard', 'Dashboard', 'dashboard', []],
-        ],
-        'PROJECTS' => [
-            ['projects', 'All projects', 'briefcase', []],
+        'PROJECT WORK' => [
             ['projects', 'Project concepts', 'fileSignature', ['filter' => 'concepts']],
             ['tasks', 'Tasks & milestones', 'checklist', []],
             ['calendar', 'Calendar', 'calendar', []],
         ],
-        'DOCUMENTS' => [
+        'DOCUMENTS & REPORTS' => [
             ['documents', 'Project documents', 'folder', []],
             ['records', 'External LOIs', 'fileSignature', ['kind' => 'letters']],
             ['records', 'Project reports', 'report', ['kind' => 'reports']],
         ],
-        'FINANCES' => [
-            ['finance', 'Financial overview', 'chart', []],
+        'FINANCIAL RECORDS' => [
             ['dues', 'My member dues', 'receipt', []],
         ],
         'CHAPTER' => [
@@ -49,9 +47,9 @@
         ],
     ];
     if ($user->role === 'treasurer') {
-        $navigation['FINANCES'][] = ['ledger', 'Treasurer ledger', 'wallet', []];
-        $navigation['FINANCES'][] = ['ledger', 'Liquidation', 'checklist', ['filter' => 'liquidation']];
-        $navigation['FINANCES'][] = ['dues.manage', 'Record member dues', 'receipt', []];
+        $navigation['FINANCIAL RECORDS'][] = ['ledger', 'Treasurer ledger', 'wallet', []];
+        $navigation['FINANCIAL RECORDS'][] = ['ledger', 'Liquidation queue', 'checklist', ['filter' => 'liquidation']];
+        $navigation['FINANCIAL RECORDS'][] = ['dues.manage', 'Record member dues', 'receipt', []];
     }
     if ($user->role === 'admin') {
         $navigation['CHAPTER'][] = ['inquiries', 'Public inquiries', 'info', []];
@@ -66,13 +64,17 @@
         @include('shared.brand')
         <div class="workspace-label"><span class="live-dot"></span><span>{{ $roleLabel }} workspace</span><span>PH</span></div>
         <nav aria-label="Main navigation">
+            <div class="sidebar-primary" aria-label="Monitoring and overview">
+                <a class="side-link sidebar-primary-link {{ request()->routeIs('dashboard') ? 'is-active' : '' }}" href="{{ route('dashboard') }}" @if(request()->routeIs('dashboard')) aria-current="page" @endif><x-icon name="dashboard"/><span>Dashboard</span></a>
+                <a class="side-link sidebar-primary-link {{ $projectMonitoringActive ? 'is-active' : '' }}" href="{{ route('projects') }}" @if($projectMonitoringActive) aria-current="page" @endif><x-icon name="briefcase"/><span>Project monitoring</span></a>
+                <a class="side-link sidebar-primary-link {{ $financialMonitoringActive ? 'is-active' : '' }}" href="{{ route('finance') }}" @if($financialMonitoringActive) aria-current="page" @endif><x-icon name="chart"/><span>Financial monitoring</span></a>
+            </div>
             @foreach($navigation as $group => $items)
                 @php
                     $groupOpen = match ($group) {
-                        'OVERVIEW' => request()->routeIs('dashboard'),
-                        'PROJECTS' => request()->routeIs('projects*', 'tasks', 'calendar'),
-                        'DOCUMENTS' => request()->routeIs('documents', 'records*'),
-                        'FINANCES' => request()->routeIs('finance', 'ledger*', 'dues*'),
+                        'PROJECT WORK' => request()->routeIs('tasks', 'calendar') || (request()->routeIs('projects') && request()->query('filter') === 'concepts'),
+                        'DOCUMENTS & REPORTS' => request()->routeIs('documents', 'records*'),
+                        'FINANCIAL RECORDS' => request()->routeIs('ledger*', 'dues*'),
                         'CHAPTER' => request()->routeIs('members*', 'registrations*', 'notifications', 'inquiries*', 'activity-log', 'audit'),
                         default => false,
                     };
@@ -83,7 +85,6 @@
                     @foreach($items as [$route, $label, $icon, $params])
                         @php
                             $active = match (true) {
-                                $route === 'projects' && !$params => request()->routeIs('projects*') && request()->query('filter') !== 'concepts',
                                 $route === 'projects' => request()->routeIs('projects') && request()->query('filter') === 'concepts',
                                 $route === 'records' => request()->routeIs('records*') && request()->route('kind') === $params['kind'],
                                 $route === 'ledger' && !$params => request()->routeIs('ledger*') && request()->query('filter') !== 'liquidation',
@@ -100,17 +101,8 @@
                     </div>
                 </details>
             @endforeach
-            <details class="nav-section nav-settings" name="sidebar-menu" @if(request()->routeIs('account')) open @endif>
-                <summary>SETTINGS</summary>
-                <div class="nav-items">
-                    <a class="side-link {{ request()->routeIs('account') ? 'is-active' : '' }}" href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user"/><span>My profile</span></a>
-                    <a class="side-link" href="{{ route('account') }}#security"><x-icon name="shieldCheck"/><span>Password &amp; security</span></a>
-                    <form class="side-logout-form" method="POST" action="{{ route('logout') }}">@csrf
-                        <button class="side-link side-logout" type="submit"><x-icon name="logout"/><span>Log out</span></button>
-                    </form>
-                </div>
-            </details>
         </nav>
+        <div class="sidebar-utility"><a class="side-link {{ request()->routeIs('account') ? 'is-active' : '' }}" href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="settings"/><span>Settings</span></a></div>
         <div class="sidebar-account">
             <a href="{{ route('account') }}" aria-label="My account">
                 <span class="avatar">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span>
@@ -147,7 +139,7 @@
             </div>
         </header>
         <main class="app-content" id="content">
-            @if(session('success'))<div class="alert success" role="status">{{ session('success') }}</div>@endif
+            @if(session('success'))<div class="app-toast-stack" aria-label="Notification"><div class="app-toast" role="status" data-toast><x-icon name="check"/><span>{{ session('success') }}</span><button type="button" aria-label="Dismiss notification" data-toast-dismiss><x-icon name="close"/></button></div></div>@endif
             @if($errors->any())
                 <div class="alert error" role="alert">
                     <strong>Please check the following:</strong>

@@ -148,16 +148,19 @@ html { scroll-padding-top: calc(var(--public-header-height) + 20px); }
 .story-card-wide .story-body { align-self: center; padding-inline: clamp(28px, 5vw, 70px); }
 .story-image { height: 290px; background: var(--sky); overflow: hidden; }
 .story-image img { width: 100%; height: 100%; object-fit: cover; }
-.forum-art { height: 290px; display: flex; flex-direction: column; justify-content: space-between; padding: 27px 32px; background: #087cb5; color: #fff; }
-.forum-art > span { font-size: 10px; letter-spacing: 2px; }
+.story-art { position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; color: #fff; }
+.story-art::before { position: absolute; z-index: -1; right: -65px; top: 40px; width: 230px; height: 230px; border: 28px solid rgb(255 255 255 / 8%); border-radius: 50%; content: ''; }
+.story-art-kicker { position: relative; z-index: 1; padding-right: 82px; font-size: 10px; font-weight: 700; letter-spacing: 1.6px; }
+.story-art-icon { position: absolute; z-index: 1; top: 24px; right: 28px; display: grid; place-items: center; width: 68px; height: 68px; border: 1px solid rgb(255 255 255 / 42%); border-radius: 18px; background: rgb(255 255 255 / 12%); color: #fff; }
+.story-art-icon .ico, .story-art-icon svg { width: 39px; height: 39px; }
+.story-art strong { position: relative; z-index: 1; max-width: 100%; }
+.story-art-footer { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; padding-top: 12px; border-top: 1px solid rgb(255 255 255 / 48%); font-size: 11px; line-height: 1.4; }
+.forum-art { height: 290px; padding: 27px 32px; background: #087cb5; }
 .forum-art strong { font: 800 38px/1.1 'Manrope', sans-serif; letter-spacing: -1px; }
 .forum-art em { color: #b8f1e9; font-style: normal; }
-.forum-art > div { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; padding-top: 12px; border-top: 1px solid #61abd0; font-size: 10px; }
-.red-heart-art { min-height: 330px; display: flex; flex-direction: column; justify-content: space-between; padding: 32px; color: #fff; background: #aa263d; }
-.red-heart-art > span { font-size: 10px; letter-spacing: 2px; }
+.red-heart-art { min-height: 330px; padding: 32px; background: #aa263d; }
 .red-heart-art strong { font: 800 47px/1.05 'Manrope', sans-serif; letter-spacing: -1.5px; }
 .red-heart-art em { color: #ffd7c9; font-style: normal; }
-.red-heart-art > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; padding-top: 13px; border-top: 1px solid rgb(255 255 255 / 45%); font-size: 10px; }
 .story-body { padding: 26px 28px; }
 .story-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 15px; color: var(--muted); font-size: 10px; }
 .story-meta > span { color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }

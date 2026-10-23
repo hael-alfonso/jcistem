@@ -17,7 +17,22 @@
 @forelse($entries as $entry)<details class="ledger-row"><summary><div><strong>{{ $entry->reference }}</strong><small>{{ $entry->transaction_date?->format('M d, Y') }} · {{ $entry->type }}</small></div><div class="row-main"><strong>{{ $entry->description }}</strong><small>{{ $entry->project?->title??$entry->member?->name??'Chapter transaction' }}</small></div><strong class="{{ $entry->direction==='credit'?'positive':'money' }}">{{ $entry->direction==='credit'?'+':'−' }} ₱{{ number_format($entry->amount,2) }}</strong><span class="badge">{{ $entry->status }}</span></summary>
 <div class="ledger-details"><div class="detail-grid"><div><h3>Payee / payer</h3><p>{{ $entry->counterparty }}</p></div><div><h3>Account / category</h3><p>{{ $entry->account }} · {{ $entry->category }}</p></div><div><h3>Payment method</h3><p>{{ $entry->payment_method }}</p></div><div><h3>Liquidation</h3><p>{{ $entry->liquidation_status }}</p></div></div><p>{{ $entry->remarks }}</p>@if($entry->void_reason)<p class="danger-text">Void reason: {{ $entry->void_reason }}</p>@endif
 @if($entry->document_path)<a class="btn secondary" href="{{ route('ledger.receipt',$entry) }}"><x-icon name="download" /> Download supporting document</a>@endif
-@if($entry->status==='Posted')<form class="form-grid no-print" method="POST" action="{{ route('ledger.update',$entry) }}" enctype="multipart/form-data">@csrf<x-field name="action" label="Record action" type="select" :options="$entry->direction==='debit'?['liquidate'=>'Confirm liquidation','void'=>'Void transaction']:['void'=>'Void transaction']" required/><x-field name="remarks" label="Reason / liquidation remarks" type="textarea" required/><x-field name="receipt" label="Receipt / supporting document" type="file"/><div class="full"><button class="btn secondary" data-confirm="Record this financial change? The previous values will remain in the audit trail."><x-icon name="save" /> Save financial action</button></div></form>@endif</div></details>
+@if($entry->status==='Posted')
+    @if($entry->direction==='debit' && $entry->liquidation_status !== 'Liquidated')
+        <form class="form-grid no-print" method="POST" action="{{ route('ledger.update',$entry) }}" enctype="multipart/form-data">
+            @csrf <input type="hidden" name="action" value="liquidate">
+            <div class="full"><h3>Confirm liquidation</h3><p class="hint">Check the official receipt, invoice, or acknowledgment against this expense before confirming.</p></div>
+            <x-field name="remarks" label="Receipt check and liquidation notes" type="textarea" required/>
+            <x-field name="receipt" label="Receipt or supporting document (required if none is attached)" type="file"/>
+            <div class="full"><button class="btn secondary" data-confirm="Confirm this expense as liquidated? The action will be recorded in the audit trail."><x-icon name="check" /> Confirm liquidation</button></div>
+        </form>
+    @endif
+    <form class="form-grid no-print" method="POST" action="{{ route('ledger.update',$entry) }}">
+        @csrf <input type="hidden" name="action" value="void">
+        <x-field name="remarks" label="Reason for voiding this transaction" type="textarea" required/>
+        <div class="full"><button class="btn secondary" data-confirm="Void this posted transaction? It will remain in the audit trail."><x-icon name="close" /> Void transaction</button></div>
+    </form>
+@endif</div></details>
 @empty<div class="empty-state"><h3>No financial transactions recorded.</h3><p>Posted income, expenses, disbursements, and dues payments will appear here.</p></div>@endforelse
 @include('chapter.partials.pagination',['items'=>$entries])</section>
 @endsection

@@ -1,5 +1,5 @@
 @extends('layouts.chapter')
-@section('title', request('filter') === 'concepts' ? 'Project concepts' : 'Projects')
+@section('title', request('filter') === 'concepts' ? 'Project concepts' : 'Project monitoring')
 @section('content')
 @php
     $quickFilters = ['' => 'All projects', 'mine' => 'My projects', 'concepts' => 'Concepts', 'review' => 'Under review'];
@@ -10,7 +10,7 @@
     ];
 @endphp
 <div class="page-heading collection-heading">
-    <div><div class="eyebrow">PROJECT WORK</div><h1>{{ request('filter') === 'concepts' ? 'Project concepts' : 'Projects' }}</h1><p>Find a project and check its status, schedule, and progress.</p></div>
+    <div><div class="eyebrow">PROJECT WORK</div><h1>{{ request('filter') === 'concepts' ? 'Project concepts' : 'Project monitoring' }}</h1><p>Find a project and check its status, schedule, and progress.</p></div>
     <a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus"/> New project concept</a>
 </div>
 <form class="list-filters collection-toolbar" method="GET" action="{{ route('projects') }}">
@@ -54,7 +54,7 @@
                 <div class="progress-label"><span>Tasks completed</span><strong>{{ $project->completed_tasks_count }} of {{ $project->tasks_count }}{{ $project->tasks_count ? ' · '.$taskProgress.'%' : '' }}</strong></div>
                 <progress value="{{ $taskProgress }}" max="100" aria-label="{{ $project->title }} task completion"></progress>
             </div>
-            <div class="project-card-footer"><span><small>{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}</small><strong>PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}</strong></span><a class="text-link" href="{{ route('projects.show', $project) }}" aria-label="View project: {{ $project->title }}">View project <x-icon name="arrow"/></a></div>
+            <div class="project-card-footer"><span><small>{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}</small><strong>PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}</strong></span><div class="project-card-actions"><button class="text-link" type="button" data-project-preview data-title="{{ $project->title }}" data-reference="{{ $project->reference ?? 'Project #'.$project->id }}" data-status="{{ $project->status }}" data-area="{{ $project->area }}" data-chair="{{ $project->chair?->name ?? 'Not assigned' }}" data-dates="{{ $project->starts_on?->format('M d, Y') ?? 'Not set' }} – {{ $project->ends_on?->format('M d, Y') ?? 'Not set' }}" data-completed="{{ $project->completed_tasks_count }}" data-total="{{ $project->tasks_count }}" data-progress="{{ $taskProgress }}" data-budget-label="{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}" data-budget="PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}" data-href="{{ route('projects.show', $project) }}" aria-label="Quick view: {{ $project->title }}"><x-icon name="eye"/> Quick view</button><a class="text-link" href="{{ route('projects.show', $project) }}" aria-label="View project: {{ $project->title }}">View project <x-icon name="arrow"/></a></div></div>
         </article>
     @empty
         <div class="panel empty-state full">
@@ -70,5 +70,15 @@
         </div>
     @endforelse
 </div>
+<dialog class="project-preview-dialog" id="project-preview-dialog" aria-labelledby="project-preview-title">
+    <div class="project-preview-content">
+        <header><p class="eyebrow" data-preview-reference></p><button type="button" class="project-preview-close" data-preview-close aria-label="Close project preview"><x-icon name="close"/></button></header>
+        <h2 id="project-preview-title" data-preview-title></h2>
+        <p class="project-preview-status" data-preview-status></p>
+        <dl class="project-preview-facts"><div><dt>Area of opportunity</dt><dd data-preview-area></dd></div><div><dt>Project chair</dt><dd data-preview-chair></dd></div><div><dt>Schedule</dt><dd data-preview-dates></dd></div><div><dt data-preview-budget-label></dt><dd data-preview-budget></dd></div></dl>
+        <div class="project-preview-progress"><div><strong>Task progress</strong><span data-preview-tasks></span></div><progress max="100" value="0" data-preview-progress aria-label="Project task completion"></progress></div>
+        <div class="project-preview-actions"><button class="btn secondary" type="button" data-preview-close>Close</button><a class="btn primary" href="{{ route('projects') }}" data-preview-link>Open full project <x-icon name="arrow"/></a></div>
+    </div>
+</dialog>
 @include('chapter.partials.pagination', ['items' => $projects])
 @endsection

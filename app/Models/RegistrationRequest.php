@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class RegistrationRequest extends Model
 {
     protected $fillable = [
-        'reference', 'name', 'username', 'email', 'phone', 'reason', 'password', 'consent_at',
+        'reference', 'name', 'username', 'email', 'phone', 'reason', 'application_details', 'password', 'consent_at',
         'status', 'reviewed_by', 'reviewed_at', 'review_notes', 'user_id',
     ];
 
@@ -16,7 +16,7 @@ class RegistrationRequest extends Model
 
     protected function casts(): array
     {
-        return ['password' => 'hashed', 'consent_at' => 'datetime', 'reviewed_at' => 'datetime'];
+        return ['password' => 'hashed', 'application_details' => 'array', 'consent_at' => 'datetime', 'reviewed_at' => 'datetime'];
     }
 
     public function reviewer(): BelongsTo

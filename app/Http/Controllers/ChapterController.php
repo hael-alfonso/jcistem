@@ -68,6 +68,11 @@ class ChapterController extends Controller
         $section = $proposal ? 'proposal' : 'concept';
         $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'proposed_budget' => 'required|numeric|min:0|max:999999999.99'];
         foreach ($proposal ? ChapterForms::PROPOSAL : ChapterForms::CONCEPT as $key => $label) $rules[$section.'.'.$key] = 'nullable|string|max:15000';
+        if ($proposal) {
+            $rules['proposal.committee_director'] = 'nullable|string|max:200';
+            $rules['proposal.board_meeting_date'] = 'nullable|date_format:Y-m-d';
+            $rules['proposal.projected_income'] = 'nullable|numeric|min:0|max:999999999.99';
+        }
         $data = $request->validate($rules);
         $project = DB::transaction(function () use ($project, $request, $data) {
             if ($project) {
@@ -84,7 +89,7 @@ class ChapterController extends Controller
             ChapterService::audit('project_saved', $project, $before);
             return $project;
         });
-        return redirect()->route('projects.show', $project)->with('success', 'Draft saved. Review the letter and submit when ready.');
+        return redirect()->route('projects.show', $project)->with('success', 'Draft saved. Review the document and submit when ready.');
     }
 
     public function show(Request $request, Project $project)
@@ -94,6 +99,14 @@ class ChapterController extends Controller
         $members = User::where('status', 'active')->orderBy('name')->get();
         $assignableMembers = $members->where('role', '!=', 'admin');
         return view('chapter.project', compact('project', 'members', 'assignableMembers'));
+    }
+
+    public function proposalPacket(Request $request, Project $project)
+    {
+        abort_unless(ChapterService::canView($project, $request->user()), 403);
+        abort_unless($project->proposal, 404);
+        $project->load(['owner', 'chair', 'documents', 'reviews']);
+        return view('chapter.proposal-packet', compact('project'));
     }
 
     public function projectMemberPhoto(Request $request, Project $project, User $member)

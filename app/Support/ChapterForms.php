@@ -37,11 +37,40 @@ class ChapterForms
         'letters' => 'JCI LOI / partnership requirements',
         'sustainability' => 'Sustainability / follow-up plan',
     ];
+    public const PROPOSAL_SECTIONS = [
+        'Community need and intended impact' => ['rationale', 'objectives', 'beneficiaries', 'description', 'outputs'],
+        'Delivery plan and people' => ['activities', 'timeline', 'team', 'volunteers', 'partners'],
+        'Resources and funding' => ['resources', 'budget', 'funding'],
+        'Safeguards and follow-through' => ['risks', 'evaluation', 'indicators', 'documentation', 'letters', 'sustainability'],
+    ];
     public const LETTER = [
-        'recipient' => 'Recipient / contact person', 'organization' => 'Organization',
-        'address' => 'Address / contact details', 'purpose' => 'Purpose',
-        'support' => 'Requested collaboration / support', 'commitments' => 'Commitments / specific requests',
-        'signatory' => 'Signatory details', 'body' => 'Letter body',
+        'letter_date' => 'Letter date',
+        'recipient' => 'Recipient name',
+        'recipient_title' => 'Recipient title / position',
+        'organization' => 'Company, organization, or LGU',
+        'address' => 'Mailing address',
+        'purpose' => 'Community problem or need',
+        'project_action' => 'Proposed project action or solution',
+        'target_location' => 'Target community or location',
+        'beneficiary_count' => 'Estimated number of beneficiaries',
+        'partner_alignment' => 'Why this partner is a good fit',
+        'support' => 'Specific support requested',
+        'commitments' => 'Recognition or benefits the chapter can provide',
+        'signatory' => 'Proposed project chair / signatory name',
+        'president_name' => 'Local Organization President name',
+        'body' => 'Additional message (optional)',
+    ];
+    public const LETTER_REQUIRED = [
+        'letter_date' => 'Letter date',
+        'recipient' => 'Recipient name',
+        'organization' => 'Company, organization, or LGU',
+        'purpose' => 'Community problem or need',
+        'project_action' => 'Proposed project action or solution',
+        'target_location' => 'Target community or location',
+        'beneficiary_count' => 'Estimated number of beneficiaries',
+        'support' => 'Specific support requested',
+        'signatory' => 'Proposed project chair / signatory name',
+        'president_name' => 'Local Organization President name',
     ];
     public const REPORT = [
         'summary' => 'Project summary', 'objectives' => 'Objectives achieved',
@@ -49,6 +78,10 @@ class ChapterForms
         'outputs' => 'Outputs', 'outcomes' => 'Outcomes / community impact',
         'participation' => 'Member / volunteer participation', 'issues' => 'Issues encountered',
         'recommendations' => 'Recommendations / follow-up', 'evidence' => 'Evidence / documentation references',
+    ];
+    public const REPORT_SECTIONS = [
+        'Purpose and results' => ['summary', 'objectives', 'beneficiaries', 'activities', 'outputs', 'outcomes'],
+        'People, evidence, and follow-up' => ['participation', 'evidence', 'issues', 'recommendations'],
     ];
     public const FINANCIAL_REPORT = [
         'period_start' => 'Reporting period start (YYYY-MM-DD)',

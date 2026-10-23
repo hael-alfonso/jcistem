@@ -22,6 +22,25 @@ class ChapterSystemTest extends TestCase
         return Project::create(array_merge(['created_by' => $owner->id, 'title' => 'Community literacy project', 'area' => 'Community Impact', 'status' => 'Draft Concept', 'starts_on' => '2026-11-15', 'ends_on' => '2026-11-16', 'venue' => 'Carmona', 'proposed_budget' => 10000, 'concept' => array_fill_keys(array_keys(ChapterForms::CONCEPT), 'Community literacy support'), 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Complete project plan')], $extra));
     }
 
+    public function test_navigation_exposes_monitoring_and_role_appropriate_tools(): void
+    {
+        $member = $this->user();
+        $project = $this->project($member, ['status' => 'Ongoing', 'chair_id' => $member->id]);
+        $this->actingAs($member)->get('/dashboard')->assertOk()
+            ->assertSee('Project monitoring')->assertSee('Financial monitoring')->assertSee('Settings')
+            ->assertDontSee('Treasurer ledger');
+        $this->get('/projects')->assertOk()->assertSee('Quick view')->assertSee('project-preview-dialog');
+        $this->get('/finance')->assertOk()->assertSee('Financial monitoring');
+
+        $treasurer = $this->user('treasurer');
+        $this->actingAs($treasurer)->get('/dashboard')->assertOk()
+            ->assertSee('Treasurer ledger')->assertSee('Liquidation queue');
+        $this->actingAs($treasurer)->get('/projects/'.$project->id.'/liquidation')->assertOk();
+
+        $admin = $this->user('admin');
+        $this->actingAs($admin)->get('/dashboard')->assertOk()->assertSee('Registrations');
+    }
+
     public function test_all_roles_can_render_their_workspaces_and_authorized_forms(): void
     {
         foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
@@ -111,7 +130,9 @@ class ChapterSystemTest extends TestCase
     {
         $chair = $this->user(); $admin = $this->user('admin');
         $project = $this->project($chair, ['status' => 'Ongoing', 'chair_id' => $chair->id]);
-        $data = ['project_id' => $project->id, 'title' => 'School partnership', 'type' => 'External Partner Letter', 'data' => array_fill_keys(array_keys(ChapterForms::LETTER), 'School partnership details')];
+        $letterData = array_fill_keys(array_keys(ChapterForms::LETTER), 'School partnership details');
+        $letterData['letter_date'] = '2026-10-24';
+        $data = ['project_id' => $project->id, 'title' => 'School partnership', 'type' => 'External Partner Letter', 'data' => $letterData];
         $this->actingAs($chair)->post('/records/letters', $data)->assertSessionHasNoErrors();
         $letter = Loi::firstOrFail();
         $this->post('/records/letters/'.$letter->id.'/transition', ['action' => 'sent'])->assertForbidden();
@@ -123,6 +144,41 @@ class ChapterSystemTest extends TestCase
         $this->post('/records/letters/'.$letter->id.'/transition', ['action' => 'revise'])->assertSessionHasNoErrors();
         $this->assertSame('Sent', $letter->fresh()->versions[0]['status']);
         $this->get('/records/letters/'.$letter->id)->assertOk();
+    }
+
+    public function test_project_documents_render_and_report_captures_posted_financials(): void
+    {
+        $chair = $this->user();
+        $treasurer = $this->user('treasurer');
+        $proposal = array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Project plan');
+        $proposal['projected_income'] = '5000';
+        $project = $this->project($chair, ['status' => 'Ongoing', 'chair_id' => $chair->id, 'proposal' => $proposal]);
+
+        $draft = $this->project($chair, ['status' => 'Full Proposal Draft']);
+        $this->actingAs($chair)->get('/projects/'.$draft->id.'/edit')->assertOk()->assertSee('Internal Board transmittal');
+        $this->actingAs($chair)->get('/projects/'.$project->id.'/proposal')
+            ->assertOk()->assertSee('Internal Chapter Project Proposal Transmittal Letter');
+        $this->get('/records/letters/create?project_id='.$project->id)->assertOk()->assertSee('External partnership LOI');
+        $this->get('/records/reports/create?project_id='.$project->id)->assertOk()->assertSee('Purpose and results');
+        $this->get('/projects/'.$project->id.'/liquidation')->assertForbidden();
+
+        LedgerEntry::create([
+            'reference' => 'PROJ-EXP-001', 'project_id' => $project->id, 'type' => 'Expense',
+            'direction' => 'debit', 'status' => 'Posted', 'liquidation_status' => 'Pending',
+            'amount' => 1200, 'transaction_date' => '2026-11-15', 'category' => 'Materials',
+            'counterparty' => 'Supplier', 'description' => 'Materials',
+        ]);
+        $this->actingAs($treasurer)->get('/projects/'.$project->id.'/liquidation')
+            ->assertOk()->assertSee('PROJ-EXP-001')->assertSee('1 pending liquidation');
+
+        $this->actingAs($chair)->post('/records/reports', [
+            'project_id' => $project->id, 'title' => 'Project completion', 'type' => 'Completion',
+            'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Completed'),
+        ])->assertSessionHasNoErrors();
+        $report = ProjectReport::firstOrFail();
+        $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
+        $this->assertEquals(1200, $report->fresh()->data['financial_snapshot']['actual_expenses']);
+        $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Projected')->assertSee('Actual posted');
     }
 
     public function test_members_cannot_access_private_concepts_financial_records_or_admin_controls(): void

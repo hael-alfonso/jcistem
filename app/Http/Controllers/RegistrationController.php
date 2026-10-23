@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\{RegistrationRequest, User};
 use App\Services\ChapterService;
 use App\Support\Permissions;
+use App\Support\ChapterForms;
 use Illuminate\Http\{RedirectResponse, Request};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class RegistrationController extends Controller
@@ -26,6 +28,12 @@ class RegistrationController extends Controller
             'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/'],
             'email' => ['required', 'email:rfc', 'max:200'],
             'phone' => ['nullable', 'string', 'max:40'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'occupation' => ['nullable', Rule::in(['Student', 'Employed', 'Self-employed', 'Other'])],
+            'organization' => ['nullable', 'string', 'max:200'],
+            'interests' => ['nullable', 'array', 'max:4'],
+            'interests.*' => [Rule::in(ChapterForms::AREAS)],
+            'motivation' => ['nullable', 'string', 'max:1000'],
             'password' => ['required', 'confirmed', Password::min(10)],
             'consent' => ['accepted'],
             'website' => ['nullable', 'max:0'],
@@ -49,7 +57,13 @@ class RegistrationController extends Controller
                 'username' => $username,
                 'email' => $email,
                 'phone' => filled($data['phone'] ?? null) ? trim($data['phone']) : null,
-                'reason' => 'Member portal registration',
+                'reason' => trim($data['motivation'] ?? '') ?: 'Membership application and member portal registration',
+                'application_details' => [
+                    'address' => trim($data['address'] ?? ''),
+                    'occupation' => $data['occupation'] ?? null,
+                    'organization' => trim($data['organization'] ?? ''),
+                    'interests' => array_values(array_unique($data['interests'] ?? [])),
+                ],
                 'password' => $data['password'],
                 'consent_at' => now(),
                 'status' => 'pending',
@@ -115,7 +129,13 @@ class RegistrationController extends Controller
                     'password' => $registration->password,
                     'role' => 'member',
                     'status' => 'active',
-                    'profile' => ['phone' => $registration->phone],
+                    'profile' => [
+                        'phone' => $registration->phone,
+                        'address' => $registration->application_details['address'] ?? '',
+                        'occupation' => $registration->application_details['occupation'] ?? null,
+                        'organization' => $registration->application_details['organization'] ?? '',
+                        'interests' => $registration->application_details['interests'] ?? [],
+                    ],
                 ]);
                 $registration->user_id = $member->id;
                 $registration->status = 'approved';

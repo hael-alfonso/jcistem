@@ -18,6 +18,11 @@ class RegistrationApprovalTest extends TestCase
             'username' => 'carmona.applicant',
             'email' => $email,
             'phone' => '09171234567',
+            'address' => 'Carmona City, Cavite',
+            'occupation' => 'Student',
+            'organization' => 'Carmona College',
+            'interests' => ['Community Impact', 'Individual Development'],
+            'motivation' => 'I want to serve and develop leadership skills.',
             'password' => 'StrongMemberPass123',
             'password_confirmation' => 'StrongMemberPass123',
             'consent' => '1',
@@ -29,12 +34,14 @@ class RegistrationApprovalTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $bod = User::factory()->create(['role' => 'bod', 'status' => 'active']);
 
-        $this->get('/register')->assertOk()->assertSee('Register an account.');
+        $this->get('/register')->assertOk()->assertSee('Apply for membership.')->assertSee('Areas of interest');
         $workspace = '/workspaces/123e4567-e89b-12d3-a456-426614174000';
         $this->get($workspace.'/register')->assertOk()->assertSee('action="http://localhost'.$workspace.'/register"', false);
         $this->post('/register', $this->application())->assertRedirect('/register/thanks');
         $registration = RegistrationRequest::firstOrFail();
         $this->assertSame('pending', $registration->status);
+        $this->assertSame('Carmona City, Cavite', $registration->application_details['address']);
+        $this->assertSame(['Community Impact', 'Individual Development'], $registration->application_details['interests']);
         $this->assertTrue(Hash::check('StrongMemberPass123', $registration->password));
         $this->assertDatabaseMissing('users', ['email' => 'applicant@example.test']);
         $this->post('/login', ['login' => 'carmona.applicant', 'password' => 'StrongMemberPass123'])
@@ -43,6 +50,7 @@ class RegistrationApprovalTest extends TestCase
         $this->actingAs($bod)->get('/registrations')->assertForbidden();
         $this->actingAs($bod)->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve'])->assertForbidden();
         $this->actingAs($admin)->get('/registrations')->assertOk()->assertSee('Carmona Applicant');
+        $this->actingAs($admin)->get('/registrations/'.$registration->id)->assertOk()->assertSee('Carmona College')->assertSee('I want to serve');
         $this->actingAs($admin)->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve'])
             ->assertSessionHasErrors('verified_identity');
         $this->actingAs($admin)->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve', 'verified_identity' => '1'])
@@ -56,7 +64,15 @@ class RegistrationApprovalTest extends TestCase
         $this->assertNull($registration->password);
         $this->assertSame('member', $member->role);
         $this->assertSame('active', $member->status);
+        $this->assertSame('Carmona City, Cavite', $member->profile['address']);
+        $this->assertSame(['Community Impact', 'Individual Development'], $member->profile['interests']);
+        $this->actingAs($member)->get('/account')->assertOk()->assertSee('Areas of interest');
         $this->assertTrue(Hash::check('StrongMemberPass123', $member->password));
+        $this->actingAs($admin)->put('/members/'.$member->id, [
+            'name' => $member->name, 'username' => $member->username, 'email' => $member->email,
+            'role' => 'member', 'status' => 'active', 'profile' => ['phone' => '09170000000'],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(['Community Impact', 'Individual Development'], $member->fresh()->profile['interests']);
         auth()->logout();
         $this->actingAs($admin)->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve', 'verified_identity' => '1'])
             ->assertSessionHasErrors('decision');

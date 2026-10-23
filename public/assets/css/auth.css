@@ -151,3 +151,32 @@ html.auth-flow-back .auth-intro { animation: auth-background-enter-back .42s cub
     .auth-field textarea { font-size: 16px; }
     .auth-account-help p { font-size: 13px; }
 }
+
+/* The application is a single readable form, with sections instead of extra steps. */
+.auth-register-wrap { max-width: 560px; }
+.auth-registration-form { display: block; }
+.auth-registration-section { margin-top: 27px; padding-top: 25px; border-top: 1px solid var(--line); }
+.auth-registration-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.auth-registration-section-heading { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 18px; }
+.auth-registration-section-heading > span { display: inline-grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: #e8f5fa; color: var(--blue); font-size: 12px; font-weight: 800; }
+.auth-registration-section-heading h2 { margin: 0; color: var(--ink); font-size: 17px; line-height: 1.4; }
+.auth-registration-section-heading p { margin-top: 3px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.auth-registration-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 17px 15px; }
+.auth-registration-grid .auth-field { min-width: 0; margin: 0; }
+.auth-registration-grid .auth-field > label, .auth-interests legend { font-size: 12px; }
+.auth-registration-grid .auth-field input, .auth-registration-grid .auth-field select { min-width: 0; width: 100%; height: var(--auth-control-height); padding: 10px 12px; border: 1px solid #afc0cf; border-radius: 6px; background: #fff; color: var(--ink); font-size: 15px; }
+.auth-registration-grid .auth-field select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px #087cb51f; }
+.auth-registration-grid .auth-field-wide, .auth-interests { grid-column: 1 / -1; }
+.auth-interests { min-width: 0; padding: 0; border: 0; }
+.auth-interests legend { margin-bottom: 9px; color: var(--ink); font-weight: 600; }
+.auth-interests > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.auth-interests label { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); font-size: 12px; line-height: 1.4; cursor: pointer; }
+.auth-interests label:has(input:checked) { border-color: var(--blue); background: #eef8fc; }
+.auth-interests input { width: 16px; height: 16px; flex: 0 0 auto; accent-color: var(--blue); }
+.auth-registration-hint { align-self: center; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.auth-registration-form > .auth-consent { margin-top: 24px; }
+.auth-registration-form > .auth-submit { margin-top: 18px; }
+@media (max-width: 560px) {
+    .auth-registration-grid, .auth-interests > div { grid-template-columns: 1fr; }
+    .auth-registration-hint { margin-top: -9px; }
+}

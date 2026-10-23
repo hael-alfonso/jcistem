@@ -53,8 +53,9 @@
 @if($u->role==='admin' && in_array($project->status,['Completed','Declined','Not Approved']))@include('chapter.partials.project-action',['action'=>'archive','label'=>'Archive Project'])@endif
 </div><p class="hint">Monitoring access does not grant editing, approval, or financial recording authority.</p></section>
 <nav class="anchor-tabs no-print"><a href="#overview">Overview</a><a href="#tasks">Tasks</a><a href="#timeline">Timeline</a><a href="#budget">Budget & expenses</a><a href="#documents">Documents</a><a href="#reports">LOIs & reports</a></nav>
+@if($u->role === 'treasurer')<div class="button-row no-print"><a class="btn secondary" href="{{ route('projects.liquidation', $project) }}"><x-icon name="report" /> View / print financial liquidation</a></div>@endif
 <section class="panel form-panel" id="overview"><h2>Project concept letter</h2><p class="letter-recipient">To: JCI Carmona Chapter President<br>From: {{ $project->owner?->name }}<br>Subject: Proposed Project — {{ $project->title }}</p><div class="detail-grid">@foreach(\App\Support\ChapterForms::CONCEPT as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->concept[$key]??'Not provided' }}</p></div>@endforeach</div></section>
-@if($project->proposal)<section class="panel form-panel"><h2>Full project proposal</h2><div class="detail-grid">@foreach(\App\Support\ChapterForms::PROPOSAL as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->proposal[$key]??'Not provided' }}</p></div>@endforeach</div></section>@endif
+@if($project->proposal)<section class="panel form-panel"><div class="panel-heading flush"><div><h2>Full project proposal</h2><p>Includes the internal Board transmittal and planning form.</p></div><a class="btn secondary no-print" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View / print packet</a></div><div class="detail-grid">@foreach(\App\Support\ChapterForms::PROPOSAL as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->proposal[$key]??'Not provided' }}</p></div>@endforeach</div></section>@endif
 <section class="panel form-panel project-tasks-section" id="tasks">
     <div class="panel-heading flush"><div><h2>Tasks &amp; milestones</h2><p>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</p></div><span>{{ $project->progress }}% complete</span></div>
     <progress value="{{ $project->progress }}" max="100" aria-label="Project task completion"></progress>
@@ -94,10 +95,10 @@
 <section class="panel form-panel" id="documents"><h2>Project documents</h2>@forelse($project->documents as $document)<a class="list-row" href="{{ route('documents.download',$document) }}"><span><strong>{{ $document->title }}</strong><small>{{ $document->category }} · {{ $document->original_name }}</small></span><span class="text-link"><x-icon name="download" /> Download</span></a>@empty<p class="panel-empty">Supporting documents, task evidence, and project documentation appear here.</p>@endforelse
 @if($manages||$project->canEdit($u))<details class="record-detail no-print"><summary><x-icon name="upload" /> Upload document<x-icon name="chevron" class="disclosure-icon" /></summary><form method="POST" action="{{ route('documents.store',$project) }}" enctype="multipart/form-data" class="form-grid">@csrf<x-field name="title" label="Document title" required/><x-field name="category" label="Document category" value="Supporting document" required/><x-field name="file" label="File (PDF, Office, image, CSV or text; max 10 MB)" type="file" required/><div class="full"><button class="btn primary"><x-icon name="upload" /> Upload document</button></div></form></details>@endif</section>
 <section class="panel form-panel" id="reports">
-    <h2>JCI LOIs & project reports</h2>
+    <h2>External partnership LOIs &amp; project reports</h2>
     <div class="button-row no-print">
         @if($manages)
-            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}"><x-icon name="filePlus" /> Prepare JCI LOI</a>
+            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}"><x-icon name="filePlus" /> Prepare partner LOI</a>
             <a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id]) }}"><x-icon name="filePlus" /> Prepare project report</a>
         @endif
     </div>
