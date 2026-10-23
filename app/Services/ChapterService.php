@@ -5,7 +5,7 @@ use App\Models\{AuditLog, Notification, Project, ProjectReview, User};
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use App\Support\ChapterForms;
+use App\Support\{ChapterForms, Permissions};
 
 class ChapterService
 {
@@ -68,7 +68,7 @@ class ChapterService
                     if (!$project->starts_on || !$project->venue) throw ValidationException::withMessages(['project' => 'Set a proposed date and venue before submitting.']);
                     $to = 'Submitted for President Review'; break;
                 case 'endorse': case 'revise_concept': case 'decline':
-                    $allowed = in_array($user->role, ['admin', 'bod']) && $user->concept_reviewer && $from === 'Submitted for President Review';
+                    $allowed = Permissions::allows($user, Permissions::CONCEPT_REVIEW) && $from === 'Submitted for President Review';
                     $to = ['endorse' => 'Endorsed for Development', 'revise_concept' => 'Needs Revision', 'decline' => 'Declined'][$action]; break;
                 case 'start_proposal':
                     $allowed = $project->created_by === $user->id && $from === 'Endorsed for Development';
@@ -84,11 +84,11 @@ class ChapterService
                     $allowed = $user->role === 'treasurer' && $from === 'Submitted for Formal Approval';
                     $project->budget_reviewed_at = now(); $project->budget_reviewed_by = $user->id; break;
                 case 'approve': case 'revise_proposal': case 'reject':
-                    $allowed = in_array($user->role, ['admin', 'bod']) && $user->proposal_reviewer && $from === 'Submitted for Formal Approval';
+                    $allowed = Permissions::allows($user, Permissions::PROPOSAL_REVIEW) && $from === 'Submitted for Formal Approval';
                     if ($action === 'approve' && $project->proposed_budget > 0 && !$project->budget_reviewed_at) throw ValidationException::withMessages(['action' => 'Treasurer budget review is required before approval.']);
                     $to = ['approve' => 'Approved', 'revise_proposal' => 'Returned for Revision', 'reject' => 'Not Approved'][$action]; break;
                 case 'assign_chair':
-                    $allowed = ($user->role === 'admin' || ($user->role === 'bod' && $user->proposal_reviewer)) && in_array($from, ['Approved', 'Ongoing']);
+                    $allowed = ($user->role === 'admin' || Permissions::allows($user, Permissions::PROPOSAL_REVIEW)) && in_array($from, ['Approved', 'Ongoing']);
                     $chair = User::where('status', 'active')->where('role', '!=', 'admin')->findOrFail($chairId);
                     $project->chair_id = $chair->id; break;
                 case 'start':
@@ -100,11 +100,11 @@ class ChapterService
                     if (!$project->reports()->where('type', 'Completion')->whereIn('status', ['Submitted', 'Reviewed'])->exists()) throw ValidationException::withMessages(['action' => 'Submit a completion report first.']);
                     $to = 'Completion Review'; break;
                 case 'complete': case 'return_completion':
-                    $allowed = $user->role === 'admin' && $from === 'Completion Review';
+                    $allowed = Permissions::allows($user, Permissions::PROJECT_COMPLETE) && $from === 'Completion Review';
                     if ($action === 'complete' && $project->transactions()->where('status', 'Posted')->where('liquidation_status', 'Pending')->exists()) throw ValidationException::withMessages(['action' => 'Resolve pending liquidation before completion.']);
                     $to = $action === 'complete' ? 'Completed' : 'Ongoing'; break;
                 case 'archive':
-                    $allowed = $user->role === 'admin' && in_array($from, ['Completed', 'Declined', 'Not Approved']);
+                    $allowed = Permissions::allows($user, Permissions::PROJECT_ARCHIVE) && in_array($from, ['Completed', 'Declined', 'Not Approved']);
                     $to = 'Archived'; break;
                 default: abort(422, 'Unknown project action.');
             }

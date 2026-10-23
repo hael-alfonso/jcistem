@@ -1,4 +1,4 @@
-<section class="chapter-gallery" aria-labelledby="gallery-title">
+<section class="chapter-gallery" id="media" aria-labelledby="gallery-title">
     <div class="gallery-heading">
         <div>
             <p class="eyebrow">From our chapter</p>

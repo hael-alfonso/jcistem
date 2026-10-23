@@ -161,17 +161,16 @@ class AuthController extends Controller
 
         $user = Auth::guard()->getLastAttempted();
         $token = Str::random(64);
-        $replaceSession = $request->boolean('replace_session');
-        $claimed = DB::transaction(function () use ($user, $token, $credentials, $replaceSession) {
+        $claimed = DB::transaction(function () use ($user, $token, $credentials) {
             $account = User::whereKey($user->getAuthIdentifier())->lockForUpdate()->firstOrFail();
             $recentLogin = $account->active_login_seen_at?->gt(now()->subMinutes(config('session.lifetime')));
-            if ($account->status !== 'active' || ($account->active_login_token && $recentLogin && !$replaceSession)) return null;
+            if ($account->status !== 'active' || ($account->active_login_token && $recentLogin)) return null;
             $changes = ['active_login_token' => $token, 'active_login_seen_at' => now(), 'last_login_at' => now()];
             if (Hash::needsRehash($account->password)) $changes['password'] = Hash::make($credentials['password']);
             $account->forceFill($changes)->save();
             return $account;
         });
-        if (!$claimed) return back()->withErrors(['login' => 'This account is already signed in. If you can no longer access that session, select Replace any existing sign-in and try again.'])->onlyInput('login');
+        if (!$claimed) return back()->withErrors(['login' => 'We could not sign you in on this device. Use Forgot password? to restore secure account access.'])->onlyInput('login');
 
         RateLimiter::clear($key);
         Auth::login($claimed, false);

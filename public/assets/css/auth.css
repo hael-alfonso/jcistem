@@ -42,11 +42,6 @@
 .auth-submit { display: flex; width: 100%; margin-top: 17px; min-height: var(--auth-control-height); border-radius: 6px; }
 .auth-submit:disabled { opacity: .75; cursor: wait; }
 .auth-form-panel form > .auth-field + .auth-submit { margin-top: 25px; }
-.auth-session-help { margin-top: 18px; }
-.auth-session-help summary { cursor: pointer; font-size: 11px; color: var(--muted); padding-block: 5px; }
-.auth-session-help p { margin-top: 10px; font-size: 12px; line-height: 1.7; color: var(--muted); }
-.auth-session-help label { display: flex; align-items: flex-start; gap: 10px; margin-top: 13px; padding-block: 7px; font-size: 12px; cursor: pointer; }
-.auth-session-help input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--blue); flex-shrink: 0; }
 .auth-account-help { margin-top: 24px; padding: 16px 20px; background: var(--paper); border-radius: 6px; }
 .auth-account-help strong { display: block; font-size: 12px; }
 .auth-account-help p { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.8; }

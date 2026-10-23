@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\{Project, Loi, ProjectReport, LedgerEntry, User};
 use App\Services\ChapterService;
 use App\Support\ChapterForms;
+use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Hash, Storage};
 use Illuminate\Validation\{Rule, Rules\Password, ValidationException};
@@ -14,12 +15,12 @@ class RecordController extends Controller
 
     private function editable($record, Request $request): bool
     {
-        return in_array($record->status, ['Draft', 'Returned'], true) && ($record->project_id ? $record->project->canManage($request->user()) : $request->user()->role === 'treasurer');
+        return in_array($record->status, ['Draft', 'Returned'], true) && ($record->project_id ? $record->project->canManage($request->user()) : Permissions::allows($request->user(), Permissions::FINANCE_MANAGE));
     }
 
     private function visible($record, Request $request): bool
     {
-        if (!$record->project_id) return $request->user()->role === 'treasurer' || (in_array($request->user()->role, ['admin', 'bod']) && in_array($record->status, ['Submitted', 'Reviewed']));
+        if (!$record->project_id) return Permissions::allows($request->user(), Permissions::FINANCE_MANAGE) || (in_array($request->user()->role, ['admin', 'bod']) && in_array($record->status, ['Submitted', 'Reviewed']));
         return ChapterService::canView($record->project, $request->user()) && ($record->project->chair_id === $request->user()->id || in_array($request->user()->role, ['admin', 'bod']) || in_array($record->status, ['Reviewed', 'Approved for Sending', 'Sent', 'Archived']));
     }
 
@@ -42,7 +43,7 @@ class RecordController extends Controller
         $request->validate(['project_id' => 'nullable|integer|exists:projects,id']);
         $project = $request->filled('project_id') ? Project::findOrFail($request->project_id) : null;
         if ($project) abort_unless($project->canManage($request->user()), 403);
-        else abort_unless($kind === 'reports' && $request->user()->role === 'treasurer', 403);
+        else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
         $record = new $class(['project_id' => $project?->id, 'type' => $project ? ($kind === 'letters' ? 'JCI LOI' : 'Progress') : 'Overall Financial', 'data' => []]);
         return view('chapter.record-form', compact('record', 'project', 'kind'));
     }
@@ -63,7 +64,7 @@ class RecordController extends Controller
         $request->validate(['project_id' => 'nullable|integer|exists:projects,id']);
         $project = $record ? $record->project : ($request->filled('project_id') ? Project::findOrFail($request->project_id) : null);
         if ($project) abort_unless($project->canManage($request->user()), 403);
-        else abort_unless($kind === 'reports' && $request->user()->role === 'treasurer', 403);
+        else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
         $labels = $kind === 'letters' ? ChapterForms::LETTER : ($project ? ChapterForms::REPORT : ChapterForms::FINANCIAL_REPORT);
         $rules = ['title' => 'required|string|max:200', 'type' => ['required', Rule::in($kind === 'letters' ? ['JCI LOI', 'External Partner Letter'] : ($project ? ['Progress', 'Completion'] : ['Overall Financial']))], 'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png|max:10240'];
         foreach ($labels as $key => $label) $rules['data.'.$key] = 'nullable|string|max:20000';
@@ -107,7 +108,7 @@ class RecordController extends Controller
         DB::transaction(function () use ($request, $class, $id, $data, $kind) {
             $record = $class::lockForUpdate()->findOrFail($id);
             $before = $record->toArray();
-            $manager = $record->project_id ? $record->project->canManage($request->user()) : $request->user()->role === 'treasurer';
+            $manager = $record->project_id ? $record->project->canManage($request->user()) : Permissions::allows($request->user(), Permissions::FINANCE_MANAGE);
             $action = $data['action'];
             if ($action === 'submit') {
                 abort_unless($this->editable($record, $request), 403);
@@ -121,7 +122,7 @@ class RecordController extends Controller
                 $record->status = $kind === 'letters' ? 'For Review' : 'Submitted';
                 ChapterService::notify(User::where('role', 'admin')->pluck('id'), $kind === 'letters' ? 'JCI LOI for review' : 'Report submitted', $record->title, route('records.show', [$kind, $id], false));
             } elseif (in_array($action, ['return', 'approve'])) {
-                abort_unless($request->user()->role === 'admin' && in_array($record->status, ['For Review', 'Submitted']), 403);
+                abort_unless(Permissions::allows($request->user(), Permissions::RECORDS_REVIEW) && in_array($record->status, ['For Review', 'Submitted']), 403);
                 if (!trim($data['comments'] ?? '')) throw \Illuminate\Validation\ValidationException::withMessages(['comments' => 'Review comments are required.']);
                 $record->status = $action === 'return' ? 'Returned' : ($kind === 'letters' ? 'Approved for Sending' : 'Reviewed');
                 $record->review_comments = $data['comments'];
@@ -135,7 +136,7 @@ class RecordController extends Controller
                 $versions[] = ['version' => $record->version, 'saved_at' => now()->toIso8601String(), 'title' => $record->title, 'status' => $record->status, 'data' => $record->data];
                 $record->versions = $versions; $record->version++; $record->status = 'Draft';
             } else {
-                abort_unless($kind === 'letters' && ($manager || $request->user()->role === 'admin') && $record->status === 'Sent', 403);
+                abort_unless($kind === 'letters' && ($manager || Permissions::allows($request->user(), Permissions::RECORDS_REVIEW)) && $record->status === 'Sent', 403);
                 $record->status = 'Archived';
             }
             $record->save(); ChapterService::audit('document_'.$action, $record, $before, $data['comments'] ?? null);
@@ -164,13 +165,13 @@ class RecordController extends Controller
 
     public function memberForm(Request $request, ?User $member = null)
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        abort_unless(Permissions::allows($request->user(), Permissions::MEMBERS_MANAGE), 403);
         return view('chapter.member-form', ['member' => $member ?? new User]);
     }
 
     public function memberSave(Request $request, ?User $member = null)
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        abort_unless(Permissions::allows($request->user(), Permissions::MEMBERS_MANAGE), 403);
         $data = $request->validate(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($member?->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($member?->id)], 'password' => [$member ? 'nullable' : 'required', 'confirmed', Password::min(10)], 'role' => ['required', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'status' => ['required', Rule::in(['active', 'inactive'])], 'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member?->id)], 'concept_reviewer' => 'sometimes|boolean', 'proposal_reviewer' => 'sometimes|boolean', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.joined_on' => 'nullable|date', 'profile.emergency_contact' => 'nullable|string|max:500']);
         $data['username'] = strtolower($data['username']);
         $data['concept_reviewer'] = in_array($data['role'], ['admin', 'bod']) && $request->boolean('concept_reviewer');

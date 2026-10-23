@@ -1,10 +1,13 @@
 <?php
 
-use App\Http\Controllers\{AuthController, ChapterController, FinanceController, RecordController};
+use App\Http\Controllers\{AuthController, ChapterController, ContactInquiryController, FinanceController, RecordController};
 use Illuminate\Support\Facades\Route;
 
 $workspaceRoutes = function () {
 Route::get('/', fn () => view('landing'));
+Route::get('/contact', [ContactInquiryController::class, 'create'])->name('contact');
+Route::post('/contact', [ContactInquiryController::class, 'store'])->middleware('throttle:5,10')->name('contact.store');
+Route::get('/contact/thank-you', [ContactInquiryController::class, 'thanks'])->name('contact.thanks');
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
@@ -41,19 +44,22 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/notifications', [ChapterController::class, 'notifications'])->name('notifications');
     Route::post('/notifications/read', [ChapterController::class, 'readNotifications'])->name('notifications.read');
     Route::post('/notifications/{notification}/open', [ChapterController::class, 'openNotification'])->name('notifications.open');
-    Route::get('/activity-log', [ChapterController::class, 'audit'])->name('activity-log');
-    Route::get('/audit', [ChapterController::class, 'audit'])->name('audit');
+    Route::get('/activity-log', [ChapterController::class, 'audit'])->middleware('permission:audit.view')->name('activity-log');
+    Route::get('/audit', [ChapterController::class, 'audit'])->middleware('permission:audit.view')->name('audit');
+    Route::get('/inquiries', [ContactInquiryController::class, 'index'])->middleware('permission:inquiries.manage')->name('inquiries');
+    Route::get('/inquiries/{inquiry}', [ContactInquiryController::class, 'show'])->middleware('permission:inquiries.manage')->name('inquiries.show');
+    Route::put('/inquiries/{inquiry}', [ContactInquiryController::class, 'update'])->middleware('permission:inquiries.manage')->name('inquiries.update');
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
-    Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->name('budget.store');
-    Route::get('/ledger/export', [FinanceController::class, 'export'])->name('ledger.export');
-    Route::get('/ledger', [FinanceController::class, 'ledger'])->name('ledger');
-    Route::post('/ledger', [FinanceController::class, 'store'])->name('ledger.store');
-    Route::post('/ledger/{entry}', [FinanceController::class, 'update'])->name('ledger.update');
+    Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->middleware('permission:finance.manage')->name('budget.store');
+    Route::get('/ledger/export', [FinanceController::class, 'export'])->middleware('permission:finance.manage')->name('ledger.export');
+    Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:finance.manage')->name('ledger');
+    Route::post('/ledger', [FinanceController::class, 'store'])->middleware('permission:finance.manage')->name('ledger.store');
+    Route::post('/ledger/{entry}', [FinanceController::class, 'update'])->middleware('permission:finance.manage')->name('ledger.update');
     Route::get('/ledger/{entry}/receipt', [FinanceController::class, 'receipt'])->name('ledger.receipt');
     Route::get('/dues', [FinanceController::class, 'dues'])->name('dues');
-    Route::get('/dues/manage', [FinanceController::class, 'dues'])->name('dues.manage');
-    Route::post('/dues', [FinanceController::class, 'openDues'])->name('dues.store');
-    Route::post('/dues/{due}/payment', [FinanceController::class, 'payDues'])->name('dues.payment');
+    Route::get('/dues/manage', [FinanceController::class, 'dues'])->middleware('permission:finance.manage')->name('dues.manage');
+    Route::post('/dues', [FinanceController::class, 'openDues'])->middleware('permission:finance.manage')->name('dues.store');
+    Route::post('/dues/{due}/payment', [FinanceController::class, 'payDues'])->middleware('permission:finance.manage')->name('dues.payment');
     Route::get('/records/{kind}', [RecordController::class, 'index'])->name('records');
     Route::get('/records/{kind}/create', [RecordController::class, 'create'])->name('records.create');
     Route::post('/records/{kind}', [RecordController::class, 'save'])->name('records.store');
@@ -63,10 +69,10 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/records/{kind}/{id}/transition', [RecordController::class, 'transition'])->name('records.transition');
     Route::get('/records/{kind}/{id}/attachment', [RecordController::class, 'attachment'])->name('records.attachment');
     Route::get('/members', [RecordController::class, 'members'])->name('members');
-    Route::get('/members/create', [RecordController::class, 'memberForm'])->name('members.create');
-    Route::post('/members', [RecordController::class, 'memberSave'])->name('members.store');
-    Route::get('/members/{member}/edit', [RecordController::class, 'memberForm'])->name('members.edit');
-    Route::put('/members/{member}', [RecordController::class, 'memberSave'])->name('members.update');
+    Route::get('/members/create', [RecordController::class, 'memberForm'])->middleware('permission:members.manage')->name('members.create');
+    Route::post('/members', [RecordController::class, 'memberSave'])->middleware('permission:members.manage')->name('members.store');
+    Route::get('/members/{member}/edit', [RecordController::class, 'memberForm'])->middleware('permission:members.manage')->name('members.edit');
+    Route::put('/members/{member}', [RecordController::class, 'memberSave'])->middleware('permission:members.manage')->name('members.update');
     Route::get('/account', [RecordController::class, 'account'])->name('account');
     Route::get('/account/photo', [RecordController::class, 'accountPhoto'])->name('account.photo');
     Route::put('/account', [RecordController::class, 'accountSave'])->name('account.update');

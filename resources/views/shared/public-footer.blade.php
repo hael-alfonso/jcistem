@@ -1,3 +1,4 @@
+@php($footerRoot = request()->routeIs('contact*', 'scoped.contact*') ? url('/') : '')
 <footer class="site-footer" id="footer" aria-label="JCI Carmona footer">
     <div class="shell footer-main">
         <div class="footer-brand">
@@ -11,11 +12,13 @@
             <div class="footer-links">
                 <nav aria-label="Footer menu">
                     <h2>Menu</h2>
-                    <a href="#top">Home</a>
-                    <a href="#about">About us</a>
-                    <a href="#opportunities">What we do</a>
-                    <a href="#impact">Community stories</a>
-                    <a href="#join">Get involved</a>
+                    <a href="{{ $footerRoot }}#top">Home</a>
+                    <a href="{{ $footerRoot }}#about">About us</a>
+                    <a href="{{ $footerRoot }}#opportunities">What we do</a>
+                    <a href="{{ $footerRoot }}#partners">Partners</a>
+                    <a href="{{ $footerRoot }}#impact">News &amp; projects</a>
+                    <a href="{{ $footerRoot }}#media">Media</a>
+                    <a href="{{ route('contact') }}">Contact us</a>
                 </nav>
                 <nav aria-label="Connect with JCI">
                     <h2>Connect</h2>
@@ -29,8 +32,8 @@
                     <h2>Resources</h2>
                     <a href="{{ route('login') }}">Member sign in</a>
                     <a href="{{ route('password.request') }}">Account recovery</a>
-                    <a href="#portal">About JCISTEM</a>
-                    <a href="#questions">Common questions</a>
+                    <a href="{{ $footerRoot }}#portal">About JCISTEM</a>
+                    <a href="{{ $footerRoot }}#questions">Common questions</a>
                 </nav>
             </div>
             <div class="footer-connect">

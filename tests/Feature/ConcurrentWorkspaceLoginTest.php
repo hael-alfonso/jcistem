@@ -20,9 +20,9 @@ class ConcurrentWorkspaceLoginTest extends TestCase
         $this->signIn($adminWorkspace, $admin, $cookies);
         $duplicateAdminWorkspace = $this->newWorkspace($cookies);
         $this->requestAsBrowser('POST', $duplicateAdminWorkspace.'/login', $cookies, [
-            'email' => $admin->email,
+            'login' => $admin->email,
             'password' => 'password',
-        ])->assertRedirect($duplicateAdminWorkspace.'/login')->assertSessionHasErrors('email');
+        ])->assertRedirect($duplicateAdminWorkspace.'/login')->assertSessionHasErrors('login');
         $this->visitDashboard($adminWorkspace, $cookies)->assertOk()->assertSee('Alicia Admin');
         $workspaces = ['admin' => $adminWorkspace];
         foreach ([
@@ -32,6 +32,7 @@ class ConcurrentWorkspaceLoginTest extends TestCase
         ] as $role => [$name, $email]) {
             $this->requestAsBrowser('POST', $adminWorkspace.'/members', $cookies, [
                 'name' => $name,
+                'username' => strtolower(str_replace(' ', '.', $name)),
                 'email' => $email,
                 'password' => 'MemberPass123',
                 'password_confirmation' => 'MemberPass123',
@@ -105,30 +106,33 @@ class ConcurrentWorkspaceLoginTest extends TestCase
 
         $newWorkspace = $this->newWorkspace($cookies);
         $this->requestAsBrowser('POST', $newWorkspace.'/login', $cookies, [
-            'email' => $user->email,
+            'login' => $user->email,
             'password' => 'password',
-        ])->assertRedirect($newWorkspace.'/login')->assertSessionHasErrors('email');
+        ])->assertRedirect($newWorkspace.'/login')->assertSessionHasErrors('login');
         $this->visitDashboard($workspace, $cookies)->assertOk()->assertSee('Alicia Admin');
     }
 
-    public function test_remembered_account_can_reclaim_its_login_after_expiry(): void
+    public function test_account_can_sign_in_again_after_its_login_claim_expires(): void
     {
         $user = User::factory()->create(['name' => 'Alicia Admin', 'role' => 'admin', 'status' => 'active']);
         $cookies = [];
         $workspace = $this->newWorkspace($cookies);
         $this->requestAsBrowser('POST', $workspace.'/login', $cookies, [
-            'email' => $user->email,
+            'login' => $user->email,
             'password' => 'password',
-            'remember' => '1',
         ])->assertRedirect($workspace.'/dashboard');
         $oldToken = $user->fresh()->active_login_token;
-        $this->assertTrue(collect(array_keys($cookies))->contains(fn ($name) => str_starts_with($name, 'remember_web_')));
 
         unset($cookies[config('session.cookie').'_'.basename($workspace)]);
         User::whereKey($user->id)->update([
             'active_login_seen_at' => now()->subMinutes(config('session.lifetime') + 1),
         ]);
 
+        $this->requestAsBrowser('GET', $workspace.'/login', $cookies)->assertOk();
+        $this->requestAsBrowser('POST', $workspace.'/login', $cookies, [
+            'login' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect($workspace.'/dashboard');
         $this->visitDashboard($workspace, $cookies)->assertOk()->assertSee('Alicia Admin');
         $this->assertNotSame($oldToken, $user->fresh()->active_login_token);
     }
@@ -148,7 +152,7 @@ class ConcurrentWorkspaceLoginTest extends TestCase
     private function signIn(string $workspace, User $user, array &$cookies, string $password = 'password'): void
     {
         $this->requestAsBrowser('POST', $workspace.'/login', $cookies, [
-            'email' => $user->email,
+            'login' => $user->email,
             'password' => $password,
         ])->assertRedirect($workspace.'/dashboard');
 

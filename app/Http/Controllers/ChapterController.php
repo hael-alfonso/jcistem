@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport};
 use Carbon\CarbonImmutable;
 use App\Services\ChapterService;
-use App\Support\{ChapterCharts, ChapterForms};
+use App\Support\{ChapterCharts, ChapterForms, Permissions};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
@@ -244,7 +244,7 @@ class ChapterController extends Controller
     {
         $data = $request->validate(['project_id' => 'nullable|integer|exists:projects,id', 'title' => 'required|string|max:200', 'type' => ['required', Rule::in(['Activity', 'Milestone', 'Meeting', 'Review'])], 'starts_on' => 'required|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'description' => 'nullable|string|max:10000']);
         if (!empty($data['project_id'])) abort_unless(Project::findOrFail($data['project_id'])->canManage($request->user()), 403);
-        else abort_unless($request->user()->role === 'admin', 403);
+        else abort_unless(Permissions::allows($request->user(), Permissions::CALENDAR_GLOBAL), 403);
         DB::transaction(function () use ($data, $request) {
             $event = CalendarEvent::create($data + ['created_by' => $request->user()->id]);
             ChapterService::audit('calendar_event_created', $event);
@@ -322,7 +322,7 @@ class ChapterController extends Controller
 
     public function audit(Request $request)
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        abort_unless(Permissions::allows($request->user(), Permissions::AUDIT_VIEW), 403);
         $action = $request->validate(['action' => 'nullable|string|max:100'])['action'] ?? null;
         $actions = AuditLog::query()->distinct()->orderBy('action')->pluck('action');
         $records = AuditLog::with('actor')->when($action, fn ($q) => $q->where('action', $action))

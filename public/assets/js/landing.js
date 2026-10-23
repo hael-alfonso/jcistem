@@ -66,7 +66,7 @@
     }
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     if ('IntersectionObserver' in window && !reducedMotion.matches) {
-        const items = document.querySelectorAll('.section-heading, .opportunity-card, .story-card, .gallery-heading, .gallery-grid figure, .join-grid article, .project-update');
+        const items = document.querySelectorAll('.section-heading, .opportunity-card, .story-card, .gallery-heading, .gallery-grid figure, .compact-project-card, .join-grid article, .project-update');
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(({ target, isIntersecting }) => {
                 if (!isIntersecting) return;
@@ -85,6 +85,16 @@
             items.forEach(item => item.classList.remove('reveal-pending'));
         });
     }
+    const dropdowns = [...document.querySelectorAll('.nav-dropdown')];
+    dropdowns.forEach((dropdown) => {
+        dropdown.addEventListener('toggle', () => {
+            if (!dropdown.open) return;
+            dropdowns.forEach(other => { if (other !== dropdown) other.open = false; });
+        });
+        dropdown.addEventListener('click', (event) => {
+            if (event.target.closest('a')) dropdown.open = false;
+        });
+    });
     const menu = document.querySelector('.mobile-menu');
     if (!menu) return;
     menu.addEventListener('click', (event) => {
@@ -92,14 +102,21 @@
     });
     document.addEventListener('click', (event) => {
         if (!menu.contains(event.target)) menu.open = false;
+        dropdowns.forEach(dropdown => { if (!dropdown.contains(event.target)) dropdown.open = false; });
     });
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && menu.open) {
+        if (event.key !== 'Escape') return;
+        if (menu.open) {
             menu.open = false;
             menu.querySelector('summary').focus();
         }
+        const openDropdown = dropdowns.find(dropdown => dropdown.open);
+        if (openDropdown) {
+            openDropdown.open = false;
+            openDropdown.querySelector('summary').focus();
+        }
     });
-    window.matchMedia('(min-width: 981px)').addEventListener('change', (event) => {
+    window.matchMedia('(min-width: 1121px)').addEventListener('change', (event) => {
         if (event.matches) menu.open = false;
     });
 })();

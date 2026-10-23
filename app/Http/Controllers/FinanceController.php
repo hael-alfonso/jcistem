@@ -3,14 +3,14 @@ namespace App\Http\Controllers;
 
 use App\Models\{Project, BudgetAllocation, LedgerEntry, MemberDue, User};
 use App\Services\ChapterService;
-use App\Support\ChapterCharts;
+use App\Support\{ChapterCharts, Permissions};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
 
 class FinanceController extends Controller
 {
-    private function treasurer(Request $request): void { abort_unless($request->user()->role === 'treasurer', 403); }
+    private function treasurer(Request $request): void { abort_unless(Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403); }
 
     public function index(Request $request)
     {
@@ -110,7 +110,7 @@ class FinanceController extends Controller
 
     public function receipt(Request $request, LedgerEntry $entry)
     {
-        abort_unless($request->user()->role === 'treasurer' || ($entry->member_due_id && $entry->member_id === $request->user()->id), 403);
+        abort_unless(Permissions::allows($request->user(), Permissions::FINANCE_MANAGE) || ($entry->member_due_id && $entry->member_id === $request->user()->id), 403);
         abort_unless($entry->document_path && Storage::disk('local')->exists($entry->document_path), 404);
         return Storage::disk('local')->download($entry->document_path, $entry->document_name, ['X-Content-Type-Options' => 'nosniff']);
     }

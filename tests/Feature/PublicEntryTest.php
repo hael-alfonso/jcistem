@@ -20,7 +20,11 @@ class PublicEntryTest extends TestCase
             $cookies = [];
             $page = $this->browse('GET', $prefix.'/', $cookies)->assertOk()
                 ->assertSee('Community stories')->assertSee('JCISTEM')
+                ->assertSee('Project BLOOM')->assertSee('Project M.U.S.A.')
+                ->assertSee('Habi at Kulay')->assertSee('Project PEACE+')
+                ->assertSee('How to Spot the Red Heart')
                 ->assertSee('href="http://localhost'.$prefix.'/login"', false)
+                ->assertSee('href="http://localhost'.$prefix.'/contact"', false)
                 ->assertSee(config('chapter.facebook_url'));
 
             preg_match_all('/(?:src|href)="(http:\/\/localhost\/assets\/[^"?]+)(?:\?[^\"]*)?"/', $page->getContent(), $assets);
@@ -67,7 +71,7 @@ class PublicEntryTest extends TestCase
             ->assertDontSee('DoNotReflectThisPassword');
     }
 
-    public function test_existing_session_help_is_expanded_and_replacement_requires_a_choice(): void
+    public function test_login_never_exposes_or_replaces_an_existing_session(): void
     {
         $user = User::factory()->create(['status' => 'active', 'role' => 'member',
             'active_login_token' => 'existing-session', 'active_login_seen_at' => now()]);
@@ -76,12 +80,15 @@ class PublicEntryTest extends TestCase
         $credentials = ['login' => $user->email, 'password' => 'password'];
         $this->browse('POST', self::WORKSPACE.'/login', $cookies, $credentials)->assertSessionHasErrors('login');
         $page = $this->browse('GET', self::WORKSPACE.'/login', $cookies)->assertOk()
-            ->assertSee('This will sign out your previous session.');
-        $this->assertMatchesRegularExpression('/<details[^>]*class="auth-session-help"[^>]*\sopen\b/', $page->getContent());
+            ->assertSee('Use Forgot password? to restore secure account access.')
+            ->assertDontSee('Already signed in')
+            ->assertDontSee('another device')
+            ->assertDontSee('replace_session', false);
+        $this->assertStringNotContainsString('auth-session-help', $page->getContent());
         $this->assertSame('existing-session', $user->fresh()->active_login_token);
         $this->browse('POST', self::WORKSPACE.'/login', $cookies, $credentials + ['replace_session' => '1'])
-            ->assertRedirect(self::WORKSPACE.'/dashboard');
-        $this->assertNotSame('existing-session', $user->fresh()->active_login_token);
+            ->assertSessionHasErrors('login');
+        $this->assertSame('existing-session', $user->fresh()->active_login_token);
     }
 
     public function test_all_three_recovery_steps_work_and_the_new_password_can_sign_in(): void

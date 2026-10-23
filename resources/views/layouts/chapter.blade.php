@@ -54,6 +54,7 @@
         $navigation['FINANCES'][] = ['dues.manage', 'Record member dues', 'receipt', []];
     }
     if ($user->role === 'admin') {
+        $navigation['CHAPTER'][] = ['inquiries', 'Public inquiries', 'info', []];
         $navigation['CHAPTER'][] = ['members.create', 'Register member', 'userPlus', []];
         $navigation['CHAPTER'][] = ['activity-log', 'Activity log', 'clock', []];
     }
@@ -71,7 +72,7 @@
                         'PROJECTS' => request()->routeIs('projects*', 'tasks', 'calendar'),
                         'DOCUMENTS' => request()->routeIs('documents', 'records*'),
                         'FINANCES' => request()->routeIs('finance', 'ledger*', 'dues*'),
-                        'CHAPTER' => request()->routeIs('members*', 'notifications', 'activity-log', 'audit'),
+                        'CHAPTER' => request()->routeIs('members*', 'notifications', 'inquiries*', 'activity-log', 'audit'),
                         default => false,
                     };
                 @endphp
