@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Support\Permissions;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +24,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Event::listen(DiagnosingHealth::class, function (): void {
+            DB::select('select 1');
+            if (!is_writable(storage_path('app/private'))) {
+                throw new \RuntimeException('Private storage is not writable.');
+            }
+        });
+
         foreach ([
             Permissions::AUDIT_VIEW,
             Permissions::MEMBERS_MANAGE,

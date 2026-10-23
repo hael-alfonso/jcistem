@@ -18,7 +18,6 @@ class RegistrationApprovalTest extends TestCase
             'username' => 'carmona.applicant',
             'email' => $email,
             'phone' => '09171234567',
-            'reason' => 'I want to help organize chapter community projects.',
             'password' => 'StrongMemberPass123',
             'password_confirmation' => 'StrongMemberPass123',
             'consent' => '1',
@@ -30,7 +29,7 @@ class RegistrationApprovalTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $bod = User::factory()->create(['role' => 'bod', 'status' => 'active']);
 
-        $this->get('/register')->assertOk()->assertSee('Request an account.');
+        $this->get('/register')->assertOk()->assertSee('Register an account.');
         $workspace = '/workspaces/123e4567-e89b-12d3-a456-426614174000';
         $this->get($workspace.'/register')->assertOk()->assertSee('action="http://localhost'.$workspace.'/register"', false);
         $this->post('/register', $this->application())->assertRedirect('/register/thanks');
@@ -40,8 +39,6 @@ class RegistrationApprovalTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'applicant@example.test']);
         $this->post('/login', ['login' => 'carmona.applicant', 'password' => 'StrongMemberPass123'])
             ->assertSessionHasErrors('login');
-        $this->post('/register/status', ['reference' => $registration->reference, 'email' => $registration->email])
-            ->assertOk()->assertSee('Awaiting admin review');
 
         $this->actingAs($bod)->get('/registrations')->assertForbidden();
         $this->actingAs($bod)->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve'])->assertForbidden();
@@ -61,8 +58,6 @@ class RegistrationApprovalTest extends TestCase
         $this->assertSame('active', $member->status);
         $this->assertTrue(Hash::check('StrongMemberPass123', $member->password));
         auth()->logout();
-        $this->post('/register/status', ['reference' => $registration->reference, 'email' => $registration->email])
-            ->assertOk()->assertSee('Your account is active.');
         $this->actingAs($admin)->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve', 'verified_identity' => '1'])
             ->assertSessionHasErrors('decision');
         $this->assertSame(1, User::where('email', 'applicant@example.test')->count());
@@ -87,8 +82,6 @@ class RegistrationApprovalTest extends TestCase
         $this->assertNull($registration->fresh()->password);
         $this->assertDatabaseMissing('users', ['email' => 'applicant@example.test']);
         auth()->logout();
-        $this->post('/register/status', ['reference' => $registration->reference, 'email' => $registration->email])
-            ->assertOk()->assertSee('Not approved');
     }
 
     public function test_duplicate_accounts_and_requests_are_not_created(): void

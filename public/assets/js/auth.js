@@ -21,7 +21,7 @@
         form.addEventListener('submit', () => {
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
-            label.textContent = 'Please wait…';
+            label.textContent = form.classList.contains('auth-registration-form') ? 'Registering...' : 'Please wait...';
         });
         window.addEventListener('pageshow', () => {
             button.disabled = false;

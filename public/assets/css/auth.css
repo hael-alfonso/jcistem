@@ -39,8 +39,10 @@
 .auth-options { display: flex; justify-content: flex-end; margin-top: 10px; }
 .auth-options a { min-height: 35px; display: inline-flex; align-items: center; color: var(--blue); font-size: 12px; font-weight: 600; }
 .auth-options a:hover, .auth-join a:hover, .signin-help a:hover, .auth-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.auth-submit { display: flex; width: 100%; margin-top: 17px; min-height: var(--auth-control-height); border-radius: 6px; }
-.auth-submit:disabled { opacity: .75; cursor: wait; }
+.auth-submit { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 17px; min-height: var(--auth-control-height); border-radius: 6px; transition: background-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.auth-submit:disabled { opacity: 1; cursor: wait; }
+.auth-submit[aria-busy="true"]::after { content: ''; width: 16px; height: 16px; flex: 0 0 16px; border: 2px solid rgb(255 255 255 / 45%); border-top-color: #fff; border-radius: 50%; animation: auth-loading-spin .7s linear infinite; }
+@keyframes auth-loading-spin { to { transform: rotate(360deg); } }
 .auth-form-panel form > .auth-field + .auth-submit { margin-top: 25px; }
 .auth-account-help { margin-top: 24px; padding: 16px 20px; background: var(--paper); border-radius: 6px; }
 .auth-account-help strong { display: block; font-size: 12px; }
@@ -71,6 +73,7 @@
 .auth-input-wrap.has-toggle input { padding-right: 52px; }
 @keyframes auth-pulse { to { opacity: .4; } }
 @media (prefers-reduced-motion: reduce) { .auth-icon-button:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .auth-submit { transition: none; } .auth-submit[aria-busy="true"]::after { animation: none; border-color: #fff; border-right-color: transparent; } }
 .auth-steps { display: flex; gap: 6px; margin: 22px 0 0; }
 .auth-steps span { width: 32px; height: 3px; border-radius: 2px; background: var(--line); }
 .auth-steps span.is-current { background: var(--blue); }
@@ -131,6 +134,17 @@ html.auth-flow-back .auth-intro { animation: auth-background-enter-back .42s cub
 .auth-consent input { flex: 0 0 auto; margin-top: 4px; width: 16px; height: 16px; accent-color: var(--blue); }
 .auth-trap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .registration-reason { margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.auth-register-wrap { max-width: 500px; }
+.auth-registration-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.auth-registration-form .auth-field { min-width: 0; margin-top: 0; }
+.auth-registration-form .auth-consent, .auth-registration-form .auth-trap, .auth-registration-form .auth-submit { grid-column: 1 / -1; }
+.auth-registration-form .auth-consent { margin-top: 0; }
+.auth-registration-form .auth-submit { margin-top: 0; }
+.auth-registration-help { margin-top: 12px; }
+@media (max-width: 480px) {
+    .auth-registration-form { grid-template-columns: 1fr; gap: 17px; }
+    .auth-registration-form .auth-consent, .auth-registration-form .auth-trap, .auth-registration-form .auth-submit { grid-column: auto; }
+}
 @media (prefers-reduced-motion: reduce) { .auth-form-panel, html.auth-flow-back .auth-form-panel, .auth-form-panel.is-leaving-left, .auth-form-panel.is-leaving-right { animation: none; } }
 @media (max-width: 480px) {
     .auth-shell { min-height: 640px; min-height: max(640px, calc(100svh - 168px)); }

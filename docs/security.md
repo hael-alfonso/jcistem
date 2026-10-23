@@ -44,11 +44,21 @@ JCISTEM uses the CIA triad as operational goals and layered authorization as its
 
 ### Availability
 
-- Laravel's `/up` endpoint provides an application health check.
+- Laravel's `/up` endpoint checks application boot, database connectivity and private-storage writability. Monitor it from outside the server.
+- `php artisan chapter:backup` snapshots the database and private uploads into a directory outside the web root, signs a SHA-256 manifest using `APP_KEY`, and verifies the finished copy. `php artisan chapter:backup --verify=PATH` checks a stored copy for missing or changed files.
+- The Laravel scheduler runs the backup daily at 02:00 server time. The host must actually run `php artisan schedule:run` every minute; without that operating-system task, no automatic backup occurs.
 - Production must run with `APP_DEBUG=false`, HTTPS, monitored storage capacity and database alerts.
-- Back up the database and all private upload directories together. Keep at least one encrypted off-server copy.
+- Backup contents are **not encrypted by this command**. Set `CHAPTER_BACKUP_PATH` to a restricted, encrypted volume and copy completed backups to encrypted off-server storage. Never expose this path under `public/` or the web server document root. Keep `APP_KEY` separately in secure recovery storage; it is required to verify manifests and restore encrypted application data.
 - Test restoration regularly in an isolated environment; a backup is not considered usable until restoration succeeds.
 - Document the recovery-time target, recovery-point target and the people authorized to perform restoration.
+
+### Backup and restore runbook
+
+1. Set `CHAPTER_BACKUP_PATH` to a private, encrypted directory outside the application and web root, with space for multiple complete backups (for XAMPP, for example, `C:\xampp\jcistem-backups`). Backups fail closed until this is configured. If `mysqldump` is not on `PATH`, set `CHAPTER_MYSQLDUMP_PATH` to its executable. Give only the application and backup operators access.
+2. Run `php artisan chapter:backup`. Confirm it reports `Backup created and verified`. Copy that entire dated directory to encrypted off-server storage. Alert an operator if the command exits nonzero or if no new completed directory appears within 26 hours.
+3. On Windows/XAMPP, create a Task Scheduler job that runs `C:\xampp\php\php.exe` with arguments `C:\xampp\htdocs\jci_system\artisan schedule:run` every minute, with the project directory as its working directory. On other hosts, configure the equivalent cron or scheduler service.
+4. For a recovery drill, copy one backup to an isolated machine with the same application version and `APP_KEY`. Run `php artisan chapter:backup --verify=PATH` before restoration. Restore `database.sql` with the matching MySQL client (or replace the SQLite database with `database.sqlite` while the application is stopped), then copy the backup's `private/` directory into `storage/app/private/`.
+5. Run migrations only after matching the backed-up application version, start the isolated app, and verify login, project records, and private document downloads. Record the time and outcome of the drill. Never restore over the live database without a separate pre-restore backup and an approved recovery window.
 
 ## Required deployment checks
 

@@ -1,7 +1,7 @@
 <dialog class="media-viewer" aria-labelledby="media-viewer-title">
     <div class="media-viewer-shell">
         <header class="media-viewer-toolbar">
-            <span id="media-viewer-title">JCI Carmona photos</span>
+            <span id="media-viewer-title">JCI photos and videos</span>
             <button type="button" class="media-viewer-control" data-media-close aria-label="Close viewer" title="Close viewer" autofocus><span aria-hidden="true">×</span></button>
         </header>
         <div class="media-viewer-stage">

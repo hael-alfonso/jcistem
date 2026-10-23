@@ -14,8 +14,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/register', [RegistrationController::class, 'create'])->name('register');
     Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:3,60')->name('register.store');
     Route::get('/register/thanks', [RegistrationController::class, 'thanks'])->name('register.thanks');
-    Route::get('/register/status', [RegistrationController::class, 'status'])->name('register.status');
-    Route::post('/register/status', [RegistrationController::class, 'checkStatus'])->middleware('throttle:5,10')->name('register.status.check');
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendRecoveryOtp'])->middleware('throttle:5,1')->name('password.email');
     Route::post('/forgot-password/send-code', [AuthController::class, 'sendRecoveryOtp'])->middleware('throttle:3,10')->name('password.otp.send');

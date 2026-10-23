@@ -55,7 +55,7 @@
     }
     if ($user->role === 'admin') {
         $navigation['CHAPTER'][] = ['inquiries', 'Public inquiries', 'info', []];
-        $navigation['CHAPTER'][] = ['registrations', 'Registration requests', 'userPlus', []];
+        $navigation['CHAPTER'][] = ['registrations', 'Registrations', 'userPlus', []];
         $navigation['CHAPTER'][] = ['members.create', 'Register member', 'userPlus', []];
         $navigation['CHAPTER'][] = ['activity-log', 'Activity log', 'clock', []];
     }

@@ -30,7 +30,7 @@
             <div class="auth-intro-footer"><span>Lead. Connect. Contribute.</span><span>Carmona City, Cavite</span></div>
         </aside>
         <main class="auth-main" id="signin-main">
-            <div class="auth-form-wrap"><div class="auth-form-panel" data-auth-panel>
+            <div class="auth-form-wrap{{ request()->routeIs('register') ? ' auth-register-wrap' : '' }}"><div class="auth-form-panel" data-auth-panel>
                 <div class="auth-feedback" aria-live="polite" aria-atomic="true">
                     @if($errors->any())
                         <div class="alert error" role="alert">{{ request()->routeIs('login') && $errors->has('email') ? $errors->first('email') : ($errors->has('token') ? $errors->first('token') : 'Please check the details below and try again.') }}</div>

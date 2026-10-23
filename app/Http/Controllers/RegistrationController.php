@@ -26,7 +26,6 @@ class RegistrationController extends Controller
             'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/'],
             'email' => ['required', 'email:rfc', 'max:200'],
             'phone' => ['nullable', 'string', 'max:40'],
-            'reason' => ['required', 'string', 'min:20', 'max:1500'],
             'password' => ['required', 'confirmed', Password::min(10)],
             'consent' => ['accepted'],
             'website' => ['nullable', 'max:0'],
@@ -36,7 +35,7 @@ class RegistrationController extends Controller
         $username = Str::lower(trim($data['username']));
         if (User::whereRaw('LOWER(email) = ?', [$email])->exists() || User::whereRaw('LOWER(username) = ?', [$username])->exists()
             || RegistrationRequest::whereRaw('LOWER(email) = ?', [$email])->orWhereRaw('LOWER(username) = ?', [$username])->exists()) {
-            throw ValidationException::withMessages(['email' => 'An account or request already uses this email or username. Please sign in or contact the chapter administrator.']);
+            throw ValidationException::withMessages(['email' => 'This email or username is already in use or awaiting approval. Please sign in or contact the chapter administrator.']);
         }
 
         $registration = DB::transaction(function () use ($data, $email, $username) {
@@ -50,7 +49,7 @@ class RegistrationController extends Controller
                 'username' => $username,
                 'email' => $email,
                 'phone' => filled($data['phone'] ?? null) ? trim($data['phone']) : null,
-                'reason' => trim($data['reason']),
+                'reason' => 'Member portal registration',
                 'password' => $data['password'],
                 'consent_at' => now(),
                 'status' => 'pending',
@@ -60,7 +59,7 @@ class RegistrationController extends Controller
         });
 
         $admins = User::where('role', 'admin')->where('status', 'active')->pluck('id');
-        ChapterService::notify($admins, 'New member registration request', $registration->name.' requested a JCISTEM account.', route('registrations.show', $registration));
+        ChapterService::notify($admins, 'New member registration', $registration->name.' registered for a JCISTEM account. Review it before activation.', route('registrations.show', $registration));
 
         return redirect()->route('register.thanks')->with('registration_reference', $registration->reference);
     }
@@ -68,23 +67,7 @@ class RegistrationController extends Controller
     public function thanks(Request $request): View|RedirectResponse
     {
         if (!$request->session()->has('registration_reference')) return redirect()->route('register');
-        return view('auth.register-thanks', ['reference' => $request->session()->get('registration_reference')]);
-    }
-
-    public function status(): View
-    {
-        return view('auth.register-status');
-    }
-
-    public function checkStatus(Request $request): View
-    {
-        $data = $request->validate([
-            'reference' => ['required', 'string', 'max:32'],
-            'email' => ['required', 'email:rfc', 'max:200'],
-        ]);
-        $registration = RegistrationRequest::where('reference', Str::upper(trim($data['reference'])))
-            ->whereRaw('LOWER(email) = ?', [Str::lower(trim($data['email']))])->first();
-        return view('auth.register-status', ['registrationStatus' => $registration?->status]);
+        return view('auth.register-thanks');
     }
 
     public function index(Request $request): View
@@ -150,7 +133,7 @@ class RegistrationController extends Controller
             ChapterService::audit('registration_'.$registration->status, $registration, $before);
         });
 
-        return redirect()->route('registrations.show', $registration)->with('success', $data['decision'] === 'approve' ? 'Member account approved and activated.' : 'Registration request rejected.');
+        return redirect()->route('registrations.show', $registration)->with('success', $data['decision'] === 'approve' ? 'Member account approved and activated.' : 'Registration not approved.');
     }
 
     private function authorizeAdmin(Request $request): void
