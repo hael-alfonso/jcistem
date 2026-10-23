@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="{{ request()->routeIs('login') ? 'auth-flow-back' : 'auth-flow-forward' }}">
+<html lang="en" class="{{ request()->routeIs('login', 'scoped.login', 'register.thanks', 'scoped.register.thanks') ? 'auth-flow-back' : 'auth-flow-forward' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,6 +8,7 @@
     <meta name="description" content="Sign in to JCISTEM, the JCI Carmona member portal for chapter projects, tasks, schedules, and records.">
     <title>@yield('title', 'Member sign in') | JCISTEM · JCI Carmona</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
+    <link rel="preload" as="image" href="{{ asset('assets/images/community/jci-scotland-banner.webp') }}">
     @include('shared.public-fonts')
     <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/auth.css') }}?v={{ filemtime(public_path('assets/css/auth.css')) }}">

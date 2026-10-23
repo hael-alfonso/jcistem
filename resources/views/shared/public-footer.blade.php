@@ -31,6 +31,7 @@
                 <nav aria-label="Member resources">
                     <h2>Resources</h2>
                     <a href="{{ route('login') }}">Member sign in</a>
+                    <a href="{{ route('register') }}">Request an account</a>
                     <a href="{{ route('password.request') }}">Account recovery</a>
                     <a href="{{ $footerRoot }}#portal">About JCISTEM</a>
                     <a href="{{ $footerRoot }}#questions">Common questions</a>

@@ -18,18 +18,24 @@
         const leavingClass = link.dataset.authNav === 'forward'
             ? 'is-leaving-left'
             : 'is-leaving-right';
+        const backgroundClass = link.dataset.authNav === 'forward'
+            ? 'is-moving-forward'
+            : 'is-moving-back';
 
         panel.classList.remove('is-leaving-left', 'is-leaving-right');
         panel.classList.add(leavingClass);
+        document.body.classList.remove('is-moving-forward', 'is-moving-back');
+        document.body.classList.add(backgroundClass);
         panel.setAttribute('aria-hidden', 'true');
         link.setAttribute('aria-disabled', 'true');
 
-        navigationTimer = window.setTimeout(() => window.location.assign(link.href), 300);
+        navigationTimer = window.setTimeout(() => window.location.assign(link.href), 260);
     });
 
     window.addEventListener('pageshow', () => {
         window.clearTimeout(navigationTimer);
         panel.classList.remove('is-leaving-left', 'is-leaving-right');
+        document.body.classList.remove('is-moving-forward', 'is-moving-back');
         panel.removeAttribute('aria-hidden');
         document.querySelectorAll('a[data-auth-nav]').forEach((link) => link.removeAttribute('aria-disabled'));
     });
