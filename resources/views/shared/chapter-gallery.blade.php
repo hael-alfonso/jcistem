@@ -5,7 +5,7 @@
             <h3 id="gallery-title">Bags2School 2026</h3>
             <p class="gallery-date"><time datetime="2026-06-27">27 June 2026</time><span aria-hidden="true">·</span>La Trinidad, Benguet</p>
         </div>
-        <p>JCI Carmona joined as a partner host at Talinguroy Elementary School, working with fellow JCI members to support young learners.</p>
+        <p><a class="text-link" href="{{ route('public.story', 'bags2school') }}">Read about this activity <x-icon name="arrow" /></a></p>
     </div>
     <p class="gallery-date">Select any photo to view it full size.</p>
     <div class="gallery-grid">

@@ -3,6 +3,12 @@
 return [
     'name' => 'JCI Carmona',
     'location' => 'Carmona City, Cavite',
+    // Chapter contact details supplied by the site owner on 25 October 2026.
+    'public_address' => 'Carmona, Philippines, 4116',
+    'phone' => '0967 899 4639',
+    'phone_uri' => '+639678994639',
+    'email' => 'jcicarmona2024@gmail.com',
+    'map_url' => 'https://www.bing.com/maps?where1=Carmona%2C%20Philippines%2C%204116',
     'system_name' => 'JCISTEM',
     'facebook_url' => 'https://www.facebook.com/jcicarmonaofficial',
     'instagram_url' => 'https://www.instagram.com/jcicarmona/',

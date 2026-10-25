@@ -5,6 +5,11 @@ use Illuminate\Support\Facades\Route;
 
 $workspaceRoutes = function () {
 Route::get('/', fn () => view('landing'));
+Route::get('/activities', [\App\Http\Controllers\PublicChapterController::class, 'activities'])->name('public.activities');
+Route::get('/activities/{slug}', [\App\Http\Controllers\PublicChapterController::class, 'story'])->name('public.story');
+Route::view('/get-involved', 'public.get-involved')->name('public.involvement');
+Route::view('/partners', 'public.partners')->name('public.partners');
+Route::view('/our-chapter', 'public.about')->name('public.about');
 Route::get('/contact', [ContactInquiryController::class, 'create'])->name('contact');
 Route::post('/contact', [ContactInquiryController::class, 'store'])->middleware('throttle:5,10')->name('contact.store');
 Route::get('/contact/thank-you', [ContactInquiryController::class, 'thanks'])->name('contact.thanks');

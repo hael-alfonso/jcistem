@@ -1,22 +1,27 @@
-@php($footerRoot = request()->routeIs('contact*', 'scoped.contact*') ? url('/') : '')
+@php($footerRoot = request()->path() === '/' ? '' : url('/'))
 <footer class="site-footer" id="footer" aria-label="JCI Carmona footer">
     <div class="shell footer-main">
         <div class="footer-brand">
-            @include('shared.public-brand', ['homeUrl' => '#top'])
+            @include('shared.public-brand', ['homeUrl' => $footerRoot.'#top'])
             <h2>Stay connected.</h2>
             <p>Follow JCI Carmona for chapter updates, community stories, and ways to get involved.</p>
             <a class="button button-primary" href="{{ config('chapter.facebook_url') }}" target="_blank" rel="noopener noreferrer">Follow JCI Carmona <span aria-hidden="true">↗</span></a>
-            <span class="footer-location"><x-icon name="globe" />{{ config('chapter.location') }}</span>
+            <div class="footer-contact-list" aria-label="Chapter contact details">
+                <a href="{{ config('chapter.map_url') }}" target="_blank" rel="noopener noreferrer"><x-icon name="mapPin" /><span>{{ config('chapter.public_address') }}</span></a>
+                <a href="tel:{{ config('chapter.phone_uri') }}"><x-icon name="phone" /><span>{{ config('chapter.phone') }}</span></a>
+                <a href="mailto:{{ config('chapter.email') }}"><x-icon name="mail" /><span>{{ config('chapter.email') }}</span></a>
+            </div>
         </div>
         <div class="footer-content">
             <div class="footer-links">
                 <nav aria-label="Footer menu">
                     <h2>Menu</h2>
                     <a href="{{ $footerRoot }}#top">Home</a>
-                    <a href="{{ $footerRoot }}#about">About us</a>
+                    <a href="{{ route('public.about') }}">About us</a>
                     <a href="{{ $footerRoot }}#opportunities">What we do</a>
-                    <a href="{{ $footerRoot }}#partners">Partners</a>
-                    <a href="{{ $footerRoot }}#impact">News &amp; projects</a>
+                    <a href="{{ route('public.partners') }}">Partners</a>
+                    <a href="{{ route('public.activities') }}">Projects &amp; activities</a>
+                    <a href="{{ route('public.involvement') }}">Get involved</a>
                     <a href="{{ $footerRoot }}#media">Media</a>
                     <a href="{{ route('contact') }}">Contact us</a>
                 </nav>

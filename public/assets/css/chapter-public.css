@@ -1,0 +1,159 @@
+.chapter-page-intro { padding: clamp(48px, 7vw, 100px) 0; background: #edf6fa; border-bottom: 1px solid #cbdfe9; }
+.chapter-page-intro h1 { font-size: clamp(34px, 5vw, 62px); line-height: 1.1; letter-spacing: -.04em; margin: 16px 0 24px; color: #102d4c; }
+.chapter-page-intro h1 span { color: #007daa; }
+.chapter-page-intro p:not(.eyebrow) { max-width: 650px; font-size: 18px; line-height: 1.7; color: #294c66; margin-bottom: 24px; }
+.chapter-result-count, .chapter-story-date, .chapter-source { color: #496075; font-size: 14px; }
+.chapter-story-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
+.chapter-story-card { min-width: 0; border: 1px solid #d4e1e9; border-radius: 12px; overflow: hidden; background: white; display: flex; flex-direction: column; transition: box-shadow .2s, transform .2s; }
+.chapter-story-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px #133c5012; }
+.chapter-story-image { display: block; background: #f0f4f7; }
+.chapter-story-image img { display: block; width: 100%; height: 230px; object-fit: contain; }
+.chapter-story-copy { padding: 24px; display: flex; flex-direction: column; flex: 1; align-items: flex-start; gap: 10px; }
+.chapter-story-copy p, .chapter-story-copy h3 { margin: 0; }
+.chapter-story-copy h3 { font-size: 22px; line-height: 1.3; color: #102d4c; }
+.chapter-story-copy p:not(.eyebrow):not(.chapter-story-date) { line-height: 1.7; color: #34546b; }
+.chapter-story-copy .text-link { margin-top: auto; padding-top: 16px; }
+.chapter-story-art { height: 230px; background: #075b82; color: white; display: grid; align-content: center; justify-items: center; text-align: center; gap: 15px; padding: 24px; font-size: 24px; font-weight: 700; }
+.chapter-story-art .ico, .chapter-story-art svg { width: 64px; height: 64px; }
+.chapter-connect { margin-top: 60px; padding: clamp(24px, 4vw, 44px); background: #eef6f8; border-radius: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.chapter-connect h2 { font-size: clamp(26px, 3vw, 36px); color: #102d4c; margin: 12px 0; }
+.chapter-connect p { color: #34546b; line-height: 1.8; }
+.chapter-connect-links { display: grid; gap: 10px; }
+.chapter-connect-links a { display: flex; align-items: center; gap: 14px; padding: 16px; background: white; border: 1px solid #d3e3eb; border-radius: 8px; color: #143d59; }
+.chapter-connect-links a > span:nth-child(2) { flex: 1; min-width: 0; }
+.chapter-connect-links small { display: block; font-size: 13px; color: #496075; margin-top: 4px; }
+.chapter-connect-links .ico { flex: 0 0 24px; }
+.chapter-story-detail { max-width: 1000px; }
+.chapter-story-detail header { margin: 40px 0; }
+.chapter-story-detail h1 { font-size: clamp(32px, 5vw, 54px); color: #102d4c; line-height: 1.15; overflow-wrap: anywhere; }
+.chapter-story-detail figure { margin: 30px 0; }
+.chapter-story-detail figure img { width: 100%; height: auto; max-height: 620px; object-fit: contain; background: #f0f4f7; border-radius: 12px; }
+.chapter-story-detail figcaption { color: #496075; font-size: 13px; padding: 12px 0; }
+.chapter-story-reading { max-width: 720px; font-size: 18px; line-height: 1.8; }
+.chapter-story-reading h2 { margin-top: 32px; }
+.chapter-path-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.chapter-path-cards article { padding: 30px; border: 1px solid #d3e3eb; border-radius: 10px; background: #f6fafc; }
+
+
+.chapter-path-cards .ico, .chapter-path-cards svg { width: 36px; height: 36px; color: #00769e; }
+.chapter-path-cards h3 { font-size: 23px; margin: 22px 0 14px; }
+.chapter-path-cards p, .chapter-next-steps p, .chapter-ivan p { line-height: 1.8; color: #34546b; }
+.chapter-next-steps { margin: 60px 0; }
+.chapter-next-steps ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; padding-left: 24px; margin: 30px 0; }
+.chapter-next-steps li { padding-left: 6px; }
+.chapter-next-steps li::marker { color: #007daa; font-weight: 800; }
+.chapter-ivan { display: flex; gap: 24px; padding: 30px; border: 1px solid #cbdfe9; border-radius: 12px; background: #f6fafc; }
+.chapter-ivan > .ico { flex: 0 0 36px; width: 36px; height: 36px; color: #00769e; }
+.chapter-ivan h2 { margin: 12px 0; }
+.chapter-empty { grid-column: 1 / -1; padding: 40px; background: #f6fafc; border-radius: 12px; }
+.chapter-discover { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 30px; margin: 30px 0; background: #edf6fa; border-radius: 8px; }
+.chapter-discover h3 { font-size: 24px; margin: 0 0 10px; }
+.chapter-discover p { margin: 0; line-height: 1.7; color: #34546b; }
+.chapter-discover .button { flex-shrink: 0; }
+@media(max-width: 1000px) { .chapter-story-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .chapter-path-cards { grid-template-columns: 1fr; } }
+@media(max-width: 640px) { .chapter-story-grid, .chapter-connect, .chapter-next-steps ol { grid-template-columns: 1fr; } .chapter-discover { align-items: flex-start; flex-direction: column; } .chapter-connect { gap: 24px; } .chapter-story-image img { height: 240px; } .chapter-ivan { padding: 22px; gap: 14px; } }
+@media(prefers-reduced-motion: reduce) { .chapter-story-card { transition: none; } .chapter-story-card:hover { transform: none; } }
+.chapter-partner-directory { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.chapter-partner-directory article { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 28px; background: #f4f8fa; border-radius: 12px; min-width: 0; }
+.chapter-partner-directory h3 { font-size: 22px; line-height: 1.35; margin: 0; }
+.chapter-partner-directory p { margin: 0; line-height: 1.7; color: #34546b; }
+.chapter-partner-directory .text-link { margin-top: auto; padding-top: 12px; }
+.chapter-partner-mark { display: grid; place-items: center; width: 90px; height: 90px; border-radius: 12px; background: white; }
+.chapter-partner-mark img { width: 76px; height: 76px; object-fit: contain; }
+.chapter-partner-mark .ico, .chapter-partner-mark svg { width: 38px; height: 38px; color: #007daa; }
+.chapter-about-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.chapter-about-layout p { color: #34546b; line-height: 1.8; }
+.chapter-about-layout figure { margin: 0; }
+.chapter-about-layout img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.chapter-about-layout figcaption { color: #496075; font-size: 13px; padding-top: 10px; }
+.chapter-milestones { margin: 36px 0; padding: clamp(24px, 4vw, 40px); background: #f0f6f8; border-radius: 12px; }
+.chapter-milestones h3 { font-size: 26px; margin: 12px 0; }
+.chapter-milestones p { color: #34546b; line-height: 1.8; max-width: 780px; }
+.chapter-milestones ol { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 0; list-style: none; margin: 28px 0; }
+.chapter-milestones li { padding: 24px; border-radius: 10px; background: white; }
+.chapter-milestones time, .chapter-milestones strong { display: block; margin-bottom: 10px; }
+.chapter-milestones time { color: #00739c; font-size: 14px; }
+.chapter-milestones li p { margin-bottom: 0; }
+@media(max-width: 1000px) { .chapter-partner-directory { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media(max-width: 640px) { .chapter-partner-directory, .chapter-about-layout, .chapter-milestones ol { grid-template-columns: 1fr; } .chapter-about-layout { gap: 28px; } }
+
+/* Shared JCI artwork with a quiet reading area for every public page header. */
+.chapter-page-intro, .contact-intro {
+    background-color: #0b1730;
+    background-image: url('../images/community/jci-scotland-banner.webp');
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: cover;
+    border: 0;
+    color: #fff;
+}
+.chapter-page-intro h1, .contact-intro h1 { color: #fff; text-shadow: none; }
+.chapter-page-intro h1 span, .contact-intro h1 span { color: #9aeeeb; }
+.chapter-page-intro p:not(.eyebrow), .contact-intro .contact-intro-grid > div:first-child > p:not(.eyebrow) { color: #f0f6fc; font-size: clamp(17px, 1.4vw, 20px); line-height: 1.8; text-shadow: none; }
+.chapter-page-intro .eyebrow, .contact-intro .eyebrow { color: #9aeeeb; }
+.chapter-page-intro .text-link { color: #b5f5f1; }
+.chapter-page-intro .button-primary { background: #fff; border-color: #fff; color: #0b3456; }
+.chapter-page-intro .button-primary:hover { background: #dff7f6; border-color: #dff7f6; color: #0b3456; }
+.contact-intro .contact-route-list { gap: 12px; border: 0; }
+.contact-intro .contact-route-list > span,
+.contact-intro .contact-route-list > span:nth-child(even) { padding: 18px; border: 0; border-radius: 10px; background: rgb(8 23 46 / 92%); color: #fff; min-width: 0; font-size: 15px; line-height: 1.55; text-shadow: none; }
+@media(max-width: 800px) {
+    .chapter-page-intro, .contact-intro {
+        background-position: 65% center;
+    }
+    .contact-intro h1 { font-size: clamp(32px, 6.5vw, 48px); line-height: 1.16; letter-spacing: -.035em; }
+    .contact-intro .contact-intro-grid { gap: 32px; }
+}
+@media(max-width: 480px) {
+    .contact-intro .contact-route-list { grid-template-columns: 1fr; }
+    .contact-intro .contact-route-list > span { min-height: 74px; }
+}
+
+/* Chapter headers use the same original half-shield as the public footer. */
+.chapter-page-intro--shield {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: #0b1730;
+}
+.chapter-page-intro--shield::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 16px;
+    right: 0;
+    height: calc(100% - 32px);
+    width: auto;
+    aspect-ratio: 814 / 2048;
+    background: url('../images/brand/jci-half-shield-white.png') right center / contain no-repeat;
+    opacity: .12;
+    pointer-events: none;
+}
+@media(max-width: 800px) {
+    .chapter-page-intro--shield::before { opacity: .08; }
+}
+
+.chapter-year { margin-top: 40px; }
+.chapter-year > h2 { font-size: 28px; }
+.chapter-story-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin: 28px 0; padding: 24px; background: #edf6fa; border-radius: 12px; }
+.chapter-story-facts dt { color: #34546b; font-size: 14px; font-weight: 600; }
+.chapter-story-facts dd { margin: 8px 0 0; color: #132b46; line-height: 1.65; }
+@media(max-width: 640px) { .chapter-story-facts { grid-template-columns: 1fr; gap: 18px; } }
+
+/* Keep the artwork in its original colors; protect only the reading areas. */
+.chapter-intro-copy,
+.contact-intro-grid > div:first-child {
+    max-width: 800px;
+    min-width: 0;
+    padding: clamp(24px, 3vw, 40px);
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: 12px;
+    background: rgb(6 20 43 / 92%);
+}
+.chapter-intro-copy > .eyebrow { margin-top: 0; }
+.contact-intro-grid > div:first-child h1 { font-size: clamp(32px, 4.5vw, 60px); }
+@media(max-width: 480px) {
+    .chapter-intro-copy, .contact-intro-grid > div:first-child { padding: 22px 18px; }
+    .chapter-intro-copy h1 { font-size: clamp(30px, 8vw, 38px); }
+    .contact-intro-grid > div:first-child h1 { font-size: clamp(30px, 8vw, 38px); }
+}

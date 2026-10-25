@@ -25,7 +25,7 @@
     <div class="auth-shell shell">
         <aside class="auth-intro" aria-label="About the member portal">
             <div class="auth-system"><img src="{{ asset('assets/images/brand/logo.png') }}" width="49" height="60" alt=""><span>{{ config('chapter.system_name') }}<small>JCI Carmona member portal</small></span></div>
-            <div class="auth-intro-copy"><p class="eyebrow">Connected by purpose</p><h2>Good things happen<br>when we work<br><span>together.</span></h2><p>Your space to organize chapter work and take the next step with JCI Carmona.</p></div>
+            <div class="auth-intro-copy"><p class="eyebrow">Connected by purpose</p><h2>Good things happen when we work <span>together.</span></h2><p>Your space to organize chapter work and take the next step with JCI Carmona.</p></div>
             <div class="auth-features"><div><x-icon name="clipboardCheck" /><span><strong>Keep projects moving</strong>Follow progress and your assigned tasks.</span></div><div><x-icon name="calendar" /><span><strong>Stay in the loop</strong>Check schedules and chapter updates.</span></div><div><x-icon name="report" /><span><strong>Find what you need</strong>Access records available to your role.</span></div></div>
             <div class="auth-intro-footer"><span>Lead. Connect. Contribute.</span><span>Carmona City, Cavite</span></div>
         </aside>
