@@ -96,7 +96,7 @@ class ChapterChartsTest extends TestCase
                 else $dashboard->assertSee('My review queue')->assertDontSee('Budget vs. expenses');
             }
             $this->get('/projects')->assertOk()->assertSee('modern-project-card')->assertSee('Budget project '.$role)->assertDontSee('Status colors');
-            $this->get('/tasks')->assertOk()->assertSee('Task summary')->assertSee('Open task')->assertDontSee('tasks-card-grid');
+            $this->get('/tasks')->assertOk()->assertSee('Task summary')->assertSee('aria-label="Open My chart task"', false)->assertDontSee('tasks-card-grid');
             $this->get('/finance')->assertOk()->assertSee('Budget vs. expenses')
                 ->assertSee('Expenses over time')->assertSee('Budget project '.$role)
                 ->assertSee('Budget project '.$role.' allocated budget: PHP 1,000.00')
@@ -153,23 +153,19 @@ class ChapterChartsTest extends TestCase
                 else $dashboard->assertDontSee('Budget vs. expenses');
             }
             $this->get('/projects')->assertOk()->assertSee('No projects yet');
-            $this->get('/tasks')->assertOk()->assertSee('Task summary')->assertSee('No matching tasks')->assertDontSee('tasks-card-grid');
+            $this->get('/tasks')->assertOk()->assertSee($role === 'member' ? 'No tasks assigned to you' : 'No chapter tasks yet')->assertDontSee('tasks-card-grid');
             $this->get('/finance')->assertOk()->assertSee('Budget vs. expenses')
                 ->assertSee('No project budgets yet')->assertSee('Expenses over time');
         }
     }
-    public function test_board_review_queue_matches_reviewer_permissions(): void
+    public function test_board_dashboard_shows_the_official_agenda_without_review_permissions(): void
     {
-        $board = User::factory()->create(['role' => 'bod', 'status' => 'active', 'concept_reviewer' => true, 'proposal_reviewer' => false]);
-        $concept = Project::create(['created_by' => $board->id, 'title' => 'Concept queue item', 'area' => 'Community Impact', 'status' => 'Submitted for President Review']);
-        $proposal = Project::create(['created_by' => $board->id, 'title' => 'Proposal queue item', 'area' => 'Community Impact', 'status' => 'Submitted for Formal Approval']);
+        $board = User::factory()->create(['role' => 'bod', 'status' => 'active']);
+        $concept = Project::create(['created_by' => $board->id, 'title' => 'Admin queue item', 'area' => 'Community Impact', 'status' => 'Admin Review']);
+        $agenda = Project::create(['created_by' => $board->id, 'title' => 'Board agenda item', 'area' => 'Community Impact', 'status' => 'BOD Agenda']);
         $this->actingAs($board)->get('/dashboard')->assertOk()
-            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->all() === [$concept->id]);
-        $board->update(['concept_reviewer' => false, 'proposal_reviewer' => true]);
-        $this->get('/dashboard')->assertOk()
-            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->all() === [$proposal->id]);
-        $board->update(['proposal_reviewer' => false]);
-        $this->get('/dashboard')->assertOk()->assertViewHas('pending', fn ($items) => $items->isEmpty());
+            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->all() === [$agenda->id]);
+        $this->post('/projects/'.$concept->id.'/transition', ['action' => 'endorse', 'comments' => 'Not authorized'])->assertForbidden();
     }
 
     public function test_member_summary_counts_only_personal_projects_and_tasks(): void

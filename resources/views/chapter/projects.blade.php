@@ -1,18 +1,22 @@
 @extends('layouts.chapter')
-@section('title', request('filter') === 'concepts' ? 'Project concepts' : 'Project monitoring')
+@php
+$projectPageTitle = match(request('filter')) { 'mine' => 'My Projects', 'proposals' => 'My Proposals', 'chairing' => 'My Chairmanships', 'board' => 'BOD Agenda & Decisions', 'review' => 'Project Review Queue', 'Archived' => 'Project Archive', 'concepts' => 'Project concepts', default => 'All Projects' };
+@endphp
+@section('title', $projectPageTitle)
 @section('content')
 @php
-    $quickFilters = ['' => 'All projects', 'mine' => 'My projects', 'concepts' => 'Concepts', 'review' => 'Under review'];
+    $quickFilters = ['' => 'All projects', 'mine' => 'My projects', 'proposals' => 'My Proposals', 'chairing' => 'My Chairmanships', 'board' => 'BOD Agenda & Decisions', 'concepts' => 'Concepts', 'review' => 'Review queue'];
     $statusFilters = [
-        'Planning' => ['Draft Concept', 'Submitted for President Review', 'Needs Revision', 'Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Submitted for Formal Approval'],
-        'Delivery' => ['Approved', 'Ongoing', 'Completion Review'],
+        'Planning' => ['Admin Review', 'Treasurer Review', 'BOD Agenda', 'Draft Concept', 'Submitted for President Review', 'Needs Revision', 'Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Submitted for Formal Approval'],
+        'Delivery' => ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review'],
         'Closed' => ['Completed', 'Archived', 'Declined', 'Not Approved'],
     ];
 @endphp
 <div class="page-heading collection-heading">
-    <div><div class="eyebrow">PROJECT WORK</div><h1>{{ request('filter') === 'concepts' ? 'Project concepts' : 'Project monitoring' }}</h1><p>Find a project and check its status, schedule, and progress.</p></div>
+    <div><div class="eyebrow">{{ request('filter') === 'review' ? 'REVIEW WORKFLOW' : 'PROJECT WORK' }}</div><h1>{{ $projectPageTitle }}</h1><p>{{ request('filter') === 'review' ? match(auth()->user()->role) { 'admin' => 'Review every submitted concept, including Admin submissions, then route it to Treasurer feasibility review.', 'treasurer' => 'Review the proposed budget and funding feasibility before the project reaches the BOD agenda.', default => 'Open projects ready for Board deliberation and recorded decisions.' } : 'Find a project and check its status, schedule, and progress.' }}</p></div>
     <a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus"/> New project concept</a>
 </div>
+@if(request('filter') === 'review')<div class="review-route-guide"><span class="is-current"><b>1</b> Admin review</span><span><b>2</b> Treasurer review</span><span><b>3</b> BOD decision</span></div>@endif
 <form class="list-filters collection-toolbar" method="GET" action="{{ route('projects') }}">
     <label>Search by title<input name="q" value="{{ request('q') }}" placeholder="Enter a project title"></label>
     <label>Show projects<select name="filter">
@@ -54,12 +58,14 @@
                 <div class="progress-label"><span>Tasks completed</span><strong>{{ $project->completed_tasks_count }} of {{ $project->tasks_count }}{{ $project->tasks_count ? ' · '.$taskProgress.'%' : '' }}</strong></div>
                 <progress value="{{ $taskProgress }}" max="100" aria-label="{{ $project->title }} task completion"></progress>
             </div>
-            <div class="project-card-footer"><span><small>{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}</small><strong>PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}</strong></span><div class="project-card-actions"><button class="text-link" type="button" data-project-preview data-title="{{ $project->title }}" data-reference="{{ $project->reference ?? 'Project #'.$project->id }}" data-status="{{ $project->status }}" data-area="{{ $project->area }}" data-chair="{{ $project->chair?->name ?? 'Not assigned' }}" data-dates="{{ $project->starts_on?->format('M d, Y') ?? 'Not set' }} – {{ $project->ends_on?->format('M d, Y') ?? 'Not set' }}" data-completed="{{ $project->completed_tasks_count }}" data-total="{{ $project->tasks_count }}" data-progress="{{ $taskProgress }}" data-budget-label="{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}" data-budget="PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}" data-href="{{ route('projects.show', $project) }}" aria-label="Quick view: {{ $project->title }}"><x-icon name="eye"/> Quick view</button><a class="text-link" href="{{ route('projects.show', $project) }}" aria-label="View project: {{ $project->title }}">View project <x-icon name="arrow"/></a></div></div>
+            <div class="project-card-footer"><span><small>{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}</small><strong>PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}</strong></span><div class="project-card-actions"><button class="text-link" type="button" data-project-preview data-title="{{ $project->title }}" data-reference="{{ $project->reference ?? 'Project #'.$project->id }}" data-status="{{ $project->status }}" data-area="{{ $project->area }}" data-chair="{{ $project->chair?->name ?? 'Not assigned' }}" data-dates="{{ $project->starts_on?->format('M d, Y') ?? 'Not set' }} – {{ $project->ends_on?->format('M d, Y') ?? 'Not set' }}" data-completed="{{ $project->completed_tasks_count }}" data-total="{{ $project->tasks_count }}" data-progress="{{ $taskProgress }}" data-budget-label="{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}" data-budget="PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}" data-href="{{ route('projects.show', $project) }}" aria-label="Quick view: {{ $project->title }}"><x-icon name="eye"/> Quick view</button><a class="text-link" href="{{ route('projects.show', $project) }}" aria-label="View project: {{ $project->title }}">{{ request('filter') === 'review' ? 'Review project' : 'View project' }} <x-icon name="arrow"/></a></div></div>
         </article>
     @empty
         <div class="panel empty-state full">
             <x-icon name="briefcase"/>
-            @if(request()->filled('q') || request()->filled('filter'))
+            @if(request('filter') === 'chairing' && !request()->filled('q'))
+                <h2>No chair assignments yet</h2><p>The proposer becomes chair after Admin records the official BOD approval.</p>
+            @elseif(request()->filled('q') || request()->filled('filter'))
                 <h2>No matching projects</h2><p>Try another title or filter.</p>
                 <a class="btn secondary" href="{{ route('projects') }}"><x-icon name="close" /> Clear filters</a>
             @else

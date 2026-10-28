@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'report_font_path' => env('REPORT_FONT_PATH', 'C:/Windows/Fonts/arial.ttf'),
     'name' => 'JCI Carmona',
     'location' => 'Carmona City, Cavite',
     // Chapter contact details supplied by the site owner on 25 October 2026.

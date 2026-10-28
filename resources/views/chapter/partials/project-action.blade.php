@@ -14,7 +14,7 @@
     @if($comments ?? false)
         <x-field name="comments" label="Review comments / conditions" type="textarea" required/>
     @endif
-    <button class="btn {{ $tone ?? 'secondary' }}" @if(in_array($action, ['endorse', 'decline', 'approve', 'reject', 'complete', 'archive'])) data-confirm="{{ $label }}? This decision will be recorded in the project history." @endif>
+    <button class="btn {{ $tone ?? (in_array($action, ['decline', 'reject']) ? 'danger' : (str_starts_with($action, 'revise_') || str_starts_with($action, 'return_') ? 'caution' : 'secondary')) }}" @if(in_array($action, ['endorse', 'decline', 'approve', 'reject', 'complete', 'archive'])) data-confirm="{{ $label }}? This decision will be recorded in the project history." @endif>
         <x-icon name="{{ $actionIcon }}" /> {{ $label }}
     </button>
 </form>

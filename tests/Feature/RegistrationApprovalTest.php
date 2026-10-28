@@ -47,7 +47,8 @@ class RegistrationApprovalTest extends TestCase
         $this->post('/login', ['login' => 'carmona.applicant', 'password' => 'StrongMemberPass123'])
             ->assertSessionHasErrors('login');
 
-        $this->actingAs($bod)->get('/registrations')->assertForbidden();
+        $this->actingAs($bod)->get('/registrations')->assertOk();
+        $this->actingAs($bod)->get('/registrations/'.$registration->id)->assertOk()->assertDontSee('Approve application');
         $this->actingAs($bod)->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve'])->assertForbidden();
         $this->actingAs($admin)->get('/registrations')->assertOk()->assertSee('Carmona Applicant');
         $this->actingAs($admin)->get('/registrations/'.$registration->id)->assertOk()->assertSee('Carmona College')->assertSee('I want to serve');

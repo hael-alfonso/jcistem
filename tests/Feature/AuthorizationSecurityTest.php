@@ -46,7 +46,7 @@ class AuthorizationSecurityTest extends TestCase
         }
     }
 
-    public function test_review_permissions_require_both_an_eligible_role_and_explicit_assignment(): void
+    public function test_review_permissions_follow_the_four_permanent_roles(): void
     {
         $bod = $this->user('bod');
         $reviewer = $this->user('bod', ['concept_reviewer' => true, 'proposal_reviewer' => true]);
@@ -54,8 +54,9 @@ class AuthorizationSecurityTest extends TestCase
         $inactiveAdmin = $this->user('admin', ['status' => 'inactive', 'concept_reviewer' => true]);
 
         $this->assertFalse(Permissions::allows($bod, Permissions::CONCEPT_REVIEW));
-        $this->assertTrue(Permissions::allows($reviewer, Permissions::CONCEPT_REVIEW));
-        $this->assertTrue(Permissions::allows($reviewer, Permissions::PROPOSAL_REVIEW));
+        $this->assertFalse(Permissions::allows($reviewer, Permissions::CONCEPT_REVIEW));
+        $this->assertTrue(Permissions::allows($this->user('admin'), Permissions::CONCEPT_REVIEW));
+        $this->assertFalse(Permissions::allows($reviewer, Permissions::PROPOSAL_REVIEW));
         $this->assertFalse(Permissions::allows($member, Permissions::CONCEPT_REVIEW));
         $this->assertFalse(Permissions::allows($inactiveAdmin, Permissions::CONCEPT_REVIEW));
     }

@@ -18,45 +18,15 @@
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}?v={{ filemtime(public_path('assets/css/chapter.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}?v={{ filemtime(public_path('assets/css/jci-theme.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/project-documents.css') }}?v={{ filemtime(public_path('assets/css/project-documents.css')) }}">
-    <script defer src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
+    <script type="module" src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
 </head>
 <body>
 @php
     $user = auth()->user();
     $unread = \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')->count();
     $roleLabel = \App\Support\WorkspaceNav::label($user->role);
-    $projectMonitoringActive = request()->routeIs('projects*') && !request()->routeIs('projects.liquidation') && request()->query('filter') !== 'concepts';
-    $financialMonitoringActive = request()->routeIs('finance', 'projects.liquidation');
-    $navigation = [
-        'PROJECT WORK' => [
-            ['projects', 'Project concepts', 'fileSignature', ['filter' => 'concepts']],
-            ['tasks', 'Tasks & milestones', 'checklist', []],
-            ['calendar', 'Calendar', 'calendar', []],
-        ],
-        'DOCUMENTS & REPORTS' => [
-            ['documents', 'Project documents', 'folder', []],
-            ['records', 'External LOIs', 'fileSignature', ['kind' => 'letters']],
-            ['records', 'Project reports', 'report', ['kind' => 'reports']],
-        ],
-        'FINANCIAL RECORDS' => [
-            ['dues', 'My member dues', 'receipt', []],
-        ],
-        'CHAPTER' => [
-            ['members', 'Member directory', 'users', []],
-            ['notifications', 'Notifications', 'bell', []],
-        ],
-    ];
-    if ($user->role === 'treasurer') {
-        $navigation['FINANCIAL RECORDS'][] = ['ledger', 'Treasurer ledger', 'wallet', []];
-        $navigation['FINANCIAL RECORDS'][] = ['ledger', 'Liquidation queue', 'checklist', ['filter' => 'liquidation']];
-        $navigation['FINANCIAL RECORDS'][] = ['dues.manage', 'Record member dues', 'receipt', []];
-    }
-    if ($user->role === 'admin') {
-        $navigation['CHAPTER'][] = ['inquiries', 'Public inquiries', 'info', []];
-        $navigation['CHAPTER'][] = ['registrations', 'Registrations', 'userPlus', []];
-        $navigation['CHAPTER'][] = ['members.create', 'Register member', 'userPlus', []];
-        $navigation['CHAPTER'][] = ['activity-log', 'Activity log', 'clock', []];
-    }
+    $navigation = \App\Support\PmsNavigation::for($user);
+    $activeGroup = collect($navigation)->search(fn ($items) => collect($items)->contains(fn ($item) => \App\Support\PmsNavigation::active($item)));
 @endphp
 <a class="skip-link" href="#content">Skip to content</a>
 <div class="app-shell">
@@ -66,48 +36,48 @@
         <nav aria-label="Main navigation">
             <div class="sidebar-primary" aria-label="Monitoring and overview">
                 <a class="side-link sidebar-primary-link {{ request()->routeIs('dashboard') ? 'is-active' : '' }}" href="{{ route('dashboard') }}" @if(request()->routeIs('dashboard')) aria-current="page" @endif><x-icon name="dashboard"/><span>Dashboard</span></a>
-                <a class="side-link sidebar-primary-link {{ $projectMonitoringActive ? 'is-active' : '' }}" href="{{ route('projects') }}" @if($projectMonitoringActive) aria-current="page" @endif><x-icon name="briefcase"/><span>Project monitoring</span></a>
-                <a class="side-link sidebar-primary-link {{ $financialMonitoringActive ? 'is-active' : '' }}" href="{{ route('finance') }}" @if($financialMonitoringActive) aria-current="page" @endif><x-icon name="chart"/><span>Financial monitoring</span></a>
             </div>
             @foreach($navigation as $group => $items)
                 @php
-                    $groupOpen = match ($group) {
-                        'PROJECT WORK' => request()->routeIs('tasks', 'calendar') || (request()->routeIs('projects') && request()->query('filter') === 'concepts'),
-                        'DOCUMENTS & REPORTS' => request()->routeIs('documents', 'records*'),
-                        'FINANCIAL RECORDS' => request()->routeIs('ledger*', 'dues*'),
-                        'CHAPTER' => request()->routeIs('members*', 'registrations*', 'notifications', 'inquiries*', 'activity-log', 'audit'),
-                        default => false,
-                    };
+                    $groupOpen = collect($items)->contains(fn ($item) => \App\Support\PmsNavigation::active($item));
+                    $direct = \App\Support\PmsNavigation::direct($group);
                 @endphp
+                @if($direct)
+                    @php
+                        [$route, $label, $icon, $params] = $items[0];
+                    @endphp
+                    <a class="side-link nav-direct-link {{ $groupOpen ? 'is-active' : '' }}" href="{{ \App\Support\PmsNavigation::url($items[0]) }}" @if($groupOpen) aria-current="page" @endif>
+                        <x-icon :name="$icon"/><span>{{ $label }}</span>
+                        @if($route === 'notifications' && $unread)<b>{{ $unread }}</b>@endif
+                    </a>
+                @else
                 <details class="nav-section" name="sidebar-menu" @if($groupOpen) open @endif>
-                    <summary>{{ $group }}</summary>
+                    <summary><x-icon :name="\App\Support\PmsNavigation::icon($group)"/><span>{{ \App\Support\PmsNavigation::label($group) }}</span></summary>
                     <div class="nav-items">
                     @foreach($items as [$route, $label, $icon, $params])
                         @php
-                            $active = match (true) {
-                                $route === 'projects' => request()->routeIs('projects') && request()->query('filter') === 'concepts',
-                                $route === 'records' => request()->routeIs('records*') && request()->route('kind') === $params['kind'],
-                                $route === 'ledger' && !$params => request()->routeIs('ledger*') && request()->query('filter') !== 'liquidation',
-                                $route === 'ledger' => request()->routeIs('ledger') && request()->query('filter') === 'liquidation',
-                                default => request()->routeIs($route),
-                            };
+                            $item = [$route, $label, $icon, $params];
+                            $active = \App\Support\PmsNavigation::active($item);
                         @endphp
-                        <a class="side-link {{ $active ? 'is-active' : '' }}" href="{{ route($route, $params) }}" @if($active) aria-current="page" @endif>
+                        @if($route)
+                        <a class="side-link {{ $active ? 'is-active' : '' }}" href="{{ \App\Support\PmsNavigation::url($item) }}" @if($active) aria-current="page" @endif>
                             <x-icon :name="$icon"/>
                             <span>{{ $label }}</span>
-                            @if($route === 'notifications' && $unread)<b>{{ $unread }}</b>@endif
                         </a>
+                        @else
+                        <form method="POST" action="{{ route('logout') }}">@csrf<button class="side-link side-logout" type="submit"><x-icon :name="$icon"/><span>{{ $label }}</span></button></form>
+                        @endif
                     @endforeach
                     </div>
                 </details>
+                @endif
             @endforeach
         </nav>
-        <div class="sidebar-utility"><a class="side-link {{ request()->routeIs('account') ? 'is-active' : '' }}" href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="settings"/><span>Settings</span></a></div>
         <div class="sidebar-account">
-            <a href="{{ route('account') }}" aria-label="My account">
+            <div class="sidebar-account-identity">
                 <span class="avatar">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span>
                 <span><strong>{{ $user->name }}</strong><small>{{ $roleLabel }}</small></span>
-            </a>
+            </div>
         </div>
     </aside>
     <button class="nav-overlay" type="button" aria-label="Close navigation"></button>
@@ -115,27 +85,22 @@
         <header class="app-topbar">
             <div class="topbar-context">
                 <button class="menu-button" type="button" aria-controls="navigation" aria-expanded="false" aria-label="Open navigation"><x-icon name="menu" /></button>
-                <span><a href="{{ route('dashboard') }}">Workspace</a><span class="muted">/</span><strong>@yield('title', 'Overview')</strong></span>
+                <span><a href="{{ route('dashboard') }}">Dashboard</a>@if($activeGroup)<span class="muted">/</span><span class="topbar-group">{{ \App\Support\PmsNavigation::label($activeGroup) }}</span>@endif @unless(request()->routeIs('dashboard'))<span class="muted">/</span><strong>@yield('title', 'Overview')</strong>@endunless</span>
             </div>
             <div class="topbar-right">
-                <span class="today">{{ now()->format('D, d M Y') }}</span>
-                <a href="{{ route('notifications') }}" class="notification-link" aria-label="Notifications{{ $unread ? ', '.$unread.' unread' : '' }}">
-                    <x-icon name="bell"/>
-                    @if($unread)<span class="notification-dot"></span>@endif
-                </a>
-                <details class="topbar-settings-menu">
-                    <summary aria-label="Settings" title="Settings"><x-icon name="settings"/></summary>
+                <details class="topbar-settings-menu topbar-quick-menu">
+                    <summary aria-label="Open quick actions"><x-icon name="plus" /></summary>
                     <div class="topbar-menu-panel">
-                        <div class="topbar-menu-user"><strong>{{ $user->name }}</strong><small>{{ $roleLabel }} workspace</small></div>
-                        <a href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user"/><span>My profile</span></a>
-                        <a href="{{ route('account') }}#security"><x-icon name="shieldCheck"/><span>Password &amp; security</span></a>
-                        <a href="{{ request()->getBaseUrl() }}/login" target="_blank" rel="noopener noreferrer"><x-icon name="userPlus"/><span>Open another account</span></a>
-                        <form method="POST" action="{{ route('logout') }}">@csrf
-                            <button type="submit"><x-icon name="logout"/><span>Log out</span></button>
-                        </form>
+                        <span class="topbar-menu-label">Quick actions</span>
+                        <a href="{{ route('projects.create') }}"><x-icon name="filePlus" /> Submit new project</a>
+                        <a href="{{ route('tasks', ['mine' => 1]) }}"><x-icon name="checklist" /> My assigned tasks</a>
+                        @if(in_array($user->role, ['admin','treasurer','bod'], true))<a href="{{ route('projects', ['filter' => 'review']) }}"><x-icon name="clipboardCheck" /> Open review queue</a>@endif
+                        @if($user->role === 'treasurer')<a href="{{ route('ledger') }}"><x-icon name="wallet" /> Open master ledger</a>@endif
+                        <a href="{{ route('calendar') }}"><x-icon name="calendar" /> Open calendar</a>
                     </div>
                 </details>
-                <a class="avatar small" href="{{ route('account') }}" aria-label="My profile">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</a>
+                <span class="today">{{ now()->format('D, d M Y') }}</span>
+                <span class="topbar-role">{{ $roleLabel }}</span>
             </div>
         </header>
         <main class="app-content" id="content">

@@ -1,70 +1,162 @@
 @extends('layouts.chapter')
-@section('title', $proposal ? 'Full project proposal' : 'Project concept letter')
+@section('title', $proposal ? 'Project proposal form' : 'Submit project proposal')
 @section('content')
 @php
     $sectionLabels = [
-        'Community need and intended impact' => 'Explain the need, who the project serves, and what success should look like.',
-        'Delivery plan and people' => 'Describe the activities, schedule, committee, members, and partners.',
-        'Resources and funding' => 'Give a line-item cost breakdown and identify realistic funding sources.',
-        'Safeguards and follow-through' => 'Plan for risks, evidence, evaluation, and continued impact.',
+        'Background and rationale' => 'Explain the need, local priorities, and relevant SDG alignment.',
+        'Goals and objectives' => 'State clear, measurable objectives for this project.',
+        'Target beneficiaries' => 'Identify the community, location, and expected number of people served.',
+        'Estimated JCI members and their functions' => 'List the chair, co-chair, committee members, and their responsibilities.',
+        'Plan of action' => 'Describe survey, planning, implementation, and evaluation phases.',
+        'Estimated budget and funding source' => 'Itemize expected income and expenditures in Philippine pesos.',
+        'Potential benefits and general comments' => 'Explain member development, community impact, and follow-through.',
+    ];
+    $fieldHints = [
+        'background' => 'Describe the community issue, local priority, and SDG number and name.',
+        'resources' => 'Estimate the working budget, funding strategy, and committee needs.',
+        'request' => 'Ask the President and Board to review the proposal. Add your name, position, and contact details.',
+        'objectives' => "a. Specific, measurable objective\nb. Specific, measurable objective\nc. Specific, measurable objective",
+        'team' => "Project Chair | Member name | Overall coordination\nCo-Chair | Member name | Documentation and reporting\nCommittee Member | Member name | Main responsibility",
+        'activities' => "1. Survey and analysis | Community assessment and project scope\n2. Planning and organization | Board approvals, permits, and partners\n3. Implementation | Activities and delivery\n4. Evaluation and post-activity | Feedback, liquidation, and reporting",
+        'funding' => 'Explain the income sources and any conditions attached to sponsorships.',
+        'budget' => 'Describe the quantities, unit costs, and assumptions behind the expenditure lines below.',
     ];
     $proposalData = $project->proposal ?? [];
+    $submissionStage = $proposal ? 'proposal' : 'concept';
+    $submissionField = $submissionStage.'_submission_method';
+    $submissionMethod = old($submissionField, $project->{$submissionField} ?: 'online');
+    $submissionVersions = $project->exists
+        ? $project->documents()->where('submission_stage', $submissionStage)->latest('version')->get()
+        : collect();
 @endphp
+<div class="project-entry-layout">
 <div class="page-heading chapter-form-heading">
     <div>
         <a class="back-link" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="arrowLeft" /> Projects</a>
-        <div class="chapter-form-brand"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="JCI logo" width="92" height="52"><span>JCI Carmona<small>JCI Philippines</small></span></div>
         <div class="eyebrow">{{ $proposal ? 'STAGE 02 · DETAILED PLANNING' : 'STAGE 01 · PROJECT IDEA' }}</div>
-        <h1>{{ $proposal ? 'Full project proposal' : 'Project concept letter' }}</h1>
-        <p>{{ $proposal ? 'Build the complete plan for formal chapter review. The internal transmittal letter will use these details.' : 'Present your idea to the Chapter President for endorsement before preparing a full proposal.' }}</p>
+        <h1>{{ $proposal ? 'Project proposal form' : 'Internal project proposal letter' }}</h1>
+        <p>{{ $proposal ? 'Complete the official form, save your draft, then lock the plan from the project workspace.' : 'Start with the essential details, then complete the internal project letter online or upload the official template.' }}</p>
     </div>
-    @if($proposal && $project->exists)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View &amp; print proposal</a>@endif
+    @if($proposal && $project->exists && $project->proposal)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View &amp; print proposal</a>@endif
 </div>
-<div class="notice">{{ $proposal ? 'Save a draft before previewing. Formal approval is required before Chair assignment, implementation, or spending.' : 'Concept endorsement allows detailed planning. It does not authorize implementation or spending.' }}</div>
-<form method="POST" action="{{ $project->exists ? route('projects.update', $project) : route('projects.store') }}">
+<div class="project-entry-steps" aria-label="Form progress">
+    <span><b>1</b> Project details</span><span><b>2</b> Choose a method</span><span><b>3</b> Complete the {{ $proposal ? 'proposal' : 'letter' }}</span>
+</div>
+<div class="notice project-entry-notice">{{ $proposal ? 'The BOD-approved budget is locked. Review the printable packet before locking the plan. Paper signatures do not replace system approvals.' : 'Saving creates a draft for Admin, Treasurer, and BOD review. Implementation and spending still require a recorded BOD resolution and locked project plan.' }}</div>
+<form class="project-entry-form" method="POST" enctype="multipart/form-data" action="{{ $project->exists ? route('projects.update', $project) : route('projects.store') }}" data-project-submission-form>
     @csrf
     @if($project->exists) @method('PUT') @endif
-    <section class="panel form-panel chapter-form-section">
-        <div class="section-heading"><span>01</span><div><h2>Project essentials</h2><p>These details carry forward from the concept to the proposal and printable packet.</p></div></div>
-        <div class="form-grid">
-            <x-field name="title" label="Project title" :value="$project->title" required maxlength="200"/>
+    <section class="panel form-panel chapter-form-section" id="proposal-general">
+        <div class="section-heading"><span>01</span><div><h2>{{ $proposal ? 'General information' : 'Project essentials' }}</h2><p>{{ $proposal ? 'These details appear at the top of the official proposal form.' : 'These details carry forward from the concept to the proposal and printable packet.' }}</p></div></div>
+        <div class="proposal-form-meta">
+            @if($proposal)<div><span>Project chair</span><strong>{{ $project->chair?->name ?? $project->owner?->name ?? 'To be designated' }}</strong></div><div><span>Proposal reference</span><strong>{{ $project->reference ?? 'Assigned after saving' }}</strong></div>
+            @else<div><span>Addressed to</span><strong>JCI Carmona President and Board of Directors</strong></div><div><span>Project proponent</span><strong>{{ auth()->user()->name }}</strong></div>@endif
+        </div>
+        <div class="form-grid project-entry-details">
+            <div class="full"><x-field name="title" label="Project title" :value="$project->title" required maxlength="200" placeholder="Enter a clear, specific project name"/></div>
             <x-field name="area" label="JCI area of opportunity" type="select" :options="array_combine(\App\Support\ChapterForms::AREAS, \App\Support\ChapterForms::AREAS)" :value="$project->area" required/>
+            <x-field name="proposed_budget" label="Estimated total budget (PHP)" type="number" min="0" step="0.01" :value="$project->proposed_budget ?? 0" required/>
             <x-field name="starts_on" label="Proposed start date" type="date" :value="$project->starts_on?->format('Y-m-d')"/>
             <x-field name="ends_on" label="Proposed end date" type="date" :value="$project->ends_on?->format('Y-m-d')"/>
-            <x-field name="venue" label="Proposed venue / location" :value="$project->venue"/>
-            <x-field name="proposed_budget" label="Estimated total budget (PHP)" type="number" min="0" step="0.01" :value="$project->proposed_budget ?? 0" required/>
+            <div class="full"><x-field name="venue" label="Proposed venue / location" :value="$project->venue" placeholder="Barangay, venue, or community location"/></div>
         </div>
     </section>
+    <section class="panel form-panel chapter-form-section submission-method-section">
+        <div class="section-heading"><span>02</span><div><h2>How to complete this form</h2><p>{{ $proposal ? 'Use the online fields or upload the completed official proposal form.' : 'Both methods enter the same Admin, Treasurer, and BOD review workflow.' }}</p></div></div>
+        <div class="submission-method-options" role="radiogroup" aria-label="Submission method">
+            <label><input type="radio" name="{{ $submissionField }}" value="online" @checked($submissionMethod === 'online')> <span><strong>Fill out online</strong><small>Complete and revise the structured form in the PMS.</small></span></label>
+            <label><input type="radio" name="{{ $submissionField }}" value="upload" @checked($submissionMethod === 'upload')> <span><strong>Upload completed template</strong><small>Upload a completed DOCX or PDF while keeping the project details searchable.</small></span></label>
+        </div>
+    </section>
+    <div data-submission-panel="online" @if($submissionMethod !== 'online') hidden @endif>
     @if($proposal)
+        <nav class="proposal-form-toc" aria-label="Proposal form sections">
+            <strong>FORM SECTIONS</strong>
+            @foreach(\App\Support\ChapterForms::PROPOSAL_SECTIONS as $heading => $keys)
+                <a href="#proposal-section-{{ $loop->iteration }}">{{ $loop->iteration }}. {{ $heading }}</a>
+            @endforeach
+        </nav>
         @foreach(\App\Support\ChapterForms::PROPOSAL_SECTIONS as $heading => $keys)
-            <section class="panel form-panel chapter-form-section">
-                <div class="section-heading"><span>{{ str_pad((string) ($loop->iteration + 1), 2, '0', STR_PAD_LEFT) }}</span><div><h2>{{ $heading }}</h2><p>{{ $sectionLabels[$heading] }}</p></div></div>
+            @php
+                $primaryKeys = array_values(array_intersect($keys, array_keys(\App\Support\ChapterForms::PROPOSAL_REQUIRED)));
+                $supportingKeys = array_values(array_diff($keys, $primaryKeys));
+                $hasSupportingValues = collect($supportingKeys)->contains(fn ($key) => filled(old('proposal.'.$key, $proposalData[$key] ?? null)));
+            @endphp
+            <section class="panel form-panel chapter-form-section proposal-form-section" id="proposal-section-{{ $loop->iteration }}">
+                <div class="section-heading"><span>{{ str_pad((string) ($loop->iteration + 2), 2, '0', STR_PAD_LEFT) }}</span><div><small>OFFICIAL FORM - SECTION {{ $loop->iteration }}</small><h2>{{ $heading }}</h2><p>{{ $sectionLabels[$heading] }}</p></div></div>
                 <div class="form-grid">
-                    @foreach($keys as $key)
-                        <div class="full"><x-field :name="'proposal['.$key.']'" :label="\App\Support\ChapterForms::PROPOSAL[$key]" type="textarea" :value="$proposalData[$key] ?? ''" maxlength="15000"/></div>
+                    @foreach($primaryKeys as $key)
+                        <div class="full"><x-field :name="'proposal['.$key.']'" :label="\App\Support\ChapterForms::PROPOSAL[$key]" type="textarea" :value="$proposalData[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
                     @endforeach
-                    @if($heading === 'Resources and funding')<x-field name="proposal[projected_income]" label="Projected income (PHP, if applicable)" type="number" min="0" step="0.01" :value="$proposalData['projected_income'] ?? ''"/>@endif
                 </div>
+                @if($supportingKeys)
+                    <details class="proposal-supporting-fields" @if($hasSupportingValues) open @endif><summary>Additional planning details <span>Optional</span></summary><div class="form-grid">
+                        @foreach($supportingKeys as $key)
+                            <div class="full"><x-field :name="'proposal['.$key.']'" :label="\App\Support\ChapterForms::PROPOSAL[$key]" type="textarea" :value="$proposalData[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
+                        @endforeach
+                    </div></details>
+                @endif
+                @if($heading === 'Estimated budget and funding source')
+                    <div class="proposal-finance-grid">
+                        <div class="proposal-finance-card">
+                            <h3>Estimated income</h3><p>Enter each expected source from the official form.</p>
+                            @foreach(\App\Support\ChapterForms::PROPOSAL_INCOME_LINES as $key => $label)
+                                <x-field :name="'proposal[income_lines]['.$key.']'" :label="$label.' (PHP)'" type="number" min="0" step="0.01" :value="data_get($proposalData, 'income_lines.'.$key, '')" />
+                            @endforeach
+                            <div class="proposal-finance-total"><span>Total estimated income</span><strong data-proposal-income-total>PHP 0.00</strong></div>
+                        </div>
+                        <div class="proposal-finance-card">
+                            <h3>Estimated expenditures</h3><p>Use the same categories as the official form.</p>
+                            @foreach(\App\Support\ChapterForms::PROPOSAL_EXPENSE_LINES as $key => $label)
+                                <x-field :name="'proposal[expense_lines]['.$key.']'" :label="$label.' (PHP)'" type="number" min="0" step="0.01" :value="data_get($proposalData, 'expense_lines.'.$key, '')" />
+                            @endforeach
+                            <div class="proposal-finance-total"><span>Total estimated expenditures</span><strong data-proposal-expense-total>PHP 0.00</strong></div>
+                        </div>
+                    </div>
+                    <p class="hint">The expenditure estimate should match the BOD-approved budget of PHP {{ number_format((float) $project->proposed_budget, 2) }}. A budget amendment needs separate authorization.</p>
+                @endif
             </section>
         @endforeach
         <section class="panel form-panel chapter-form-section">
-            <div class="section-heading"><span>06</span><div><h2>Internal Board transmittal</h2><p>Optional routing details for the Internal Chapter Project Proposal Transmittal Letter.</p></div></div>
+            <div class="section-heading"><span>10</span><div><h2>Board transmittal and signatures</h2><p>The printable packet includes prepared, reviewed, and approved signature lines.</p></div></div>
             <div class="form-grid">
                 <x-field name="proposal[committee_director]" label="Committee director (if assigned)" :value="$proposalData['committee_director'] ?? ''" maxlength="200"/>
                 <x-field name="proposal[board_meeting_date]" label="Requested Board meeting date" type="date" :value="$proposalData['board_meeting_date'] ?? ''"/>
             </div>
-            <p class="hint">The proposal owner appears as project proponent. A Project Chair is formally assigned only after final approval.</p>
+            <p class="hint">Paper signatures do not change PMS permissions or approval status.</p>
         </section>
     @else
-        <section class="panel form-panel chapter-form-section">
-            <div class="section-heading"><span>02</span><div><h2>The concept letter</h2><p>Keep this initial request concise. Detailed plans come after endorsement.</p></div></div>
-            <div class="form-grid">
-                @foreach(\App\Support\ChapterForms::CONCEPT as $key => $label)
-                    <div class="full"><x-field :name="'concept['.$key.']'" :label="$label" type="textarea" :value="($project->concept ?? [])[$key] ?? ''" maxlength="15000"/></div>
+        @foreach(\App\Support\ChapterForms::CONCEPT_SECTIONS as $heading => $keys)
+            <section class="panel form-panel chapter-form-section proposal-form-section">
+                <div class="section-heading"><span>{{ str_pad((string) ($loop->iteration + 2), 2, '0', STR_PAD_LEFT) }}</span><div><small>INTERNAL LETTER - SECTION {{ $loop->iteration }}</small><h2>{{ $heading }}</h2><p>{{ $loop->first ? 'Explain why the project matters and how it supports active citizenship.' : ($loop->last ? 'State the proposed resources and formal request to the Board.' : 'Summarize the proposed date, location, beneficiaries, and partners.') }}</p></div></div>
+                <div class="form-grid">
+                    @foreach($keys as $key)
+                        <div class="full"><x-field :name="'concept['.$key.']'" :label="\App\Support\ChapterForms::CONCEPT[$key]" type="textarea" :value="($project->concept ?? [])[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
+                    @endforeach
+                </div>
+            </section>
+        @endforeach
+    @endif
+    </div>
+    <section class="panel form-panel chapter-form-section" data-submission-panel="upload" @if($submissionMethod !== 'upload') hidden @endif>
+        <div class="section-heading"><span>03</span><div><h2>Completed template</h2><p>Use the official form from Form Templates. New uploads are retained as a version history.</p></div></div>
+        <a class="btn secondary proposal-template-download" href="{{ route('templates.reference.download', $proposal ? 'project-proposal-form' : 'internal-project-letter') }}"><x-icon name="download" /> Download {{ $proposal ? 'Project Proposal Form' : 'Internal Project Letter' }}</a>
+        <div class="form-grid">
+            <x-field name="submission_file" label="Completed DOCX or PDF (max 10 MB)" type="file" accept=".doc,.docx,.pdf"/>
+            <x-field name="revision_note" label="Version or revision note" type="textarea" maxlength="2000"/>
+        </div>
+        @if($submissionVersions->isNotEmpty())
+            <div class="submission-version-list">
+                <h3>Uploaded versions</h3>
+                @foreach($submissionVersions as $document)
+                    <a class="list-row" href="{{ route('documents.download', $document) }}"><span><strong>Version {{ $document->version }}</strong><small>{{ $document->original_name }} · {{ $document->submitted_at?->format('d M Y, g:i A') ?? $document->created_at->format('d M Y, g:i A') }}</small></span><span class="text-link"><x-icon name="download"/> Download</span></a>
                 @endforeach
             </div>
-        </section>
-    @endif
-    <div class="form-footer"><a class="btn secondary" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="close" /> Cancel</a><button class="btn primary"><x-icon name="save" /> Save {{ $proposal ? 'proposal' : 'concept' }} draft</button></div>
+        @else
+            <p class="hint">A completed template is required before this draft can be submitted for review.</p>
+        @endif
+    </section>
+    <div class="form-footer project-entry-actions"><span>Save now and continue editing from the project workspace.</span><div><a class="btn secondary" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="close" /> Cancel</a><button class="btn primary"><x-icon name="save" /> Save {{ $proposal ? 'proposal' : 'concept' }} draft</button></div></div>
 </form>
+</div>
 @endsection

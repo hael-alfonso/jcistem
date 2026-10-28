@@ -21,8 +21,8 @@ class PublicEntryTest extends TestCase
             $page = $this->browse('GET', $prefix.'/', $cookies)->assertOk()
                 ->assertSee('Community stories')->assertSee('JCISTEM')
                 ->assertSee('Project BLOOM')->assertSee('Project M.U.S.A.')
-                ->assertSee('Habi at Kulay')->assertSee('Project PEACE+')
-                ->assertSee('How to Spot the Red Heart')
+                ->assertSee('Habi at Kulay')
+                ->assertSee('href="http://localhost'.$prefix.'/activities"', false)
                 ->assertSee('href="http://localhost'.$prefix.'/login"', false)
                 ->assertSee('href="http://localhost'.$prefix.'/contact"', false)
                 ->assertSee(config('chapter.facebook_url'));

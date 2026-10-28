@@ -19,16 +19,17 @@
 </div>
 @if($kind === 'reports')
 <nav class="filter-tabs" aria-label="Report type">
-    @foreach(['' => 'All reports', 'Progress' => 'Progress', 'Completion' => 'Completion', 'Overall Financial' => 'Financial'] as $type => $label)
+    @foreach(['' => 'All reports', 'Progress' => 'Progress', 'Completion' => 'Completion', 'Liquidation' => 'Liquidation', 'Overall Financial' => 'Financial'] as $type => $label)
         <a class="{{ request('type','') === $type ? 'selected' : '' }}" href="{{ route('records', array_filter(['kind' => 'reports', 'type' => $type, 'q' => request('q'), 'status' => request('status')])) }}" @if(request('type','') === $type) aria-current="page" @endif>{{ $label }}</a>
     @endforeach
 </nav>
 @endif
 <form class="list-filters" method="GET" action="{{ route('records', $kind) }}">
+    @if(request()->boolean('mine'))<input type="hidden" name="mine" value="1">@endif
     @if(request()->filled('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
     <label><span>Search documents</span><input name="q" value="{{ request('q') }}" placeholder="Title or project"></label>
     <label><span>Status</span><select name="status"><option value="">All statuses</option>@foreach(['Draft','For Review','Submitted','Returned','Reviewed','Approved for Sending','Sent','Archived'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $status }}</option>@endforeach</select></label>
-    <button class="btn primary" type="submit"><x-icon name="filter" /> Apply filters</button>
+    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
     @if(request()->filled('q') || request()->filled('status'))<a class="text-link" href="{{ route('records', array_filter(['kind' => $kind, 'type' => request('type')])) }}"><x-icon name="close" /> Clear</a>@endif
 </form>
 <section class="panel"><div class="table-wrap"><table>
@@ -40,5 +41,5 @@
             <tr><td colspan="6"><div class="empty-state"><h3>No matching {{ $kind === 'letters' ? 'LOIs' : 'reports' }}.</h3><p>Try another filter. New documents appear here after they are saved.</p><a class="btn secondary" href="{{ route('records', $kind) }}"><x-icon name="close" /> Show all</a></div></td></tr>
         @endforelse
     </tbody>
-</table></div></section>
+</table></div>@include('chapter.partials.pagination',['items'=>$records])</section>
 @endsection

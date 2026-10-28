@@ -6,5 +6,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProjectReport extends ChapterRecord
 {
-    protected $casts = ['data' => 'array', 'versions' => 'array'];
+    protected $casts = ['reviewed_at' => 'datetime', 'data' => 'array', 'versions' => 'array'];
 }

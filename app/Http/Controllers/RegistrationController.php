@@ -86,7 +86,7 @@ class RegistrationController extends Controller
 
     public function index(Request $request): View
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeMemberManager($request);
         $status = $request->validate(['status' => 'nullable|in:pending,approved,rejected'])['status'] ?? 'pending';
         return view('chapter.registrations', [
             'requests' => RegistrationRequest::with('reviewer')->where('status', $status)->latest()->paginate(20)->withQueryString(),
@@ -97,13 +97,13 @@ class RegistrationController extends Controller
 
     public function show(Request $request, RegistrationRequest $registration): View
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeMemberManager($request);
         return view('chapter.registration', compact('registration'));
     }
 
     public function review(Request $request, RegistrationRequest $registration): RedirectResponse
     {
-        $this->authorizeAdmin($request);
+        abort_unless(Permissions::allows($request->user(), Permissions::ACCOUNTS_MANAGE), 403);
         $data = $request->validate([
             'decision' => 'required|in:approve,reject',
             'review_notes' => 'required_if:decision,reject|nullable|string|max:2000',
@@ -140,6 +140,7 @@ class RegistrationController extends Controller
                 $registration->user_id = $member->id;
                 $registration->status = 'approved';
                 ChapterService::audit('member_account_approved', $member);
+                ChapterService::notify([$member->id], 'Membership approved', 'Your JCI Carmona member account is active. Welcome to the chapter workspace.', route('account', [], false));
             } else {
                 $registration->status = 'rejected';
             }
@@ -156,7 +157,7 @@ class RegistrationController extends Controller
         return redirect()->route('registrations.show', $registration)->with('success', $data['decision'] === 'approve' ? 'Member account approved and activated.' : 'Registration not approved.');
     }
 
-    private function authorizeAdmin(Request $request): void
+    private function authorizeMemberManager(Request $request): void
     {
         abort_unless(Permissions::allows($request->user(), Permissions::MEMBERS_MANAGE), 403);
     }

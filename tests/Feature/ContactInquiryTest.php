@@ -14,7 +14,7 @@ class ContactInquiryTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
 
-        $this->get('/contact')->assertOk()->assertSee('Let’s start a')->assertSee('Send inquiry');
+        $this->get('/contact')->assertOk()->assertSee('we help you?')->assertSee('Send inquiry');
         $response = $this->post('/contact', [
             'name' => '  Maria Santos  ',
             'email' => 'MARIA@EXAMPLE.TEST',

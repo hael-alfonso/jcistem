@@ -68,7 +68,7 @@
             <div class="section-heading"><span>01</span><div><h2>Report details</h2><p>Save a draft, then submit the completed report for review.</p></div></div>
             <div class="form-grid">
                 <x-field name="title" label="Document title / subject" :value="$record->title" required/>
-                <x-field name="type" label="Report type" type="select" :options="$project ? ['Progress' => 'Progress report', 'Completion' => 'Project completion report'] : ['Overall Financial' => 'Overall Financial Report']" :value="$record->type" required/>
+                <x-field name="type" label="Report type" type="select" :options="$project ? ['Progress' => 'Progress report', 'Completion' => 'Project completion report', 'Liquidation' => 'Project liquidation report'] : ['Overall Financial' => 'Overall Financial Report']" :value="$record->type" required/>
             </div>
         </section>
         @if($project)

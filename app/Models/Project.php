@@ -6,15 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class Project extends ChapterRecord
 {
-    protected $casts = ['concept' => 'array', 'proposal' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'budget_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
-    public const APPROVED = ['Approved', 'Ongoing', 'Completion Review', 'Completed', 'Archived'];
+    protected $casts = ['concept' => 'array', 'proposal' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'plan_locked_at' => 'datetime', 'budget_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
+    public const APPROVED = ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed', 'Archived'];
     public static function toneForStatus(string $status): string
     {
         return match ($status) {
             'Draft Concept', 'Full Proposal Draft' => 'draft',
-            'Submitted for President Review', 'Submitted for Formal Approval', 'Completion Review' => 'review',
+            'Admin Review', 'Treasurer Review', 'BOD Agenda', 'Submitted for President Review', 'Submitted for Formal Approval', 'Completion Review' => 'review',
             'Needs Revision', 'Returned for Revision' => 'revision',
-            'Endorsed for Development', 'Approved' => 'approved',
+            'Endorsed for Development', 'Approved', 'Plan Locked' => 'approved',
             'Ongoing' => 'ongoing',
             'Completed' => 'completed',
             'Declined', 'Not Approved' => 'declined',
@@ -48,6 +48,9 @@ class Project extends ChapterRecord
         $total = $this->tasks()->count();
         return $total ? (int) round(100 * $this->tasks()->where('status', 'Completed')->count() / $total) : 0;
     }
-    public function canManage(User $user): bool { return $user->role !== 'admin' && $this->chair_id === $user->id && in_array($this->status, ['Approved', 'Ongoing'], true); }
-    public function canEdit(User $user): bool { return $this->created_by === $user->id && in_array($this->status, ['Draft Concept', 'Needs Revision', 'Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true); }
+    public function decisions() { return $this->hasMany(BodDecision::class); }
+    public function isChair(User $user): bool { return $user->status === 'active' && $this->chair_id === $user->id && in_array($this->status, self::APPROVED, true) && $this->decisions()->where('decision', 'approved')->exists(); }
+    public function canManage(User $user): bool { return $this->isChair($user) && $this->plan_locked_at && in_array($this->status, ['Plan Locked', 'Ongoing'], true); }
+    public function canReport(User $user): bool { return $this->isChair($user) && $this->status === 'Completion Review'; }
+    public function canEdit(User $user): bool { return $user->status === 'active' && (($this->created_by === $user->id && in_array($this->status, ['Draft Concept', 'Needs Revision'], true)) || ($this->isChair($user) && $this->status === 'Approved' && !$this->plan_locked_at)); }
 }

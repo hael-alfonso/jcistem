@@ -33,6 +33,15 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/dashboard', [ChapterController::class, 'dashboard'])->name('dashboard');
+    Route::get('/reports', [\App\Http\Controllers\PmsToolsController::class, 'reports'])->name('reports.generate');
+    Route::post('/reports/export', [\App\Http\Controllers\PmsToolsController::class, 'export'])->name('reports.export');
+    Route::get('/documents/templates', [\App\Http\Controllers\PmsToolsController::class, 'templates'])->name('templates');
+    Route::get('/documents/templates/reference/{form}', [\App\Http\Controllers\PmsToolsController::class, 'referenceFormDownload'])->where('form', '[a-z0-9-]+')->name('templates.reference.download');
+    Route::get('/documents/templates/{template}', [\App\Http\Controllers\PmsToolsController::class, 'templateDownload'])->name('templates.download');
+    Route::post('/documents/templates', [\App\Http\Controllers\PmsToolsController::class, 'templateStore'])->middleware('permission:accounts.manage')->name('templates.store');
+    Route::get('/admin/settings', [\App\Http\Controllers\PmsToolsController::class, 'settings'])->middleware('permission:accounts.manage')->name('pms.settings');
+    Route::put('/admin/settings', [\App\Http\Controllers\PmsToolsController::class, 'saveSettings'])->middleware('permission:accounts.manage')->name('pms.settings.update');
+    Route::get('/bod-decisions/{decision}/evidence', [\App\Http\Controllers\PmsToolsController::class, 'decisionEvidence'])->name('decisions.evidence');
     Route::get('/projects', [ChapterController::class, 'projects'])->name('projects');
     Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
@@ -44,11 +53,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/projects/{project}/transition', [ChapterController::class, 'transition'])->name('projects.transition');
     Route::post('/projects/{project}/tasks', [ChapterController::class, 'taskSave'])->name('tasks.store');
     Route::put('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskSave'])->name('tasks.update');
+    Route::post('/projects/{project}/tasks/{task}/respond', [ChapterController::class, 'taskRespond'])->name('tasks.respond');
     Route::get('/tasks', [ChapterController::class, 'tasks'])->name('tasks');
     Route::get('/calendar', [ChapterController::class, 'calendar'])->name('calendar');
     Route::get('/documents', [ChapterController::class, 'documents'])->name('documents');
     Route::post('/calendar', [ChapterController::class, 'eventSave'])->name('calendar.store');
     Route::post('/projects/{project}/documents', [ChapterController::class, 'upload'])->name('documents.store');
+    Route::get('/documents/{document}/preview', [ChapterController::class, 'previewDocument'])->name('documents.preview');
     Route::get('/documents/{document}/download', [ChapterController::class, 'download'])->name('documents.download');
     Route::get('/notifications', [ChapterController::class, 'notifications'])->name('notifications');
     Route::post('/notifications/read', [ChapterController::class, 'readNotifications'])->name('notifications.read');
@@ -59,6 +70,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/inquiries/{inquiry}', [ContactInquiryController::class, 'show'])->middleware('permission:inquiries.manage')->name('inquiries.show');
     Route::put('/inquiries/{inquiry}', [ContactInquiryController::class, 'update'])->middleware('permission:inquiries.manage')->name('inquiries.update');
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
+    Route::post('/projects/{project}/transactions', [FinanceController::class, 'projectTransaction'])->name('project-transactions.store');
     Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->middleware('permission:finance.manage')->name('budget.store');
     Route::get('/projects/{project}/liquidation', [FinanceController::class, 'liquidationReport'])->middleware('permission:finance.manage')->name('projects.liquidation');
     Route::get('/ledger/export', [FinanceController::class, 'export'])->middleware('permission:finance.manage')->name('ledger.export');
@@ -79,16 +91,20 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/records/{kind}/{id}/transition', [RecordController::class, 'transition'])->name('records.transition');
     Route::get('/records/{kind}/{id}/attachment', [RecordController::class, 'attachment'])->name('records.attachment');
     Route::get('/members', [RecordController::class, 'members'])->name('members');
+    Route::get('/members/manage', [RecordController::class, 'members'])->middleware('permission:members.manage')->name('members.manage');
+    Route::get('/admin/accounts', [RecordController::class, 'members'])->middleware('permission:accounts.manage')->name('accounts');
     Route::get('/registrations', [RegistrationController::class, 'index'])->middleware('permission:members.manage')->name('registrations');
     Route::get('/registrations/{registration}', [RegistrationController::class, 'show'])->middleware('permission:members.manage')->name('registrations.show');
-    Route::post('/registrations/{registration}/review', [RegistrationController::class, 'review'])->middleware('permission:members.manage')->name('registrations.review');
-    Route::get('/members/create', [RecordController::class, 'memberForm'])->middleware('permission:members.manage')->name('members.create');
-    Route::post('/members', [RecordController::class, 'memberSave'])->middleware('permission:members.manage')->name('members.store');
+    Route::post('/registrations/{registration}/review', [RegistrationController::class, 'review'])->middleware('permission:accounts.manage')->name('registrations.review');
+    Route::get('/members/create', [RecordController::class, 'memberForm'])->middleware('permission:accounts.manage')->name('members.create');
+    Route::post('/members', [RecordController::class, 'memberSave'])->middleware('permission:accounts.manage')->name('members.store');
     Route::get('/members/{member}/edit', [RecordController::class, 'memberForm'])->middleware('permission:members.manage')->name('members.edit');
     Route::put('/members/{member}', [RecordController::class, 'memberSave'])->middleware('permission:members.manage')->name('members.update');
     Route::get('/account', [RecordController::class, 'account'])->name('account');
     Route::get('/account/photo', [RecordController::class, 'accountPhoto'])->name('account.photo');
     Route::put('/account', [RecordController::class, 'accountSave'])->name('account.update');
+    Route::get('/settings', [RecordController::class, 'settings'])->name('settings');
+    Route::put('/settings', [RecordController::class, 'settingsSave'])->name('settings.update');
 
     // Preserve bookmarked workspace URLs from the original prototype.
     foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {

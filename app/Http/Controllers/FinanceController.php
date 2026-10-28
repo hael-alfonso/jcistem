@@ -22,14 +22,15 @@ class FinanceController extends Controller
     public function budget(Request $request, Project $project)
     {
         $this->treasurer($request);
-        $data = $request->validate(['category' => 'required|string|max:100', 'amount' => 'required|numeric|min:0|max:999999999.99', 'approved_by' => 'required|string|max:200', 'approved_on' => 'required|date', 'remarks' => 'required|string|max:5000']);
+        $data = $request->validate(['category' => 'required|string|max:100', 'amount' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'approved_by' => 'required|string|max:200', 'approved_on' => 'required|date', 'remarks' => 'required|string|max:5000']);
         DB::transaction(function () use ($project, $data, $request) {
             $project = Project::lockForUpdate()->findOrFail($project->id);
-            abort_unless(in_array($project->status, ['Approved', 'Ongoing']), 422, 'Budget allocations require an approved active project.');
+            abort_unless(in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing']), 422, 'Budget allocations require an approved active project.');
             $allocation = BudgetAllocation::firstOrNew(['project_id' => $project->id, 'category' => $data['category']]);
             $before = $allocation->toArray();
-            $total = round($project->allocated - (float) $allocation->amount + (float) $data['amount'], 2);
-            if ($total < $project->spent) throw ValidationException::withMessages(['amount' => 'Allocation cannot be reduced below posted expenses.']);
+            $total = \App\Support\Money::cents($project->allocations()->sum('amount')) - \App\Support\Money::cents($allocation->amount) + \App\Support\Money::cents($data['amount']);
+            if ($project->decisions()->where('decision', 'approved')->exists() && $total > \App\Support\Money::cents($project->proposed_budget)) throw ValidationException::withMessages(['amount' => 'Allocations cannot exceed the BOD-approved budget.']);
+            if ($total < \App\Support\Money::cents($project->transactions()->where('status', 'Posted')->where('direction', 'debit')->sum('amount'))) throw ValidationException::withMessages(['amount' => 'Allocation cannot be reduced below posted expenses.']);
             $allocation->fill($data + ['recorded_by' => $request->user()->id])->save();
             ChapterService::audit('budget_allocation_saved', $allocation, $before);
         });
@@ -52,21 +53,22 @@ class FinanceController extends Controller
     {
         $this->treasurer($request);
         $entries = LedgerEntry::with(['project', 'member'])->when($request->query('filter') === 'liquidation', fn ($q) => $q->where('direction', 'debit')->where('status', 'Posted'))->latest('transaction_date')->latest('id')->paginate(30)->withQueryString();
-        $projects = Project::whereIn('status', ['Approved', 'Ongoing'])->orderBy('title')->get();
+        $projects = Project::whereIn('status', ['Approved', 'Plan Locked', 'Ongoing'])->orderBy('title')->get();
         $members = User::where('status', 'active')->orderBy('name')->get();
         return view('chapter.ledger', compact('entries', 'projects', 'members'));
     }
 
     public function store(Request $request)
     {
-        $this->treasurer($request);
+        $chairProject = $request->attributes->get('chair_finance_project');
+        if (!$chairProject) $this->treasurer($request);
         $data = $request->validate([
             'reference' => 'required|string|max:100|unique:ledger_entries,reference',
             'project_id' => 'nullable|integer|exists:projects,id', 'member_id' => 'nullable|integer|exists:users,id',
             'transaction_date' => 'required|date', 'type' => ['required', Rule::in(['Income', 'Expense', 'Disbursement', 'Adjustment credit', 'Adjustment debit'])],
             'category' => 'required|string|max:100', 'account' => 'required|string|max:150', 'counterparty' => 'required|string|max:200',
             'payment_method' => ['required', Rule::in(['Cash', 'Bank transfer', 'GCash', 'Cheque', 'Other'])],
-            'description' => 'required|string|max:5000', 'amount' => 'required|numeric|min:0.01|max:999999999.99',
+            'description' => 'required|string|max:5000', 'amount' => 'required|numeric|decimal:0,2|min:0.01|max:999999999.99',
             'remarks' => 'nullable|string|max:5000', 'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
         $data['direction'] = in_array($data['type'], ['Expense', 'Disbursement', 'Adjustment debit']) ? 'debit' : 'credit';
@@ -79,17 +81,28 @@ class FinanceController extends Controller
             $data['document_path'] = $path; $data['document_name'] = $request->file('receipt')->getClientOriginalName();
         }
         try {
-            DB::transaction(function () use ($data) {
+            DB::transaction(function () use ($data, $request, $chairProject) {
                 if (!empty($data['project_id'])) {
                     $project = Project::lockForUpdate()->findOrFail($data['project_id']);
-                    abort_unless(in_array($project->status, ['Approved', 'Ongoing']), 422, 'Transactions require an approved active project.');
-                    if ($data['direction'] === 'debit' && round((float) $data['amount'], 2) > $project->remaining) throw ValidationException::withMessages(['amount' => 'This expense exceeds the available allocation. Increase the authorized allocation first.']);
+                    abort_unless(in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing']), 422, 'Transactions require an approved active project.');
+                    if ($chairProject) abort_unless($project->id === $chairProject->id && $project->canManage($request->user()), 403);
+                    $remaining = \App\Support\Money::cents($project->allocations()->sum('amount')) - \App\Support\Money::cents($project->transactions()->where('status', 'Posted')->where('direction', 'debit')->sum('amount'));
+                    if ($data['direction'] === 'debit' && \App\Support\Money::cents($data['amount']) > $remaining) throw ValidationException::withMessages(['amount' => 'This expense exceeds the available allocation. Increase the authorized allocation first.']);
                 }
                 $entry = LedgerEntry::create($data + ['status' => 'Posted']);
                 ChapterService::audit('transaction_posted', $entry);
             });
         } catch (\Throwable $e) { if ($path) Storage::disk('local')->delete($path); throw $e; }
         return back()->with('success', 'Transaction posted to the official ledger.');
+    }
+
+    public function projectTransaction(Request $request, Project $project)
+    {
+        abort_unless($project->canManage($request->user()), 403);
+        $request->validate(['type' => 'required|in:Income,Expense', 'member_id' => 'prohibited', 'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240']);
+        $request->merge(['project_id' => $project->id]);
+        $request->attributes->set('chair_finance_project', $project);
+        return $this->store($request);
     }
 
     public function update(Request $request, LedgerEntry $entry)
@@ -99,7 +112,13 @@ class FinanceController extends Controller
         $path = $request->hasFile('receipt') ? $request->file('receipt')->store('financial-documents', 'local') : null;
         try {
             DB::transaction(function () use ($entry, $data, $path, $request) {
-                if ($entry->project_id) Project::lockForUpdate()->findOrFail($entry->project_id);
+                if ($entry->project_id) {
+                    $project = Project::lockForUpdate()->findOrFail($entry->project_id);
+                    abort_if(in_array($project->status, ['Archived', 'Completed']), 403, 'Closed project finances are locked.');
+                    if ($data['action'] === 'liquidate') abort_if($project->chair_id === $request->user()->id, 403, 'An independent Treasurer must verify liquidation.');
+                    abort_if($project->status === 'Completion Review' && $data['action'] === 'void', 403, 'Financial corrections require return to implementation.');
+                    abort_if($project->reports()->where('type', 'Liquidation')->latest('id')->first()?->status === 'Reviewed', 403, 'Approved liquidation evidence is locked.');
+                }
                 if ($entry->member_due_id) MemberDue::lockForUpdate()->findOrFail($entry->member_due_id);
                 $entry = LedgerEntry::lockForUpdate()->findOrFail($entry->id);
                 abort_unless($entry->status === 'Posted', 422, 'Only posted transactions may be changed.');
@@ -122,7 +141,7 @@ class FinanceController extends Controller
 
     public function receipt(Request $request, LedgerEntry $entry)
     {
-        abort_unless(Permissions::allows($request->user(), Permissions::FINANCE_MANAGE) || ($entry->member_due_id && $entry->member_id === $request->user()->id), 403);
+        abort_unless(Permissions::allows($request->user(), Permissions::FINANCE_MANAGE) || ($entry->project_id && $entry->project->isChair($request->user())) || ($entry->member_due_id && $entry->member_id === $request->user()->id), 403);
         abort_unless($entry->document_path && Storage::disk('local')->exists($entry->document_path), 404);
         return Storage::disk('local')->download($entry->document_path, $entry->document_name, ['X-Content-Type-Options' => 'nosniff']);
     }
@@ -139,13 +158,13 @@ class FinanceController extends Controller
     public function openDues(Request $request)
     {
         $this->treasurer($request);
-        $data = $request->validate(['period' => 'required|date_format:Y-m', 'due_date' => 'required|date', 'amount' => 'required|numeric|min:0|max:9999999.99', 'member_id' => 'nullable|integer|exists:users,id', 'remarks' => 'required|string|max:5000']);
+        $data = $request->validate(['period' => 'required|date_format:Y-m', 'due_date' => 'required|date', 'amount' => 'required|numeric|decimal:0,2|min:0|max:9999999.99', 'member_id' => 'nullable|integer|exists:users,id', 'remarks' => 'required|string|max:5000']);
         DB::transaction(function () use ($data, $request) {
             $members = User::where('status', 'active')->when(!empty($data['member_id']), fn ($q) => $q->whereKey($data['member_id']))->lockForUpdate()->get();
             foreach ($members as $member) {
                 $due = MemberDue::firstOrNew(['member_id' => $member->id, 'period' => $data['period']]);
                 $before = $due->toArray();
-                if ($due->exists && (float) $data['amount'] < $due->paid) throw ValidationException::withMessages(['amount' => 'The dues amount cannot be lower than payments already posted.']);
+                if ($due->exists && \App\Support\Money::cents($data['amount']) < \App\Support\Money::cents($due->payments()->where('status', 'Posted')->sum('amount'))) throw ValidationException::withMessages(['amount' => 'The dues amount cannot be lower than payments already posted.']);
                 $due->fill(['due_date' => $data['due_date'], 'amount' => $data['amount'], 'remarks' => $data['remarks'], 'recorded_by' => $request->user()->id])->save();
                 ChapterService::audit('dues_assessed_or_adjusted', $due, $before, $data['remarks']);
                 ChapterService::notify([$member->id], 'Member dues: '.$due->period, 'Amount due: PHP '.number_format($due->balance, 2).'. Due '.$due->due_date->format('M d, Y').'.', route('dues', [], false));
@@ -157,14 +176,14 @@ class FinanceController extends Controller
     public function payDues(Request $request, MemberDue $due)
     {
         $this->treasurer($request);
-        $data = $request->validate(['reference' => 'required|string|max:100|unique:ledger_entries,reference', 'amount' => 'required|numeric|min:0.01|max:9999999.99', 'transaction_date' => 'required|date', 'payment_method' => ['required', Rule::in(['Cash', 'Bank transfer', 'GCash', 'Cheque', 'Other'])], 'remarks' => 'nullable|string|max:5000', 'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240']);
+        $data = $request->validate(['reference' => 'required|string|max:100|unique:ledger_entries,reference', 'amount' => 'required|numeric|decimal:0,2|min:0.01|max:9999999.99', 'transaction_date' => 'required|date', 'payment_method' => ['required', Rule::in(['Cash', 'Bank transfer', 'GCash', 'Cheque', 'Other'])], 'remarks' => 'nullable|string|max:5000', 'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240']);
         unset($data['receipt']);
         $path = $request->hasFile('receipt') ? $request->file('receipt')->store('financial-documents', 'local') : null;
         if ($path) { $data['document_path'] = $path; $data['document_name'] = $request->file('receipt')->getClientOriginalName(); }
         try {
             DB::transaction(function () use ($due, $data, $request) {
                 $due = MemberDue::lockForUpdate()->findOrFail($due->id);
-                if (round((float) $data['amount'], 2) > $due->balance) throw ValidationException::withMessages(['amount' => 'Payment exceeds the outstanding dues balance.']);
+                if (\App\Support\Money::cents($data['amount']) > \App\Support\Money::cents($due->amount) - \App\Support\Money::cents($due->payments()->where('status', 'Posted')->sum('amount'))) throw ValidationException::withMessages(['amount' => 'Payment exceeds the outstanding dues balance.']);
                 $entry = LedgerEntry::create($data + ['member_id' => $due->member_id, 'member_due_id' => $due->id, 'recorded_by' => $request->user()->id, 'type' => 'Dues Collection', 'direction' => 'credit', 'category' => 'Member dues', 'account' => 'Chapter fund', 'counterparty' => $due->member->name, 'description' => 'Member dues for '.$due->period, 'status' => 'Posted']);
                 ChapterService::audit('dues_payment_posted', $entry);
                 ChapterService::notify([$due->member_id], 'Dues payment received', 'PHP '.number_format($entry->amount, 2).' recorded for '.$due->period.'. Reference '.$entry->reference.'.', route('dues', [], false));

@@ -4,6 +4,9 @@
 .chapter-form-brand img { display: block; width: 92px; height: auto; object-fit: contain; }
 .chapter-form-brand > span { display: block; padding-left: 14px; border-left: 1px solid #ccd8e1; font: 800 20px/1.15 'Manrope', sans-serif; }
 .chapter-form-brand small { display: block; margin-top: 4px; color: #5b7182; font: 700 10px/1.3 'DM Sans', sans-serif; letter-spacing: 1.1px; text-transform: uppercase; }
+.chapter-form-heading .chapter-form-brand { gap: 10px; margin: 4px 0 15px; }
+.chapter-form-heading .chapter-form-brand img { width: 62px; }
+.chapter-form-heading .chapter-form-brand > span { padding-left: 0; border-left: 0; font-size: 17px; }
 .chapter-form-section { margin-bottom: 18px; }
 .chapter-form-section .section-heading { margin-bottom: 22px; }
 .chapter-form-section .form-grid { row-gap: 20px; }
@@ -43,6 +46,16 @@
 .proposal-document-field h4 { margin: 0 0 4px; color: #476174; font-size: 11px; font-weight: 700; }
 .proposal-document-field p { margin: 0; color: #132b46; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
 .proposal-document-section ul { padding-left: 18px; }
+.proposal-document-budget { margin: 16px 0 20px; break-inside: avoid; }
+.proposal-document-budget h4 { margin: 0 0 8px; color: #173f59; font-size: 12px; }
+.proposal-document-budget table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.proposal-document-budget th, .proposal-document-budget td { padding: 8px 10px; border: 1px solid #d6e3e9; text-align: left; }
+.proposal-document-budget th:last-child, .proposal-document-budget td:last-child { width: 150px; text-align: right; font-variant-numeric: tabular-nums; }
+.proposal-budget-total { background: #edf6f9; color: #173f59; }
+.proposal-signatures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-top: 20px; }
+.proposal-signatures > div { display: grid; align-content: end; min-height: 94px; padding-top: 34px; border-top: 1px solid #7891a2; }
+.proposal-signatures span, .proposal-signatures small { color: #526879; font-size: 10px; }
+.proposal-signatures strong { color: #173f59; font-size: 11px; }
 .document-note { color: #607587; font-size: 11px; }
 .letter-date { margin: 4px 0 24px; font-size: 12px; }
 .letter-address { margin: 0 0 24px; font-size: 12px; font-style: normal; line-height: 1.55; }
@@ -52,6 +65,7 @@
     .chapter-form-heading { align-items: start; }
     .document-page, .external-loi-document, .financial-document { padding: 28px 22px; }
     .document-facts { grid-template-columns: 1fr; }
+    .proposal-signatures { grid-template-columns: 1fr; }
 }
 @media (max-width: 440px) {
     .project-letterhead { gap: 12px; }
@@ -70,6 +84,8 @@
     .project-document h2 { font-size: 22px; }
     .document-copy { font-size: 11px; line-height: 1.52; }
     .document-copy p { margin-bottom: 10px; }
-    .proposal-document-section, .document-signature { break-inside: avoid; }
+    .proposal-document-section { break-inside: auto; }
+    .proposal-document-section > h3 { break-after: avoid; }
+    .proposal-document-field, .proposal-document-budget, .document-signature, .proposal-signatures { break-inside: avoid; }
     .document-page-footer { margin-top: 20px; }
 }

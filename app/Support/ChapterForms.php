@@ -16,13 +16,18 @@ class ChapterForms
         'risks' => 'Initial risks / considerations',
         'request' => 'Request for endorsement / proponent signature',
     ];
+    public const CONCEPT_SECTIONS = [
+        'Purpose and SDG alignment' => ['background', 'objective', 'approach'],
+        'Project overview' => ['beneficiaries', 'participants', 'partners'],
+        'Resource requirements and request' => ['resources', 'benefit', 'risks', 'request'],
+    ];
     public const PROPOSAL = [
         'rationale' => 'Project rationale / needs analysis',
         'objectives' => 'SMART objectives',
         'beneficiaries' => 'Target beneficiaries',
         'description' => 'Detailed project description',
         'activities' => 'Activities / program flow',
-        'outputs' => 'Expected outputs and outcomes',
+        'outputs' => 'Potential benefits and general comments',
         'team' => 'Project team / committees',
         'volunteers' => 'Volunteer / member participation',
         'partners' => 'Partner / stakeholder plan',
@@ -38,10 +43,34 @@ class ChapterForms
         'sustainability' => 'Sustainability / follow-up plan',
     ];
     public const PROPOSAL_SECTIONS = [
-        'Community need and intended impact' => ['rationale', 'objectives', 'beneficiaries', 'description', 'outputs'],
-        'Delivery plan and people' => ['activities', 'timeline', 'team', 'volunteers', 'partners'],
-        'Resources and funding' => ['resources', 'budget', 'funding'],
-        'Safeguards and follow-through' => ['risks', 'evaluation', 'indicators', 'documentation', 'letters', 'sustainability'],
+        'Background and rationale' => ['rationale', 'description'],
+        'Goals and objectives' => ['objectives'],
+        'Target beneficiaries' => ['beneficiaries'],
+        'Estimated JCI members and their functions' => ['team', 'volunteers'],
+        'Plan of action' => ['activities', 'timeline', 'resources', 'partners', 'risks'],
+        'Estimated budget and funding source' => ['funding', 'budget'],
+        'Potential benefits and general comments' => ['outputs', 'evaluation', 'indicators', 'documentation', 'letters', 'sustainability'],
+    ];
+    public const PROPOSAL_REQUIRED = [
+        'rationale' => 'Background and rationale',
+        'objectives' => 'Goals and objectives',
+        'beneficiaries' => 'Target beneficiaries',
+        'team' => 'JCI members and their functions',
+        'activities' => 'Plan of action',
+        'funding' => 'Funding source',
+        'budget' => 'Estimated expenditures',
+        'outputs' => 'Potential benefits and general comments',
+    ];
+    public const PROPOSAL_INCOME_LINES = [
+        'chapter_allocation' => 'Chapter allocation',
+        'sponsorships' => 'Sponsorships / partners',
+        'other_sources' => 'Other sources',
+    ];
+    public const PROPOSAL_EXPENSE_LINES = [
+        'logistics_venue' => 'Logistics and venue',
+        'marketing_materials' => 'Marketing materials',
+        'tokens_refreshments' => 'Tokens and refreshments',
+        'other_expenses' => 'Other expenses',
     ];
     public const LETTER = [
         'letter_date' => 'Letter date',

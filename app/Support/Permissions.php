@@ -8,6 +8,7 @@ final class Permissions
 {
     public const AUDIT_VIEW = 'audit.view';
     public const MEMBERS_MANAGE = 'members.manage';
+    public const ACCOUNTS_MANAGE = 'accounts.manage';
     public const FINANCE_MANAGE = 'finance.manage';
     public const CONCEPT_REVIEW = 'projects.review-concept';
     public const PROPOSAL_REVIEW = 'projects.review-proposal';
@@ -18,8 +19,8 @@ final class Permissions
     public const INQUIRIES_MANAGE = 'inquiries.manage';
 
     private const ROLE_PERMISSIONS = [
-        'admin' => [self::AUDIT_VIEW, self::MEMBERS_MANAGE, self::PROJECT_COMPLETE, self::PROJECT_ARCHIVE, self::CALENDAR_GLOBAL, self::RECORDS_REVIEW, self::INQUIRIES_MANAGE],
-        'bod' => [],
+        'admin' => [self::AUDIT_VIEW, self::MEMBERS_MANAGE, self::ACCOUNTS_MANAGE, self::PROJECT_COMPLETE, self::PROJECT_ARCHIVE, self::CALENDAR_GLOBAL, self::RECORDS_REVIEW, self::INQUIRIES_MANAGE],
+        'bod' => [self::MEMBERS_MANAGE],
         'treasurer' => [self::FINANCE_MANAGE],
         'member' => [],
     ];
@@ -31,11 +32,11 @@ final class Permissions
         }
 
         if ($permission === self::CONCEPT_REVIEW) {
-            return in_array($user->role, ['admin', 'bod'], true) && $user->concept_reviewer;
+            return $user->role === 'admin';
         }
 
         if ($permission === self::PROPOSAL_REVIEW) {
-            return in_array($user->role, ['admin', 'bod'], true) && $user->proposal_reviewer;
+            return $user->role === 'admin';
         }
 
         return in_array($permission, self::ROLE_PERMISSIONS[$user->role] ?? [], true);

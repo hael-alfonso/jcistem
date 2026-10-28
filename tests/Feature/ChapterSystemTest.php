@@ -19,7 +19,12 @@ class ChapterSystemTest extends TestCase
 
     private function project(User $owner, array $extra = []): Project
     {
-        return Project::create(array_merge(['created_by' => $owner->id, 'title' => 'Community literacy project', 'area' => 'Community Impact', 'status' => 'Draft Concept', 'starts_on' => '2026-11-15', 'ends_on' => '2026-11-16', 'venue' => 'Carmona', 'proposed_budget' => 10000, 'concept' => array_fill_keys(array_keys(ChapterForms::CONCEPT), 'Community literacy support'), 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Complete project plan')], $extra));
+        $project = Project::create(array_merge(['created_by' => $owner->id, 'title' => 'Community literacy project', 'area' => 'Community Impact', 'status' => 'Draft Concept', 'starts_on' => '2026-11-15', 'ends_on' => '2026-11-16', 'venue' => 'Carmona', 'proposed_budget' => 10000, 'concept' => array_fill_keys(array_keys(ChapterForms::CONCEPT), 'Community literacy support'), 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Complete project plan')], $extra));
+        if ($project->chair_id && in_array($project->status, Project::APPROVED)) {
+            $project->update(['plan_locked_at' => now()]);
+            \App\Models\BodDecision::create(['project_id' => $project->id, 'recorded_by' => $owner->id, 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'TEST-'.$project->id, 'evidence_path' => 'resolution.pdf', 'comments' => 'Approved fixture']);
+        }
+        return $project;
     }
 
     public function test_navigation_exposes_monitoring_and_role_appropriate_tools(): void
@@ -27,18 +32,18 @@ class ChapterSystemTest extends TestCase
         $member = $this->user();
         $project = $this->project($member, ['status' => 'Ongoing', 'chair_id' => $member->id]);
         $this->actingAs($member)->get('/dashboard')->assertOk()
-            ->assertSee('Project monitoring')->assertSee('Financial monitoring')->assertSee('Settings')
-            ->assertDontSee('Treasurer ledger');
+            ->assertSee('All Projects')->assertSee('Project Budgets')->assertSee('My Profile')
+            ->assertDontSee('Master Ledger');
         $this->get('/projects')->assertOk()->assertSee('Quick view')->assertSee('project-preview-dialog');
         $this->get('/finance')->assertOk()->assertSee('Financial monitoring');
 
         $treasurer = $this->user('treasurer');
         $this->actingAs($treasurer)->get('/dashboard')->assertOk()
-            ->assertSee('Treasurer ledger')->assertSee('Liquidation queue');
+            ->assertSee('Master Ledger')->assertSee('Report Reviews');
         $this->actingAs($treasurer)->get('/projects/'.$project->id.'/liquidation')->assertOk();
 
         $admin = $this->user('admin');
-        $this->actingAs($admin)->get('/dashboard')->assertOk()->assertSee('Registrations');
+        $this->actingAs($admin)->get('/dashboard')->assertOk()->assertSee('Registration Requests');
     }
 
     public function test_all_roles_can_render_their_workspaces_and_authorized_forms(): void
@@ -47,7 +52,7 @@ class ChapterSystemTest extends TestCase
             $user = $this->user($role);
             $project = $this->project($user, ['status' => 'Ongoing', 'chair_id' => $user->id]);
             $this->actingAs($user);
-            foreach (['dashboard', 'projects', 'projects/create', 'projects/'.$project->id, 'tasks', 'calendar', 'finance', 'dues', 'members', 'account', 'notifications', 'about', 'records/letters', 'records/reports', 'records/letters/create?project_id='.$project->id, 'records/reports/create?project_id='.$project->id] as $path) {
+            foreach (['dashboard', 'projects', 'projects/create', 'projects/'.$project->id, 'tasks', 'calendar', 'finance', 'dues', 'members', 'account', 'notifications', 'our-chapter', 'records/letters', 'records/reports', 'records/letters/create?project_id='.$project->id, 'records/reports/create?project_id='.$project->id] as $path) {
                 $this->get('/'.$path)->assertOk();
             }
             if ($role === 'admin') foreach (['audit', 'members/create', 'members/'.$user->id.'/edit'] as $path) $this->get('/'.$path)->assertOk();
@@ -70,25 +75,22 @@ class ChapterSystemTest extends TestCase
         ])->assertRedirect();
         $p = Project::firstOrFail();
         $transition = '/projects/'.$p->id.'/transition';
-        $this->post($transition, ['action' => 'start_proposal'])->assertForbidden();
+        $this->post($transition, ['action' => 'lock_plan'])->assertForbidden();
         $this->post($transition, ['action' => 'submit_concept'])->assertSessionHasNoErrors();
         $this->post($transition, ['action' => 'endorse', 'comments' => 'Approve'])->assertForbidden();
         $this->actingAs($admin)->post($transition, ['action' => 'endorse', 'comments' => 'Develop measurable reading outcomes.'])->assertSessionHasNoErrors();
-        $this->assertSame('Endorsed for Development', $p->fresh()->status);
-        $this->actingAs($member)->post($transition, ['action' => 'start_proposal'])->assertSessionHasNoErrors();
-        $this->assertSame('Community literacy support', $p->fresh()->proposal['rationale']);
-        $this->put('/projects/'.$p->id, ['title' => $p->title, 'area' => $p->area, 'starts_on' => '2026-11-15', 'ends_on' => '2026-11-16', 'venue' => 'Carmona', 'proposed_budget' => 10000, 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Complete project plan')])->assertSessionHasNoErrors();
-        $this->post($transition, ['action' => 'submit_proposal'])->assertSessionHasNoErrors();
-        $this->actingAs($bod)->post($transition, ['action' => 'approve', 'comments' => 'Approved'])->assertSessionHasErrors('action');
+        $this->assertSame('Treasurer Review', $p->fresh()->status);
         $this->actingAs($treasurer)->post($transition, ['action' => 'budget_review', 'comments' => 'Budget is feasible.'])->assertSessionHasNoErrors();
-        $this->actingAs($bod)->post($transition, ['action' => 'approve', 'comments' => 'Approved by the board.'])->assertSessionHasNoErrors();
-        $this->actingAs($admin)->post($transition, ['action' => 'assign_chair', 'chair_id' => $member->id])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post($transition, ['action' => 'approve', 'comments' => 'Approved by the board.', 'meeting_date' => '2026-10-01', 'resolution_number' => 'BOD-TEST-1', 'evidence' => UploadedFile::fake()->create('resolution.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->actingAs($member)->put('/projects/'.$p->id, ['title' => $p->title, 'area' => $p->area, 'starts_on' => '2026-11-15', 'ends_on' => '2026-11-16', 'venue' => 'Carmona', 'proposed_budget' => 10000, 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Complete project plan')])->assertSessionHasNoErrors();
+        $this->post($transition, ['action' => 'lock_plan'])->assertSessionHasNoErrors();
         $budget = ['category' => 'Learning materials', 'amount' => 10000, 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Approved materials budget'];
         $this->actingAs($member)->post('/projects/'.$p->id.'/budget', $budget)->assertForbidden();
         $this->actingAs($treasurer)->post('/projects/'.$p->id.'/budget', $budget)->assertSessionHasNoErrors();
         $this->actingAs($member)->post($transition, ['action' => 'start'])->assertSessionHasNoErrors();
         $this->post('/projects/'.$p->id.'/tasks', ['title' => 'Prepare learning kits', 'assignees' => [$assignee->id], 'priority' => 'High', 'status' => 'To Do', 'starts_on' => '2026-11-01', 'deadline' => '2026-11-10'])->assertSessionHasNoErrors();
         $task = Task::firstOrFail();
+        $this->actingAs($assignee)->post('/projects/'.$p->id.'/tasks/'.$task->id.'/respond', ['response' => 'accepted'])->assertSessionHasNoErrors();
         $this->actingAs($assignee)->put('/projects/'.$p->id.'/tasks/'.$task->id, ['status' => 'Completed', 'notes' => 'Kits ready', 'evidence' => 'Inventory confirmed'])->assertSessionHasNoErrors();
         $this->assertSame('Prepare learning kits', $task->fresh()->title);
         $expense = ['reference' => 'EXP-001', 'project_id' => $p->id, 'transaction_date' => '2026-11-02', 'type' => 'Expense', 'category' => 'Learning materials', 'account' => 'Chapter fund', 'counterparty' => 'Local supplier', 'payment_method' => 'Cash', 'description' => 'Learning kits', 'amount' => 2500, 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')];
@@ -96,14 +98,17 @@ class ChapterSystemTest extends TestCase
         $this->assertSame(7500.0, $p->fresh()->remaining);
         $entry = LedgerEntry::firstOrFail();
         $this->post('/ledger/'.$entry->id, ['action' => 'liquidate', 'remarks' => 'Receipt verified.'])->assertSessionHasNoErrors();
+        $this->actingAs($member)->post($transition, ['action' => 'request_completion'])->assertSessionHasNoErrors();
         $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Literacy project completion', 'type' => 'Completion', 'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Completed and documented')])->assertSessionHasNoErrors();
         $report = ProjectReport::firstOrFail();
         $this->get('/records/reports/'.$report->id)->assertOk();
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
-        $this->post($transition, ['action' => 'request_completion'])->assertSessionHasNoErrors();
         $this->actingAs($admin)->post('/records/reports/'.$report->id.'/transition', ['action' => 'approve', 'comments' => 'Report reviewed.'])->assertSessionHasNoErrors();
-        $this->post($transition, ['action' => 'complete'])->assertSessionHasNoErrors();
-        $this->post($transition, ['action' => 'archive'])->assertSessionHasNoErrors();
+        $this->assertSame('Completion Review', $p->fresh()->status);
+        $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Liquidation', 'type' => 'Liquidation', 'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Reconciled')])->assertSessionHasNoErrors();
+        $liquidation = ProjectReport::where('type', 'Liquidation')->firstOrFail();
+        $this->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
+        $this->actingAs($treasurer)->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'approve', 'comments' => 'Receipts verified'])->assertSessionHasNoErrors();
         $this->assertSame('Archived', $p->fresh()->status);
         $this->assertGreaterThan(15, AuditLog::count());
         $this->actingAs($member)->get('/projects/'.$p->id)->assertOk();
@@ -154,7 +159,8 @@ class ChapterSystemTest extends TestCase
         $proposal['projected_income'] = '5000';
         $project = $this->project($chair, ['status' => 'Ongoing', 'chair_id' => $chair->id, 'proposal' => $proposal]);
 
-        $draft = $this->project($chair, ['status' => 'Full Proposal Draft']);
+        $draft = $this->project($chair, ['status' => 'Approved', 'chair_id' => $chair->id]);
+        $draft->update(['plan_locked_at' => null]);
         $this->actingAs($chair)->get('/projects/'.$draft->id.'/edit')->assertOk()->assertSee('Internal Board transmittal');
         $this->actingAs($chair)->get('/projects/'.$project->id.'/proposal')
             ->assertOk()->assertSee('Internal Chapter Project Proposal Transmittal Letter');
@@ -171,6 +177,7 @@ class ChapterSystemTest extends TestCase
         $this->actingAs($treasurer)->get('/projects/'.$project->id.'/liquidation')
             ->assertOk()->assertSee('PROJ-EXP-001')->assertSee('1 pending liquidation');
 
+        $project->update(['status' => 'Completion Review']);
         $this->actingAs($chair)->post('/records/reports', [
             'project_id' => $project->id, 'title' => 'Project completion', 'type' => 'Completion',
             'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Completed'),
@@ -218,7 +225,7 @@ class ChapterSystemTest extends TestCase
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         LedgerEntry::create(['reference' => 'INC-002', 'direction' => 'credit', 'status' => 'Posted', 'amount' => 5000, 'transaction_date' => '2026-10-10']);
         $this->assertEquals(2000, $report->fresh()->data['financial_snapshot']['income']);
-        $this->actingAs($admin)->get('/records/reports/'.$report->id)->assertOk();
+        $this->actingAs($admin)->get('/records/reports/'.$report->id)->assertForbidden();
         $this->actingAs($member)->get('/records/reports/'.$report->id)->assertForbidden();
     }
 
@@ -227,7 +234,7 @@ class ChapterSystemTest extends TestCase
         $inactive = $this->user('member', ['status' => 'inactive']);
         $this->actingAs($inactive)->get('/dashboard')->assertRedirect('/login');
         $admin = $this->user('admin');
-        $this->actingAs($admin)->put('/members/'.$admin->id, ['name' => $admin->name, 'email' => $admin->email, 'role' => 'member', 'status' => 'inactive'])->assertSessionHasErrors('role');
+        $this->actingAs($admin)->put('/members/'.$admin->id, ['name' => $admin->name, 'email' => $admin->email, 'username' => $admin->username, 'role' => 'member', 'status' => 'inactive'])->assertSessionHasErrors('role');
         $this->assertSame('admin', $admin->fresh()->role);
     }
 
@@ -257,13 +264,13 @@ class ChapterSystemTest extends TestCase
 
         $this->actingAs($member)->put('/account', [
             'name' => $member->name,
-            'email' => $member->email,
+            'email' => $member->email, 'username' => $member->username,
             'photo' => UploadedFile::fake()->create('not-an-image.txt', 1, 'text/plain'),
         ])->assertSessionHasErrors('photo');
 
         $this->actingAs($member)->put('/account', [
             'name' => $member->name,
-            'email' => $member->email,
+            'email' => $member->email, 'username' => $member->username,
             'photo' => UploadedFile::fake()->createWithContent('portrait.png', $png),
         ])->assertSessionHasNoErrors();
 
@@ -275,14 +282,14 @@ class ChapterSystemTest extends TestCase
 
         $this->actingAs($member)->put('/account', [
             'name' => $member->name,
-            'email' => $member->email,
+            'email' => $member->email, 'username' => $member->username,
             'photo' => UploadedFile::fake()->createWithContent('replacement.png', $png),
         ])->assertSessionHasNoErrors();
         $secondPath = $member->fresh()->profile['photo_path'];
         Storage::disk('local')->assertExists($secondPath);
         Storage::disk('local')->assertMissing($firstPath);
 
-        $this->put('/account', ['name' => $member->name, 'email' => $member->email, 'remove_photo' => 1])->assertSessionHasNoErrors();
+        $this->put('/account', ['name' => $member->name, 'email' => $member->email, 'username' => $member->username, 'remove_photo' => 1])->assertSessionHasNoErrors();
         $this->assertArrayNotHasKey('photo_path', $member->fresh()->profile);
         Storage::disk('local')->assertMissing($secondPath);
     }

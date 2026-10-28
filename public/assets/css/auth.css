@@ -3,7 +3,10 @@
 .auth-home { display: inline-flex; align-items: center; gap: 10px; padding-block: 12px; color: var(--muted); font-size: 13px; }
 .auth-home:hover { color: var(--blue); }
 .auth-shell { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 700px; min-height: max(700px, calc(100svh - 162px)); overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #fff; box-shadow: 0 10px 40px #132b4608; }
-.auth-intro { display: flex; flex-direction: column; padding: 40px 48px 27px; background-color: #09162f; background-image: url('../images/community/jci-scotland-banner.webp'); background-position: 20% center; background-size: cover; background-repeat: no-repeat; color: #fff; }
+.auth-intro { position: relative; isolation: isolate; display: flex; flex-direction: column; overflow: hidden; padding: 40px 48px 27px; background-color: #0c0e29; background-image: linear-gradient(90deg, #0c0e29 0%, rgb(12 14 41 / 98%) 52%, rgb(12 14 41 / 68%) 70%, rgb(12 14 41 / 0%) 84%), url('../images/community/jci-scotland-banner.webp'); background-position: center; background-size: cover; background-repeat: no-repeat; color: #fff; }
+.auth-system, .auth-intro-copy, .auth-features, .auth-intro-footer { position: relative; z-index: 1; }
+.auth-intro-copy { max-width: min(400px, 70%); }
+.auth-features { max-width: 380px; }
 .auth-system { display: flex; align-items: center; gap: 13px; }
 .auth-system img { width: 39px; height: 48px; object-fit: contain; }
 .auth-system > span { font: 800 21px/1.3 'Manrope', sans-serif; letter-spacing: 1px; }
@@ -85,42 +88,49 @@ html.auth-flow-back .auth-form-panel { animation-name: auth-form-enter-back; }
 @keyframes auth-form-enter-back { from { opacity: 0; transform: translate3d(-16px,0,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
 @keyframes auth-form-leave-left { to { opacity: 0; transform: translate3d(-16px,0,0); } }
 @keyframes auth-form-leave-right { to { opacity: 0; transform: translate3d(16px,0,0); } }
-@keyframes auth-background-enter-forward { from { background-position: 24% center; } to { background-position: 20% center; } }
-@keyframes auth-background-enter-back { from { background-position: 16% center; } to { background-position: 20% center; } }
-@keyframes auth-background-leave-forward { from { background-position: 20% center; } to { background-position: 16% center; } }
-@keyframes auth-background-leave-back { from { background-position: 20% center; } to { background-position: 24% center; } }
-html.auth-flow-forward .auth-intro { animation: auth-background-enter-forward .42s cubic-bezier(.2,.7,.2,1) both; }
-html.auth-flow-back .auth-intro { animation: auth-background-enter-back .42s cubic-bezier(.2,.7,.2,1) both; }
-.auth-page.is-moving-forward .auth-intro { animation: auth-background-leave-forward .26s ease-in both; }
-.auth-page.is-moving-back .auth-intro { animation: auth-background-leave-back .26s ease-in both; }
-@media (prefers-reduced-motion: reduce) { html.auth-flow-forward .auth-intro, html.auth-flow-back .auth-intro, .auth-page.is-moving-forward .auth-intro, .auth-page.is-moving-back .auth-intro { animation: none; } }
 @media (max-width: 1100px) {
     .auth-intro { padding-inline: 32px; }
     .auth-main { padding-inline: 38px; }
     .auth-intro h2 { font-size: 34px; }
 }
 @media (max-width: 1024px) {
-    .auth-page { background-color: var(--paper); background-image: url('../images/community/jci-scotland-banner.webp'); background-position: 20% center; background-size: cover; background-repeat: no-repeat; }
-    html.auth-flow-forward .auth-page { animation: auth-background-enter-forward .42s cubic-bezier(.2,.7,.2,1) both; }
-    html.auth-flow-back .auth-page { animation: auth-background-enter-back .42s cubic-bezier(.2,.7,.2,1) both; }
-    .auth-page.is-moving-forward { animation: auth-background-leave-forward .26s ease-in both; }
-    .auth-page.is-moving-back { animation: auth-background-leave-back .26s ease-in both; }
+    .auth-page { background: var(--paper); }
     .auth-header { min-height: 92px; }
-    .auth-shell { max-width: 560px; min-height: 620px; min-height: max(620px, calc(100svh - 170px)); grid-template-columns: 1fr; box-shadow: 0 18px 46px rgb(19 43 70 / 8%); }
-    .auth-intro { display: none; }
+    .auth-shell { max-width: 720px; min-height: 0; grid-template-columns: 1fr; box-shadow: 0 18px 46px rgb(19 43 70 / 8%); }
+    .auth-intro { display: flex; min-height: 360px; padding: 34px 38px 28px; }
+    .auth-intro-copy { max-width: min(400px, 70%); margin-top: 27px; }
+    .auth-intro-copy > p:not(.eyebrow) { max-width: 410px; margin-top: 12px; }
+    .auth-features { display: none; }
+    .auth-features > div { gap: 10px; }
+    .auth-features > div > span, .auth-features strong { font-size: 11px; }
     .auth-main { padding: 42px 44px; }
-    .auth-footer { max-width: 560px; flex-direction: column; justify-content: center; gap: 3px; padding-block: 23px; text-align: center; }
+    .auth-footer { max-width: 720px; flex-direction: column; justify-content: center; gap: 3px; padding-block: 23px; text-align: center; }
     .auth-footer > div { justify-content: center; }
+}
+@media (max-width: 700px) {
+    .auth-header.shell, .auth-shell.shell, .auth-footer.shell { width: min(100% - 24px, 560px); }
+    .auth-intro { min-height: 300px; padding: 28px; }
+    .auth-intro-copy { max-width: 64%; margin-top: 28px; }
+    .auth-intro h2 { margin-top: 10px; font-size: clamp(27px, 7vw, 34px); }
+    .auth-intro-copy > p:not(.eyebrow) { margin-top: 10px; font-size: 13px; line-height: 1.65; }
+    .auth-features, .auth-intro-footer { display: none; }
 }
 @media (max-width: 480px) {
     .auth-page { --auth-heading-size: 28px; }
     .auth-header { min-height: 88px; gap: 15px; }
     .auth-home { max-width: 90px; gap: 6px; font-size: 10px; line-height: 1.5; }
-    .auth-main { padding: 30px 24px; }
+    .auth-main { padding: 34px 24px 38px; }
     .auth-description { font-size: 14px; }
     .auth-form-panel > form { margin-top: 24px; }
     .auth-account-help { padding: 16px; }
     .auth-footer { font-size: 12px; }
+    .auth-intro { min-height: 270px; padding: 24px 22px; }
+    .auth-system img { width: 33px; height: 41px; }
+    .auth-system > span { font-size: 18px; }
+    .auth-system small { font-size: 10px; }
+    .auth-intro-copy { max-width: 64%; margin-top: 24px; }
+    .auth-intro h2 { font-size: 27px; line-height: 1.18; }
+    .auth-intro-copy > p:not(.eyebrow) { font-size: 12px; }
 }
 @media (max-width: 1024px) and (prefers-reduced-motion: reduce) {
     html.auth-flow-forward .auth-page, html.auth-flow-back .auth-page, .auth-page.is-moving-forward, .auth-page.is-moving-back { animation: none; }
@@ -147,7 +157,7 @@ html.auth-flow-back .auth-intro { animation: auth-background-enter-back .42s cub
 }
 @media (prefers-reduced-motion: reduce) { .auth-form-panel, html.auth-flow-back .auth-form-panel, .auth-form-panel.is-leaving-left, .auth-form-panel.is-leaving-right { animation: none; } }
 @media (max-width: 480px) {
-    .auth-shell { min-height: 640px; min-height: max(640px, calc(100svh - 168px)); }
+    .auth-shell { min-height: 0; }
     .auth-field textarea { font-size: 16px; }
     .auth-account-help p { font-size: 13px; }
 }
@@ -182,9 +192,9 @@ html.auth-flow-back .auth-intro { animation: auth-background-enter-back .42s cub
 }
 
 @media(max-width: 1024px) {
-    .auth-page { background-color: #0b1730; }
+    .auth-page { background: var(--paper); }
     .auth-header { background: #fff; border-radius: 0 0 12px 12px; }
-    .auth-footer { background: rgb(6 20 43 / 94%); color: #f0f6fc; border-radius: 12px; }
+    .auth-footer { background: transparent; color: var(--ink); border-radius: 0; }
 }
 
 /* Fit the form before switching to a single column; never shrink controls to fit. */
@@ -194,7 +204,7 @@ html.auth-flow-back .auth-intro { animation: auth-background-enter-back .42s cub
 .auth-intro h2 { font-size: clamp(30px, 2.8vw, 36px); }
 .auth-intro .ico, .auth-system img { flex-shrink: 0; }
 @media(max-width: 1024px) {
-    .auth-header.shell, .auth-footer.shell { max-width: 560px; }
+    .auth-header.shell, .auth-footer.shell { max-width: 720px; }
     .auth-main { padding-inline: clamp(24px, 5vw, 44px); }
 }
 @media(max-width: 480px) {

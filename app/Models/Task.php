@@ -6,5 +6,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class Task extends ChapterRecord
 {
-    protected $casts = ['assignees' => 'array', 'dependencies' => 'array', 'starts_on' => 'date', 'deadline' => 'date'];
+    protected $casts = ['assignment_responses' => 'array', 'assignees' => 'array', 'dependencies' => 'array', 'starts_on' => 'date', 'deadline' => 'date'];
 }

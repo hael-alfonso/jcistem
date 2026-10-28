@@ -17,7 +17,7 @@ class LogoutTest extends TestCase
         $this->actingAs($user)
             ->get('/dashboard')
             ->assertOk()
-            ->assertSee('Log out');
+            ->assertSee('Logout');
 
         $this->post('/logout')->assertRedirect(route('login'));
         $this->assertGuest();

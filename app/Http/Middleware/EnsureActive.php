@@ -9,7 +9,7 @@ class EnsureActive
 {
     public function handle(Request $request, Closure $next)
     {
-        if ($request->user()?->status !== 'active') {
+        if ($request->user()?->status !== 'active' || !in_array($request->user()?->role, ['admin', 'bod', 'treasurer', 'member'], true)) {
             $token = $request->session()->get('active_login_token');
             if ($request->user() && $token) User::whereKey($request->user()->id)
                 ->where('active_login_token', $token)

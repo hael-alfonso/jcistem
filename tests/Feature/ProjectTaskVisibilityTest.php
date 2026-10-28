@@ -21,11 +21,12 @@ class ProjectTaskVisibilityTest extends TestCase
             'chair_id' => $member->id,
             'title' => 'Community volunteer program',
             'area' => 'Community Impact',
-            'status' => 'Approved',
+            'status' => 'Plan Locked', 'plan_locked_at' => now(),
             'starts_on' => '2026-10-01',
             'ends_on' => '2026-10-20',
             'concept' => ['objective' => $objective],
         ]);
+        \App\Models\BodDecision::create(['project_id' => $project->id, 'recorded_by' => $member->id, 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'VISIBLE-1', 'evidence_path' => 'evidence.pdf', 'comments' => 'Approved fixture']);
         $task = Task::create([
             'project_id' => $project->id,
             'title' => 'Prepare volunteer roster',
@@ -45,16 +46,21 @@ class ProjectTaskVisibilityTest extends TestCase
             ->assertSee('value="Completion Review"', false);
 
         $this->get('/tasks')->assertOk()
-            ->assertSee($description)->assertSee('data-label="Assigned to"', false)
+            ->assertSee('Prepare volunteer roster')->assertSee('data-label="Assigned to"', false)
             ->assertSee('data-label="Deadline"', false)->assertSee('priority-urgent')
-            ->assertSee('Overdue')->assertSee('href="'.route('projects.show', $project).'#task-'.$task->id.'"', false);
+            ->assertSee('Overdue')->assertSee('href="'.route('projects.show', $project).'#task-'.$task->id.'"', false)
+            ->assertSee('id="task-preview-dialog"', false)
+            ->assertSee('id="task-create-'.$project->id.'"', false)
+            ->assertSee('data-task-preview-title', false);
 
         $this->get('/projects/'.$project->id)->assertOk()
             ->assertSee('id="task-'.$task->id.'"', false)
             ->assertSee($description)->assertSee('Jordan Cruz')
             ->assertSee('Local coordinators have reviewed the first draft.')
             ->assertSee('Roster review document is on file.')
-            ->assertSee('Update task');
+            ->assertSee('Update task')
+            ->assertSee('id="task-detail-'.$task->id.'"', false)
+            ->assertSee('data-task-dialog-open="task-create-'.$project->id.'"', false);
 
         $this->travelBack();
     }

@@ -49,11 +49,13 @@
     <article class="document-page proposal-attachment">
         <header class="project-letterhead"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="JCI logo" width="140" height="78"><div><strong>JCI Carmona</strong><span>JCI Philippines · Carmona City, Cavite</span></div></header>
         <p class="document-overline">ATTACHMENT A · PROJECT PLANNING FORM</p>
-        <h2>Full Project Proposal</h2>
+        <h2>Project Proposal Form</h2>
         <dl class="document-facts proposal-summary">
             <div><dt>Project / reference</dt><dd>{{ $project->title }} · {{ $project->reference }}</dd></div>
             <div><dt>Area of opportunity</dt><dd>{{ $project->area }}</dd></div>
             <div><dt>Proponent</dt><dd>{{ $project->owner?->name ?? 'Not assigned' }}</dd></div>
+            <div><dt>Project Chair</dt><dd>{{ $project->chair?->name ?? $project->owner?->name ?? 'To be designated' }}</dd></div>
+            <div><dt>Target completion date</dt><dd>{{ $project->ends_on?->format('F j, Y') ?? 'To be confirmed' }}</dd></div>
             <div><dt>Execution date / venue</dt><dd>{{ $project->starts_on?->format('F j, Y') ?? 'To be confirmed' }} · {{ $project->venue ?: 'To be confirmed' }}</dd></div>
             <div><dt>Estimated total budget</dt><dd>₱{{ number_format((float) $project->proposed_budget, 2) }}</dd></div>
             @if(isset($proposal['projected_income']) && $proposal['projected_income'] !== '')<div><dt>Projected income</dt><dd>₱{{ number_format((float) $proposal['projected_income'], 2) }}</dd></div>@endif
@@ -63,10 +65,22 @@
             <section class="proposal-document-section">
                 <h3>{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }} · {{ $heading }}</h3>
                 @foreach($keys as $key)
+                    @if(in_array($key, array_keys(\App\Support\ChapterForms::PROPOSAL_REQUIRED), true) || filled($proposal[$key] ?? null))
                     <div class="proposal-document-field"><h4>{{ \App\Support\ChapterForms::PROPOSAL[$key] }}</h4><p class="preserve-lines">{{ $proposal[$key] ?? 'To be completed' }}</p></div>
+                    @endif
                 @endforeach
+                @if($heading === 'Estimated budget and funding source')
+                    @foreach(['Estimated income' => ['lines' => $proposal['income_lines'] ?? [], 'labels' => \App\Support\ChapterForms::PROPOSAL_INCOME_LINES], 'Estimated expenditures' => ['lines' => $proposal['expense_lines'] ?? [], 'labels' => \App\Support\ChapterForms::PROPOSAL_EXPENSE_LINES]] as $tableTitle => $table)
+                        @php $enteredAmounts = array_filter($table['lines'], fn ($value) => $value !== null && $value !== ''); @endphp
+                        <div class="proposal-document-budget"><h4>{{ $tableTitle }}</h4><table><thead><tr><th>{{ $tableTitle === 'Estimated income' ? 'Funding source' : 'Expense category' }}</th><th>Amount (PHP)</th></tr></thead><tbody>
+                            @foreach($table['labels'] as $key => $label)<tr><td>{{ $label }}</td><td>{{ isset($table['lines'][$key]) && $table['lines'][$key] !== '' ? number_format((float) $table['lines'][$key], 2) : '—' }}</td></tr>@endforeach
+                            <tr class="proposal-budget-total"><th>Total {{ strtolower($tableTitle) }}</th><th>{{ $enteredAmounts ? number_format(array_sum(array_map('floatval', $enteredAmounts)), 2) : '—' }}</th></tr>
+                        </tbody></table></div>
+                    @endforeach
+                @endif
             </section>
         @endforeach
+        <section class="proposal-document-section"><h3>Approval and signatures</h3><div class="proposal-signatures"><div><span>Prepared by</span><strong>{{ $project->chair?->name ?? $project->owner?->name ?? 'Project Chair' }}</strong><small>Project Chair - Signature / date</small></div><div><span>Reviewed / recommended by</span><strong>Commission Vice President</strong><small>VP for {{ $project->area }} - Signature / date</small></div><div><span>Approved by</span><strong>Local Organization President</strong><small>LO President - Signature / date</small></div></div><p class="document-note">Paper signatures document the form. PMS approval remains the recorded Board decision and project workflow.</p></section>
         @if($project->documents->isNotEmpty())<section class="proposal-document-section"><h3>Supporting documents in JCISTEM</h3><ul>@foreach($project->documents as $document)<li>{{ $document->title }}</li>@endforeach</ul><p class="document-note">These files are stored separately in the project workspace; include them when distributing this packet.</p></section>@endif
         <footer class="document-page-footer">{{ $project->reference }} · Full project proposal · {{ $project->status }}</footer>
     </article>

@@ -3,7 +3,7 @@
 @section('content')
 @php
     $role = auth()->user()->role;
-    $active = $dashboardProjects->whereIn('status', ['Approved', 'Ongoing', 'Completion Review']);
+    $active = $dashboardProjects->whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review']);
     $overdue = $tasks->filter(fn ($task) => $task->deadline?->lt(today()))->count();
     $balance = $financeCharts['allocated'] - $financeCharts['spent'];
     $overBudget = $financeCharts['rows']->filter(fn ($row) => $row['spent'] > $row['allocated'])->count();
