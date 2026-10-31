@@ -16,34 +16,21 @@
     <div class="project-workspace-hero-actions"><span class="badge large project-status status-{{ $project->status_tone }}">{{ $project->status }}</span><button class="btn secondary" type="button" data-print><x-icon name="print" /> Print / save PDF</button></div>
 </header>
 @php
-    $lastReview = $project->reviews->sortByDesc('id')->first();
-    $trackerStatus = $project->status === 'Archived' ? ($lastReview?->from_status ?? 'Archived') : $project->status;
-    $trackerStep = match ($trackerStatus) {
-        'Admin Review' => 2, 'Treasurer Review' => 3, 'BOD Agenda' => 4, 'Plan Locked' => 5,
-        'Draft Concept' => 1,
-        'Submitted for President Review', 'Needs Revision', 'Declined' => 2,
-        'Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision' => 3,
-        'Submitted for Formal Approval', 'Not Approved' => 4,
-        'Approved', 'Ongoing' => 5,
-        default => 6,
-    };
     $trackedTasks = $project->tasks;
     $completedTasks = $trackedTasks->where('status', 'Completed')->count();
     $nextTask = $trackedTasks->where('status', '!=', 'Completed')->sortBy('deadline')->first();
     $teamMemberIds = $trackedTasks->flatMap(fn ($task) => $task->assignees ?? [])->unique()->reject(fn ($id) => $id === $project->chair_id);
     $projectTeam = $members->whereIn('id', $teamMemberIds);
     $supportingDocuments = $project->documents->whereNull('submission_stage');
+    $evidenceDocuments = $project->documents->whereIn('submission_stage', ['attendance', 'evaluation'])->sortByDesc('activity_on');
+    $canAddEvidence = $project->isChair($u) && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed'], true);
+    $partnershipDocuments = $project->documents->where('submission_stage', 'partnership')->sortByDesc('version');
+    $canUploadPartnership = $u->status === 'active' && ($u->role === 'admin' || $project->created_by === $u->id || $project->isChair($u));
 @endphp
 <section class="panel project-tracker" aria-labelledby="project-tracker-title">
     <div class="tracker-heading"><div><span class="eyebrow">PROJECT MANAGEMENT</span><h2 id="project-tracker-title">Project tracker</h2><p>Current stage: {{ $project->status }}</p></div></div>
-    <ol class="tracker-steps">
-        @foreach(['Concept', 'Admin review', 'Treasurer review', 'BOD decision', 'Plan & implementation', 'Reports & archive'] as $index => $stage)
-            @php $number = $index + 1; @endphp
-            <li class="{{ $number < $trackerStep ? 'is-done' : ($number === $trackerStep ? 'is-current' : '') }}" @if($number === $trackerStep) aria-current="step" @endif><b>{{ $number }}</b><span>{{ $stage }}</span></li>
-        @endforeach
-    </ol>
     <div class="tracker-details">
-        <div><span>Tasks completed</span><strong>{{ $completedTasks }} of {{ $trackedTasks->count() }}</strong><progress max="{{ max(1, $trackedTasks->count()) }}" value="{{ $completedTasks }}"></progress></div>
+        <div>@include('chapter.partials.project-progress', ['totalTasks' => $trackedTasks->count()])</div>
         <div><span>Next open task</span><strong>{{ $nextTask?->title ?? 'No open task' }}</strong><small>{{ $nextTask?->deadline?->format('M d, Y') ?? 'Add a task from the Tasks section.' }}</small></div>
         <div><span>Last updated</span><strong>{{ $project->updated_at?->format('M d, Y') ?? 'Not set' }}</strong><small>Project details and task status</small></div>
     </div>
@@ -69,8 +56,8 @@
 <x-field name="resolution_number" label="Resolution number (required for approval)"/>
 <x-field name="evidence" label="Signed minutes / resolution evidence" type="file" required/>
 <x-field name="comments" label="Official decision and remarks" type="textarea" required/>
-<button class="btn primary" name="action" value="approve">Record BOD Approval</button>
-<button class="btn caution" name="action" value="defer">Record Deferral</button>
+<button class="btn primary" name="action" value="approve" data-confirm="Approve this project with the entered BOD resolution? This decision will be recorded in project history.">Record BOD Approval</button>
+<button class="btn caution" name="action" value="defer" data-confirm="Defer this project? The reason will be recorded in project history.">Record Deferral</button>
 <button class="btn danger" name="action" value="reject" data-confirm="Record this BOD rejection? The decision will be saved in project history.">Record Rejection</button>
 </form>
 @endif
@@ -80,13 +67,11 @@
 @if($project->status === 'Completion Review')<p class="hint">The chair submits a completion report and liquidation. Independent Admin and Treasurer approvals archive the project automatically.</p>@endif
 </div><p class="hint">Monitoring access does not grant editing, approval, or financial recording authority.</p></section>
 @if($project->decisions->isNotEmpty())<section class="panel form-panel"><h2>BOD decisions</h2>@foreach($project->decisions as $decision)<div class="list-row"><span><strong>{{ ucfirst($decision->decision) }} · {{ $decision->resolution_number }}</strong><small>{{ $decision->meeting_date->format('d M Y') }} · {{ $decision->comments }}</small></span>@if(in_array($u->role,['admin','bod','treasurer']) || $project->isChair($u))<a class="text-link" href="{{ route('decisions.evidence',$decision) }}">Signed evidence</a>@endif</div>@endforeach</section>@endif
-<nav class="anchor-tabs no-print" aria-label="Project workspace"><a href="#overview">Overview</a><a href="#proposal">Proposal</a><a href="#tasks">Tasks</a><a href="#schedule">Schedule</a><a href="#team">Team</a><a href="#budget">Budget</a><a href="#documents">Documents</a><a href="#completion">Completion</a></nav>
-@if($u->role === 'treasurer')<div class="button-row no-print"><a class="btn secondary" href="{{ route('projects.liquidation', $project) }}"><x-icon name="report" /> View / print financial liquidation</a></div>@endif
-<section class="panel form-panel" id="overview"><h2>Project overview</h2><p class="letter-recipient">To: JCI Carmona Chapter President<br>From: {{ $project->owner?->name }}<br>Subject: Proposed Project — {{ $project->title }}</p>@if($project->concept_submission_method === 'upload')<p>The project concept was submitted using a completed official template. Preview it here before recording a review decision.</p>@foreach($project->documents->where('submission_stage', 'concept')->sortByDesc('version') as $document)@include('chapter.partials.project-document-row', ['document' => $document, 'label' => 'Concept template · Version '.$document->version, 'meta' => $document->original_name])@endforeach @else<div class="detail-grid">@foreach(\App\Support\ChapterForms::CONCEPT as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->concept[$key]??'Not provided' }}</p></div>@endforeach</div>@endif</section>
-@if($project->proposal || $project->documents->where('submission_stage', 'proposal')->isNotEmpty())<section class="panel form-panel" id="proposal"><div class="panel-heading flush"><div><h2>Full project proposal</h2><p>{{ $project->proposal_submission_method === 'upload' ? 'The chair submitted an official completed template. Preview it without downloading.' : 'Includes the internal Board transmittal and planning form.' }}</p></div>@if($project->proposal)<a class="btn secondary no-print" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View / print packet</a>@endif</div>@if($project->proposal_submission_method === 'upload')@foreach($project->documents->where('submission_stage', 'proposal')->sortByDesc('version') as $document)@include('chapter.partials.project-document-row', ['document' => $document, 'label' => 'Proposal template · Version '.$document->version, 'meta' => $document->original_name])@endforeach @else<div class="detail-grid">@foreach(\App\Support\ChapterForms::PROPOSAL as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->proposal[$key]??'Not provided' }}</p></div>@endforeach</div>@endif</section>@else<section class="panel form-panel" id="proposal"><h2>Proposal</h2><p class="panel-empty">The full project proposal becomes available after the BOD approval is recorded.</p></section>@endif
+<nav class="anchor-tabs no-print" aria-label="Project workspace"><a href="#overview">Overview</a><a href="#proposal">Proposal</a><a href="#tasks">Tasks</a><a href="#schedule">Schedule</a><a href="#team">Team</a><a href="#budget">Budget</a><a href="#documents">Documents</a><a href="#partnerships">Partnerships</a><a href="#completion">Completion</a></nav>
+<section class="panel form-panel" id="overview"><div class="panel-heading flush"><div><h2>Project overview</h2><p>Official internal concept letter and searchable project details.</p></div>@if($project->concept_submission_method !== 'upload' && filled($project->concept))<a class="btn secondary no-print" href="{{ route('projects.word', [$project, 'concept']) }}"><x-icon name="download" /> Download filled Word letter</a>@endif</div><p class="letter-recipient">To: JCI Carmona Chapter President<br>From: {{ $project->owner?->name }}<br>Subject: Proposed Project — {{ $project->title }}</p>@if($project->concept_submission_method === 'upload')<p>The project concept was submitted using a completed official template. Preview it here before recording a review decision.</p>@foreach($project->documents->where('submission_stage', 'concept')->sortByDesc('version') as $document)@include('chapter.partials.project-document-row', ['document' => $document, 'label' => 'Concept template · Version '.$document->version, 'meta' => $document->original_name])@endforeach @else<div class="detail-grid">@foreach(\App\Support\ChapterForms::CONCEPT as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->concept[$key]??'Not provided' }}</p></div>@endforeach</div>@endif</section>
+@if($project->proposal || $project->documents->where('submission_stage', 'proposal')->isNotEmpty())<section class="panel form-panel" id="proposal"><div class="panel-heading flush"><div><h2>Full project proposal</h2><p>{{ $project->proposal_submission_method === 'upload' ? 'The chair submitted an official completed template. Preview it without downloading.' : 'Uses the official JCI Carmona Project Proposal Form.' }}</p></div><div class="button-row no-print">@if($project->proposal_submission_method !== 'upload' && filled($project->proposal))<a class="btn secondary" href="{{ route('projects.word', [$project, 'proposal']) }}"><x-icon name="download" /> Download filled Word form</a>@endif @if($project->proposal)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View / print packet</a>@endif</div></div>@if($project->proposal_submission_method === 'upload')@foreach($project->documents->where('submission_stage', 'proposal')->sortByDesc('version') as $document)@include('chapter.partials.project-document-row', ['document' => $document, 'label' => 'Proposal template · Version '.$document->version, 'meta' => $document->original_name])@endforeach @else<div class="detail-grid">@foreach(\App\Support\ChapterForms::PROPOSAL as $key=>$label)<div><h3>{{ $label }}</h3><p class="preserve-lines">{{ $project->proposal[$key]??'Not provided' }}</p></div>@endforeach</div>@endif</section>@else<section class="panel form-panel" id="proposal"><h2>Proposal</h2><p class="panel-empty">The full project proposal becomes available after the BOD approval is recorded.</p></section>@endif
 <section class="panel form-panel project-tasks-section" id="tasks">
-    <div class="panel-heading flush"><div><h2>Tasks &amp; milestones</h2><p>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</p></div><div class="project-task-section-actions"><span>{{ $project->progress }}% complete</span>@if($manages)<button class="btn primary no-print" type="button" data-task-dialog-open="task-create-{{ $project->id }}"><x-icon name="plus" /> Create task</button>@endif</div></div>
-    <progress value="{{ $project->progress }}" max="100" aria-label="Project task completion"></progress>
+    <div class="panel-heading flush"><div><h2>Tasks &amp; milestones</h2><p>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</p></div><div class="project-task-section-actions">@if($manages)<button class="btn primary no-print" type="button" data-task-dialog-open="task-create-{{ $project->id }}"><x-icon name="plus" /> Create task</button>@endif</div></div>
     <div class="project-task-list">
         @forelse($project->tasks as $task)
             @php
@@ -116,7 +101,7 @@
                 <form method="POST" action="{{ route('tasks.respond',[$project,$task]) }}" class="no-print">@csrf
                 <p>My assignment: {{ ucfirst($task->assignment_responses[$u->id]['response'] ?? 'pending') }}</p>
                 <x-field name="note" label="Response note (required when declining)"/>
-                <button class="btn primary" name="response" value="accepted">Accept Assignment</button><button class="btn danger" name="response" value="declined">Decline Assignment</button>
+                <button class="btn primary" name="response" value="accepted">Accept Assignment</button><button class="btn danger" name="response" value="declined" data-confirm="Decline this task assignment? The Project Chair will see your response and note.">Decline Assignment</button>
                 </form>
                 @endif
                 @if($canUpdateTask)<details class="task-edit-panel no-print" @if(old('_task_dialog') === 'task-detail-'.$task->id) open @endif><summary><x-icon name="edit" /> Update task</summary>@include('chapter.partials.task-form')</details>@endif
@@ -134,26 +119,77 @@
 <section class="panel form-panel" id="schedule"><h2>Schedule &amp; activities</h2>@forelse($project->events->sortBy('starts_on') as $event)<div class="list-row"><strong>{{ $event->title }}</strong><span>{{ $event->type }} · {{ $event->starts_on?->format('M d, Y') }} · {{ $event->venue }}</span></div>@empty<p class="panel-empty">No activities or milestones scheduled.</p>@endforelse
 @if($manages)<details class="record-detail no-print"><summary><x-icon name="calendar" /> Schedule activity / milestone<x-icon name="chevron" class="disclosure-icon" /></summary><form method="POST" action="{{ route('calendar.store') }}" class="form-grid">@csrf<input type="hidden" name="project_id" value="{{ $project->id }}"><x-field name="title" label="Activity title" required/><x-field name="type" label="Activity type" type="select" :options="array_combine(['Activity','Milestone','Meeting','Review'],['Activity','Milestone','Meeting','Review'])" required/><x-field name="starts_on" label="Activity start date" type="date" required/><x-field name="ends_on" label="Activity end date" type="date"/><x-field name="venue" label="Activity venue"/><x-field name="description" label="Activity details" type="textarea"/><div class="full"><button class="btn primary"><x-icon name="save" /> Save activity</button></div></form></details>@endif</section>
 <section class="panel form-panel" id="team"><h2>Project team</h2><div class="list-row"><span><strong>{{ $project->chair?->name ?? 'Project Chair not assigned' }}</strong><small>Project Chair</small></span></div>@forelse($projectTeam as $member)<div class="list-row"><span><strong>{{ $member->name }}</strong><small>Assigned project member</small></span></div>@empty<p class="panel-empty">No additional team members are assigned to project tasks yet.</p>@endforelse</section>
-<section class="panel form-panel" id="budget"><h2>Budget & funds</h2><div class="table-wrap"><table><thead><tr><th>Category</th><th>Approved allocation</th><th>Approving authority</th><th>Date</th></tr></thead><tbody>@forelse($project->allocations as $allocation)<tr><td>{{ $allocation->category }}</td><td>₱{{ number_format($allocation->amount,2) }}</td><td>{{ $allocation->approved_by }}</td><td>{{ $allocation->approved_on?->format('M d, Y') }}</td></tr>@empty<tr><td colspan="4">No budget allocations recorded.</td></tr>@endforelse</tbody></table></div>
+<section class="panel form-panel" id="budget"><div class="panel-heading flush"><div><h2>Budget &amp; funds</h2><p>Compare the proposed expense plan, approved allocations, and posted spending.</p></div></div>
+@if($project->budget_items)
+<h3 class="subheading">Itemized proposed expenses</h3><div class="table-wrap"><table><thead><tr><th>Category</th><th>Specific expense</th><th>Qty</th><th>Unit cost</th><th>Estimated amount</th></tr></thead><tbody>@foreach($project->budget_items as $item)<tr><td>{{ \App\Support\ProjectBudget::CATEGORIES[$item['category']] ?? ucfirst(str_replace('_', ' ', $item['category'] ?? 'Other')) }}</td><td>{{ $item['description'] }}</td><td>{{ rtrim(rtrim(number_format((float) $item['quantity'], 2), '0'), '.') }}</td><td>₱{{ number_format((float) $item['unit_cost'], 2) }}</td><td><strong>₱{{ number_format((float) $item['amount'], 2) }}</strong></td></tr>@endforeach</tbody><tfoot><tr><th colspan="4">Total proposed budget</th><th>₱{{ number_format((float) $project->proposed_budget, 2) }}</th></tr></tfoot></table></div>
+@else<p class="panel-empty">This earlier project has only a total proposed budget. Edit the concept or plan to add its specific expense breakdown.</p>@endif
+<h3 class="subheading">Approved allocations</h3><div class="table-wrap"><table><thead><tr><th>Category</th><th>Approved allocation</th><th>Approving authority</th><th>Date</th></tr></thead><tbody>@forelse($project->allocations as $allocation)<tr><td>{{ $allocation->category }}</td><td>₱{{ number_format($allocation->amount,2) }}</td><td>{{ $allocation->approved_by }}</td><td>{{ $allocation->approved_on?->format('M d, Y') }}</td></tr>@empty<tr><td colspan="4">No budget allocations recorded.</td></tr>@endforelse</tbody></table></div>
 <p class="hint">Unallocated proposed budget: ₱{{ number_format($project->proposed_budget-$project->allocated,2) }}</p>
 @if($u->role==='treasurer' && in_array($project->status,['Approved','Ongoing']))<details class="record-detail no-print"><summary><x-icon name="wallet" /> Record / adjust budget allocation<x-icon name="chevron" class="disclosure-icon" /></summary><form method="POST" action="{{ route('budget.store',$project) }}" class="form-grid">@csrf<x-field name="category" label="Budget category" required/><x-field name="amount" label="Approved allocation (PHP)" type="number" step="0.01" min="0" required/><x-field name="approved_by" label="Approving authority" required/><x-field name="approved_on" label="Approval date" type="date" required/><x-field name="remarks" label="Allocation remarks / adjustment reason" type="textarea" required/><div class="full"><p class="hint">Use an existing category name to adjust its allocation. Every change is recorded.</p><button class="btn primary"><x-icon name="save" /> Save allocation</button></div></form></details>@endif
 @if($u->role === 'treasurer' || $project->isChair($u))@if($manages)@include('chapter.partials.project-transaction')@endif<h3 class="subheading">Project transactions</h3><div class="table-wrap"><table><thead><tr><th>Reference / date</th><th>Description</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>@forelse($project->transactions as $entry)<tr><td>{{ $entry->reference }}<small>{{ $entry->transaction_date?->format('M d, Y') }}</small></td><td>{{ $entry->description }}</td><td>{{ $entry->type }}</td><td>₱{{ number_format($entry->amount,2) }}</td><td><span class="badge">{{ $entry->status }}</span></td></tr>@empty<tr><td colspan="5">No project transactions recorded.</td></tr>@endforelse</tbody></table></div>@endif</section>
 <section class="panel form-panel" id="documents"><h2>Supporting documents</h2><p class="hint">Concept and proposal uploads stay in their matching sections above. This area holds implementation files, task evidence, and supporting records.</p>@forelse($supportingDocuments as $document)@include('chapter.partials.project-document-row', ['document' => $document])@empty<p class="panel-empty">No supporting documents have been uploaded yet.</p>@endforelse
-@if($manages||$project->canEdit($u))<details class="record-detail no-print"><summary><x-icon name="upload" /> Upload document<x-icon name="chevron" class="disclosure-icon" /></summary><form method="POST" action="{{ route('documents.store',$project) }}" enctype="multipart/form-data" class="form-grid">@csrf<x-field name="title" label="Document title" required/><x-field name="category" label="Document category" value="Supporting document" required/><x-field name="file" label="File (PDF, Office, image, CSV or text; max 10 MB)" type="file" required/><div class="full"><button class="btn primary"><x-icon name="upload" /> Upload document</button></div></form></details>@endif</section>
+  @if($manages||$project->canEdit($u))<details class="record-detail no-print"><summary><x-icon name="upload" /> Upload document<x-icon name="chevron" class="disclosure-icon" /></summary><form method="POST" action="{{ route('documents.store',$project) }}" enctype="multipart/form-data" class="form-grid">@csrf<x-field name="title" label="Document title" required/><x-field name="category" label="Document category" value="Supporting document" required/><x-field name="file" label="PDF, Office, image, CSV, text, or short MP4 (max 10 MB)" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.txt,.mp4" required/><div class="full"><button class="btn primary"><x-icon name="upload" /> Upload document</button></div></form></details>@endif</section>
+<section class="panel form-panel project-evidence" id="evidence">
+    <div class="panel-heading flush"><div><h2>Attendance &amp; evaluation</h2><p>Keep dated photos and project evaluations together throughout implementation.</p></div><a class="btn secondary no-print" href="{{ route('documents', ['type' => 'evidence']) }}"><x-icon name="folder" /> File library</a></div>
+    @if($canAddEvidence)
+    <div class="evidence-form-grid no-print">
+        <details class="record-detail"><summary><x-icon name="upload" /> Add attendance photos<x-icon name="chevron" class="disclosure-icon" /></summary>
+            <form method="POST" action="{{ route('projects.evidence.store', $project) }}" enctype="multipart/form-data" class="form-grid">@csrf<input type="hidden" name="type" value="attendance"><x-field name="title" label="Activity or attendance title" required/><x-field name="activity_on" label="Activity date" type="date" required/><label class="field full"><span>Attendance photos (up to {{ $evidencePhotoLimit }}, 10 MB each)</span><input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple required></label><div class="full"><button class="btn primary"><x-icon name="upload" /> Save attendance photos</button></div></form>
+        </details>
+        <details class="record-detail"><summary><x-icon name="report" /> Add evaluation<x-icon name="chevron" class="disclosure-icon" /></summary>
+            <form method="POST" action="{{ route('projects.evidence.store', $project) }}" enctype="multipart/form-data" class="form-grid">@csrf<input type="hidden" name="type" value="evaluation"><x-field name="title" label="Evaluation title" required/><x-field name="activity_on" label="Evaluation date" type="date" required/><label class="field full"><span>Written evaluation</span><textarea name="notes" rows="5" maxlength="5000" placeholder="What worked, what needs improvement, and the next step">{{ old('notes') }}</textarea></label><label class="field full"><span>Evaluation images (optional, up to {{ $evidencePhotoLimit }})</span><input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple></label><div class="full"><button class="btn primary"><x-icon name="save" /> Save evaluation</button></div></form>
+        </details>
+    </div>
+    @endif
+    <div class="evidence-list">
+        @forelse($evidenceDocuments as $document)
+            <article class="evidence-item">
+                @if($document->path && $document->canPreviewInline())<a href="{{ route('documents.preview', $document) }}" target="_blank" rel="noopener" aria-label="View {{ $document->title }}"><img src="{{ route('documents.preview', $document) }}" alt="{{ $document->title }}" loading="lazy"></a>@endif
+                <div>
+                    <span class="eyebrow">{{ $document->submission_stage === 'attendance' ? 'ATTENDANCE' : 'EVALUATION' }} · {{ $document->activity_on?->format('d M Y') }}</span>
+                    <h3>{{ $document->title }}</h3>
+                    @if($document->notes)
+                        <p class="preserve-lines">{{ $document->notes }}</p>
+                    @endif
+                    @if($document->path)
+                        <div class="button-row">
+                            <a class="text-link" href="{{ route('documents.preview', $document) }}" target="_blank" rel="noopener"><x-icon name="eye" /> View image</a>
+                            <a class="text-link" href="{{ route('documents.download', $document) }}"><x-icon name="download" /> Download original</a>
+                        </div>
+                    @endif
+                </div>
+            </article>
+        @empty<p class="panel-empty">No attendance photos or evaluations yet.</p>@endforelse
+    </div>
+</section>
+<section class="panel form-panel partnership-documents" id="partnerships">
+    <div class="panel-heading flush"><div><h2>External partnership letters</h2><p>Keep sponsor and partner correspondence with this project, separate from the internal concept letter.</p></div><a class="btn secondary no-print" href="{{ route('templates.reference.download', 'external-partnership-letter') }}"><x-icon name="download" /> Official partnership template</a></div>
+    @forelse($partnershipDocuments as $document)
+        @include('chapter.partials.project-document-row', ['document' => $document, 'label' => $document->title.' · Version '.$document->version, 'meta' => $document->original_name.' · Uploaded '.($document->submitted_at?->format('d M Y, g:i A') ?? $document->created_at?->format('d M Y, g:i A'))])
+    @empty
+        <p class="panel-empty">No external partnership letter has been uploaded for this project.</p>
+    @endforelse
+    @if($canUploadPartnership)
+    <details class="record-detail no-print"><summary><x-icon name="upload" /> Upload completed partnership letter<x-icon name="chevron" class="disclosure-icon" /></summary><form method="POST" action="{{ route('projects.partnerships.store', $project) }}" enctype="multipart/form-data" class="form-grid">@csrf<x-field name="title" label="Partner or letter title" required placeholder="Example: Partnership proposal for ABC Foundation"/><x-field name="file" label="Completed DOC, DOCX, or PDF (max 10 MB)" type="file" accept=".doc,.docx,.pdf" required/><div class="full"><p class="hint">Uploading a revised letter creates a new version and keeps the previous file available for the project record.</p><button class="btn primary"><x-icon name="upload" /> Upload partnership letter</button></div></form></details>
+    @endif
+</section>
 @if($project->documents->contains(fn ($document) => $document->canPreviewInline()))
 <dialog class="document-preview-dialog no-print" id="document-preview-dialog" aria-labelledby="document-preview-title">
-    <div class="document-preview-header"><div><span class="eyebrow">ORIGINAL FILE CONTENTS · <span data-document-preview-type>FILE</span></span><h2 id="document-preview-title" data-document-preview-title>Project file</h2><p>Read the submitted document here. Download the original when you need to edit or verify it in its native application.</p></div><button type="button" data-document-preview-close aria-label="Close file preview"><x-icon name="close" /></button></div>
-    <div class="document-preview-canvas"><iframe title="Project document preview" data-document-preview-frame></iframe></div>
+    <div class="document-preview-header"><div><span class="eyebrow">PRIVATE FILE PREVIEW · <span data-document-preview-type>FILE</span></span><h2 id="document-preview-title" data-document-preview-title>Project file</h2><p>PDFs, images, text, and short videos use the uploaded file. DOCX uses a local browser viewer; download the original for exact Word formatting.</p></div><button type="button" data-document-preview-close aria-label="Close file preview"><x-icon name="close" /></button></div>
+    <div class="document-preview-canvas"><iframe title="Project document preview" data-document-preview-frame></iframe><video title="Project video preview" data-document-preview-video controls playsinline preload="metadata" hidden></video></div>
     <div class="document-preview-actions"><button class="btn secondary" type="button" data-document-preview-close>Close</button><a class="btn secondary" href="#" data-document-preview-open target="_blank" rel="noopener"><x-icon name="eye" /> Full screen</a><a class="btn primary" href="#" data-document-preview-download><x-icon name="download" /> Download original</a></div>
 </dialog>
 @endif
 <section class="panel form-panel" id="completion">
-    <h2>Completion, liquidation &amp; external partnership documents</h2>
+    <div class="panel-heading flush"><div><h2>Completion and liquidation</h2><p>Close the project with separate outcome and financial records tied to this project.</p></div></div>
+    <div class="completion-workflow"><div><span>1</span><strong>Complete project tasks</strong><small>Finish assigned work and upload implementation evidence.</small></div><div><span>2</span><strong>Submit completion report</strong><small>Admin reviews results, beneficiaries, and project evidence.</small></div><div><span>3</span><strong>Submit liquidation</strong><small>Treasurer verifies posted expenses and receipts independently.</small></div></div>
     <div class="button-row no-print">
         @if($manages || $project->canReport($u))
             <a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}"><x-icon name="filePlus" /> Prepare partner LOI</a>
-            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id]) }}"><x-icon name="filePlus" /> Prepare project report</a>
+            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Progress']) }}"><x-icon name="report" /> Progress report</a>
+            @if($project->canReport($u))<a class="btn primary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']) }}"><x-icon name="checklist" /> Completion report</a><a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Liquidation']) }}"><x-icon name="receipt" /> Liquidation report</a>@endif
         @endif
+        @if($u->role === 'treasurer')<a class="btn secondary" href="{{ route('projects.liquidation', $project) }}"><x-icon name="wallet" /> Live ledger liquidation</a>@endif
     </div>
     @foreach(['letters' => $project->letters, 'reports' => $project->reports] as $kind => $records)
         @foreach($records as $record)

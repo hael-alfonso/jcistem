@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{ChapterSetting, DocumentTemplate, Project, BodDecision};
+use App\Models\{ChapterSetting, DocumentTemplate, Project, ProjectDocument, User, BodDecision};
 use App\Services\{ChapterService, ExportService};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{DB, Storage};
+use Illuminate\Support\Facades\{Cache, DB, Storage};
 
 class PmsToolsController extends Controller
 {
@@ -73,17 +73,39 @@ class PmsToolsController extends Controller
         return back()->with('success', 'Approved template published. Earlier versions remain available.');
     }
 
-    public function settings() { return view('chapter.pms-settings', ['chapterName' => ChapterSetting::where('key', 'report_chapter_name')->value('value') ?? 'JCI Carmona']); }
+    public function settings()
+    {
+        return view('chapter.pms-settings', [
+            'chapterName' => ChapterSetting::where('key', 'report_chapter_name')->value('value') ?? 'JCI Carmona',
+            'workspaceNotice' => ChapterSetting::where('key', 'workspace_notice')->value('value') ?? '',
+            'workspaceTheme' => ChapterSetting::where('key', 'workspace_theme')->value('value') ?? 'jci',
+            'evidencePhotoLimit' => (int) (ChapterSetting::where('key', 'evidence_photo_limit')->value('value') ?? 8),
+            'activeUsers' => User::where('status', 'active')->count(),
+            'activeProjects' => Project::whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review'])->count(),
+            'projectFiles' => ProjectDocument::whereNotNull('path')->count(),
+        ]);
+    }
 
     public function saveSettings(Request $request)
     {
-        $data = $request->validate(['report_chapter_name' => 'required|string|max:100']);
+        $data = $request->validate([
+            'report_chapter_name' => 'required|string|max:100',
+            'workspace_notice' => 'nullable|string|max:500',
+            'evidence_photo_limit' => 'required|integer|between:1,8',
+            'workspace_theme' => 'nullable|in:jci,teal,navy',
+        ]);
         DB::transaction(function () use ($data) {
-            $setting = ChapterSetting::firstOrNew(['key' => 'report_chapter_name']);
-            $before = $setting->toArray(); $setting->value = $data['report_chapter_name']; $setting->save();
-            ChapterService::audit('report_settings_updated', $setting, $before);
+            foreach ($data as $key => $value) {
+                $setting = ChapterSetting::firstOrNew(['key' => $key]);
+                $before = $setting->toArray();
+                $setting->value = $value ?? '';
+                $setting->save();
+                ChapterService::audit('system_setting_updated', $setting, $before);
+            }
         });
-        return back()->with('success', 'Report settings saved.');
+        Cache::forget('jci.workspace_notice');
+        Cache::forget('jci.workspace_theme');
+        return back()->with('success', 'System controls saved.');
     }
 
     public function decisionEvidence(Request $request, BodDecision $decision)

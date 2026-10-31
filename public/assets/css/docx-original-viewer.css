@@ -1,0 +1,18 @@
+:root { color-scheme: light; font-family: Arial, sans-serif; color: #17374e; background: #e7edf0; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; }
+.viewer-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 20px; background: #fff; border-bottom: 1px solid #d5e2e9; }
+.viewer-header div { display: grid; gap: 4px; min-width: 0; }
+.viewer-header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.viewer-header span, footer { color: #607889; font-size: 11px; }
+.viewer-header nav { display: flex; gap: 9px; flex-wrap: wrap; }
+.viewer-header a { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 10px; border: 1px solid #c8dce6; border-radius: 8px; color: #075f87; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.viewer-header a:hover, .viewer-header a:focus-visible { background: #eaf5f9; }
+.viewer-status { max-width: 700px; margin: 24px auto; padding: 14px 18px; border-radius: 10px; background: #fff; color: #31566d; font-size: 13px; text-align: center; }
+.viewer-status.is-error { color: #7b3e43; background: #fff4f4; }
+#document-pages { min-height: 60vh; overflow: auto; padding: 18px 12px 32px; }
+#document-pages .docx-wrapper { padding: 0; background: transparent; }
+#document-pages .docx { max-width: none; margin: 0 auto 18px; box-shadow: 0 7px 26px rgb(15 39 56 / 13%); }
+footer { padding: 12px 20px; background: #fff; text-align: center; }
+body.is-embedded .viewer-header { display: none; }
+@media (max-width: 640px) { .viewer-header { align-items: flex-start; flex-direction: column; padding: 12px; } .viewer-header nav { width: 100%; } .viewer-header a { flex: 1; justify-content: center; } #document-pages { padding: 8px 4px 20px; } footer { padding: 10px; } }

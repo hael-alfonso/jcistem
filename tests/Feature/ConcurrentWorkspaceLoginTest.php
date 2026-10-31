@@ -47,7 +47,7 @@ class ConcurrentWorkspaceLoginTest extends TestCase
 
         $this->visitDashboard($adminWorkspace, $cookies)
             ->assertOk()->assertSee('Alicia')->assertSee('Admin workspace')
-            ->assertSee('Open another account')->assertSee('href="/login" target="_blank"', false);
+            ->assertDontSee('Open another account');
         foreach (['bod' => 'Brenda', 'treasurer' => 'Tina', 'member' => 'Marco'] as $role => $firstName) {
             $this->visitDashboard($workspaces[$role], $cookies)
                 ->assertOk()->assertSee($firstName)->assertSee(\App\Support\WorkspaceNav::label($role).' workspace');

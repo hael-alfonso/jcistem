@@ -12,9 +12,19 @@
         'Potential benefits and general comments' => 'Explain member development, community impact, and follow-through.',
     ];
     $fieldHints = [
-        'background' => 'Describe the community issue, local priority, and SDG number and name.',
-        'resources' => 'Estimate the working budget, funding strategy, and committee needs.',
-        'request' => 'Ask the President and Board to review the proposal. Add your name, position, and contact details.',
+        'letter_date' => 'Use the date that should appear on the official internal letter.',
+        'president_name' => 'Enter the full name of the current JCI Carmona Local Organization President.',
+        'chapter_address' => 'Enter the chapter mailing address shown beneath the recipient.',
+        'sdg_number' => 'Example: 4',
+        'sdg_name' => 'Example: Quality Education',
+        'objective' => 'State the core project goal in one clear, action-focused statement.',
+        'beneficiaries' => 'Identify the target group and expected number of participants or recipients.',
+        'committee_size' => 'Enter the number of active JCI members needed for the committee.',
+        'funding_source' => 'Example: chapter allocation, fundraising, and approved partner support.',
+        'resources' => 'Add any venue, equipment, materials, permits, or volunteer requirements.',
+        'request' => 'State the documents attached and formally request Board review and approval.',
+        'proponent_position' => 'Example: General Member, Commission Vice President, or Project Chair.',
+        'contact_info' => 'Enter the email address or mobile number that should appear in the letter.',
         'objectives' => "a. Specific, measurable objective\nb. Specific, measurable objective\nc. Specific, measurable objective",
         'team' => "Project Chair | Member name | Overall coordination\nCo-Chair | Member name | Documentation and reporting\nCommittee Member | Member name | Main responsibility",
         'activities' => "1. Survey and analysis | Community assessment and project scope\n2. Planning and organization | Board approvals, permits, and partners\n3. Implementation | Activities and delivery\n4. Evaluation and post-activity | Feedback, liquidation, and reporting",
@@ -22,6 +32,11 @@
         'budget' => 'Describe the quantities, unit costs, and assumptions behind the expenditure lines below.',
     ];
     $proposalData = $project->proposal ?? [];
+    $budgetRows = old('budget_items');
+    if (!is_array($budgetRows)) $budgetRows = $project->budget_items ?? [];
+    if (!$budgetRows && (float) ($project->proposed_budget ?? 0) > 0) $budgetRows = [['category' => 'other', 'description' => 'General project expenses (add the specific breakdown)', 'quantity' => '1.00', 'unit_cost' => $project->proposed_budget, 'amount' => $project->proposed_budget]];
+    if (!$budgetRows) $budgetRows = [['category' => '', 'description' => '', 'quantity' => '1.00', 'unit_cost' => '', 'amount' => '0.00']];
+    $displayedBudgetTotal = collect($budgetRows)->sum(fn ($item) => (float) ($item['amount'] ?? ((float) ($item['quantity'] ?? 0) * (float) ($item['unit_cost'] ?? 0))));
     $submissionStage = $proposal ? 'proposal' : 'concept';
     $submissionField = $submissionStage.'_submission_method';
     $submissionMethod = old($submissionField, $project->{$submissionField} ?: 'online');
@@ -55,11 +70,11 @@
         <div class="form-grid project-entry-details">
             <div class="full"><x-field name="title" label="Project title" :value="$project->title" required maxlength="200" placeholder="Enter a clear, specific project name"/></div>
             <x-field name="area" label="JCI area of opportunity" type="select" :options="array_combine(\App\Support\ChapterForms::AREAS, \App\Support\ChapterForms::AREAS)" :value="$project->area" required/>
-            <x-field name="proposed_budget" label="Estimated total budget (PHP)" type="number" min="0" step="0.01" :value="$project->proposed_budget ?? 0" required/>
             <x-field name="starts_on" label="Proposed start date" type="date" :value="$project->starts_on?->format('Y-m-d')"/>
             <x-field name="ends_on" label="Proposed end date" type="date" :value="$project->ends_on?->format('Y-m-d')"/>
             <div class="full"><x-field name="venue" label="Proposed venue / location" :value="$project->venue" placeholder="Barangay, venue, or community location"/></div>
         </div>
+        @include('chapter.partials.project-budget-builder')
     </section>
     <section class="panel form-panel chapter-form-section submission-method-section">
         <div class="section-heading"><span>02</span><div><h2>How to complete this form</h2><p>{{ $proposal ? 'Use the online fields or upload the completed official proposal form.' : 'Both methods enter the same Admin, Treasurer, and BOD review workflow.' }}</p></div></div>
@@ -69,6 +84,10 @@
         </div>
     </section>
     <div data-submission-panel="online" @if($submissionMethod !== 'online') hidden @endif>
+    <div class="online-document-tools no-print">
+        <div><span class="eyebrow">OFFICIAL WORD FORMAT</span><strong>Your answers download in the official {{ $proposal ? 'Project Proposal Form' : 'Internal Project Proposal Letter' }} layout.</strong><small>Save the draft first, then download a filled editable DOCX. You can also download the blank template at any time.</small></div>
+        <div><a class="btn secondary" href="{{ route('templates.reference.download', $proposal ? 'project-proposal-form' : 'internal-project-letter') }}"><x-icon name="download" /> Blank template</a>@if($project->exists && filled($proposal ? $project->proposal : $project->concept))<a class="btn primary" href="{{ route('projects.word', [$project, $proposal ? 'proposal' : 'concept']) }}"><x-icon name="filePlus" /> Download filled Word copy</a>@endif</div>
+    </div>
     @if($proposal)
         <nav class="proposal-form-toc" aria-label="Proposal form sections">
             <strong>FORM SECTIONS</strong>
@@ -105,12 +124,12 @@
                             @endforeach
                             <div class="proposal-finance-total"><span>Total estimated income</span><strong data-proposal-income-total>PHP 0.00</strong></div>
                         </div>
-                        <div class="proposal-finance-card">
-                            <h3>Estimated expenditures</h3><p>Use the same categories as the official form.</p>
-                            @foreach(\App\Support\ChapterForms::PROPOSAL_EXPENSE_LINES as $key => $label)
-                                <x-field :name="'proposal[expense_lines]['.$key.']'" :label="$label.' (PHP)'" type="number" min="0" step="0.01" :value="data_get($proposalData, 'expense_lines.'.$key, '')" />
+                        <div class="proposal-finance-card proposal-budget-reference">
+                            <h3>Estimated expenditures</h3><p>The detailed expense list in Project essentials is the single budget source for this proposal.</p>
+                            @foreach(\App\Support\ProjectBudget::officialExpenseLines($budgetRows) as $key => $amount)
+                                <div><span>{{ \App\Support\ChapterForms::PROPOSAL_EXPENSE_LINES[$key] }}</span><strong>PHP {{ number_format((float) $amount, 2) }}</strong></div>
                             @endforeach
-                            <div class="proposal-finance-total"><span>Total estimated expenditures</span><strong data-proposal-expense-total>PHP 0.00</strong></div>
+                            <div class="proposal-finance-total"><span>Total estimated expenditures</span><strong>PHP {{ number_format($displayedBudgetTotal, 2) }}</strong></div>
                         </div>
                     </div>
                     <p class="hint">The expenditure estimate should match the BOD-approved budget of PHP {{ number_format((float) $project->proposed_budget, 2) }}. A budget amendment needs separate authorization.</p>
@@ -121,6 +140,7 @@
             <div class="section-heading"><span>10</span><div><h2>Board transmittal and signatures</h2><p>The printable packet includes prepared, reviewed, and approved signature lines.</p></div></div>
             <div class="form-grid">
                 <x-field name="proposal[committee_director]" label="Committee director (if assigned)" :value="$proposalData['committee_director'] ?? ''" maxlength="200"/>
+                <x-field name="proposal[president_name]" label="Local Organization President" :value="$proposalData['president_name'] ?? ''" maxlength="200"/>
                 <x-field name="proposal[board_meeting_date]" label="Requested Board meeting date" type="date" :value="$proposalData['board_meeting_date'] ?? ''"/>
             </div>
             <p class="hint">Paper signatures do not change PMS permissions or approval status.</p>
@@ -131,7 +151,12 @@
                 <div class="section-heading"><span>{{ str_pad((string) ($loop->iteration + 2), 2, '0', STR_PAD_LEFT) }}</span><div><small>INTERNAL LETTER - SECTION {{ $loop->iteration }}</small><h2>{{ $heading }}</h2><p>{{ $loop->first ? 'Explain why the project matters and how it supports active citizenship.' : ($loop->last ? 'State the proposed resources and formal request to the Board.' : 'Summarize the proposed date, location, beneficiaries, and partners.') }}</p></div></div>
                 <div class="form-grid">
                     @foreach($keys as $key)
-                        <div class="full"><x-field :name="'concept['.$key.']'" :label="\App\Support\ChapterForms::CONCEPT[$key]" type="textarea" :value="($project->concept ?? [])[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
+                        @php
+                            $conceptTextarea = in_array($key, ['objective', 'beneficiaries', 'resources', 'request'], true);
+                            $conceptType = $key === 'letter_date' ? 'date' : ($conceptTextarea ? 'textarea' : 'text');
+                            $conceptRequired = array_key_exists($key, \App\Support\ChapterForms::CONCEPT_REQUIRED);
+                        @endphp
+                        <div class="{{ $conceptTextarea ? 'full' : '' }}"><x-field :name="'concept['.$key.']'" :label="\App\Support\ChapterForms::CONCEPT[$key]" :type="$conceptType" :value="($project->concept ?? [])[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" :required="$conceptRequired" maxlength="15000"/></div>
                     @endforeach
                 </div>
             </section>

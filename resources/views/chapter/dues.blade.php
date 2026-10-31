@@ -54,7 +54,7 @@
                         <x-field name="payment_method" label="Payment method" type="select" :options="array_combine(['Cash','Bank transfer','GCash','Cheque','Other'],['Cash','Bank transfer','GCash','Cheque','Other'])" value="Cash" required/>
                         <x-field name="remarks" label="Payment remarks" type="textarea"/>
                         <x-field name="receipt" label="Receipt or proof (PDF or image)" type="file"/>
-                        <div class="full"><p class="hint">The payment reference must be unique. A recorded payment is posted to the chapter ledger and updates this member's balance.</p><button class="btn primary" type="submit"><x-icon name="plus" /> Record payment</button></div>
+                        <div class="full"><p class="hint">The payment reference must be unique. A recorded payment is posted to the chapter ledger and updates this member's balance.</p><button class="btn primary" type="submit" data-confirm="Record this payment and post it to the chapter ledger? Check the amount and reference first."><x-icon name="plus" /> Record payment</button></div>
                     </form>
                 @endif
             </div>

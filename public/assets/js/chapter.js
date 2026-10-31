@@ -3,7 +3,9 @@ import { boundedProgress } from './pms-helpers.js';
 (() => {
   const toggle = document.querySelector('.menu-button');
   const overlay = document.querySelector('.nav-overlay');
-  const settingsMenu = document.querySelector('.topbar-settings-menu');
+  const topbarMenus = [...document.querySelectorAll('.topbar-settings-menu')];
+  const sidebarNav = document.querySelector('.app-sidebar nav');
+  const sidebarScrollKey = `jcistem.sidebarScroll.${document.querySelector('meta[name="workspace-id"]')?.content || 'default'}`;
   const createMenu = document.querySelector('.record-create-dropdown');
   const calendarDialog = document.querySelector('#calendar-event-dialog');
   const projectPreview = document.querySelector('#project-preview-dialog');
@@ -13,23 +15,75 @@ import { boundedProgress } from './pms-helpers.js';
   let rememberedGroup = null;
   try { rememberedGroup = sessionStorage.getItem('jcistem.navGroup'); } catch {}
   const initialGroup = currentGroup || (!primaryCurrent && (groups.find((group) => group.querySelector('summary')?.textContent.trim() === rememberedGroup) || groups[0]));
-  groups.forEach((group) => { group.open = group === initialGroup; });
+  const expandedNavigation = document.body.dataset.navigationMode === 'expanded';
+  groups.forEach((group) => {
+    if (expandedNavigation) group.removeAttribute('name');
+    group.open = expandedNavigation || group === initialGroup;
+  });
   groups.forEach((group) => group.addEventListener('toggle', () => {
     if (!group.open) return;
-    groups.forEach((other) => { if (other !== group) other.open = false; });
+    if (document.body.dataset.navigationMode !== 'expanded') groups.forEach((other) => { if (other !== group) other.open = false; });
     try { sessionStorage.setItem('jcistem.navGroup', group.querySelector('summary')?.textContent.trim() || ''); } catch {}
   }));
+  const activeSideLink = document.querySelector('.app-sidebar [aria-current="page"]');
+  const keepActiveSideLinkVisible = () => {
+    if (!sidebarNav || !activeSideLink) return;
+    const navBox = sidebarNav.getBoundingClientRect();
+    const linkBox = activeSideLink.getBoundingClientRect();
+    if (linkBox.top < navBox.top) sidebarNav.scrollTop -= navBox.top - linkBox.top + 8;
+    else if (linkBox.bottom > navBox.bottom) sidebarNav.scrollTop += linkBox.bottom - navBox.bottom + 8;
+  };
+  if (sidebarNav) {
+    let savedScroll = 0;
+    try { savedScroll = Number(sessionStorage.getItem(sidebarScrollKey)) || 0; } catch {}
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      sidebarNav.scrollTop = savedScroll;
+      keepActiveSideLinkVisible();
+    }));
+    sidebarNav.addEventListener('scroll', () => {
+      try { sessionStorage.setItem(sidebarScrollKey, String(sidebarNav.scrollTop)); } catch {}
+    }, { passive: true });
+    sidebarNav.addEventListener('click', (event) => {
+      if (!event.target.closest('a[href]')) return;
+      try { sessionStorage.setItem(sidebarScrollKey, String(sidebarNav.scrollTop)); } catch {}
+    });
+  }
   const setNavigation = (open) => {
     document.body.classList.toggle('nav-open', open);
     toggle?.setAttribute('aria-expanded', String(open));
     toggle?.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    const mobile = window.matchMedia('(max-width: 760px)').matches;
+    document.querySelector('.app-sidebar')?.toggleAttribute('inert', mobile && !open);
+    document.querySelector('.app-main')?.toggleAttribute('inert', mobile && open);
+    if (mobile && open) (activeSideLink || document.querySelector('.app-sidebar a'))?.focus({ preventScroll: true });
   };
-  toggle?.addEventListener('click', () => { settingsMenu && (settingsMenu.open = false); setNavigation(!document.body.classList.contains('nav-open')); });
+  setNavigation(false);
+  topbarMenus.forEach((menu) => {
+    menu.addEventListener('toggle', () => {
+      menu.querySelector('summary')?.setAttribute('aria-expanded', String(menu.open));
+      if (menu.open) topbarMenus.forEach((other) => { if (other !== menu) other.open = false; });
+    });
+    menu.addEventListener('focusout', (event) => {
+      if (event.relatedTarget && !menu.contains(event.relatedTarget)) menu.open = false;
+    });
+  });
+  toggle?.addEventListener('click', () => { topbarMenus.forEach((menu) => { menu.open = false; }); setNavigation(!document.body.classList.contains('nav-open')); });
   document.addEventListener('click', (event) => {
-    if (settingsMenu && !settingsMenu.contains(event.target)) settingsMenu.open = false;
+    topbarMenus.forEach((menu) => { if (!menu.contains(event.target)) menu.open = false; });
     if (createMenu && !createMenu.contains(event.target)) createMenu.open = false;
   });
-  overlay?.addEventListener('click', () => setNavigation(false));
+  overlay?.addEventListener('click', () => { setNavigation(false); toggle?.focus(); });
+  window.matchMedia('(max-width: 760px)').addEventListener('change', () => setNavigation(false));
+  document.addEventListener('keydown', (event) => {
+    if (!document.body.classList.contains('nav-open')) return;
+    if (event.key === 'Escape') { setNavigation(false); toggle?.focus(); }
+    if (event.key !== 'Tab') return;
+    const navigationItems = [...document.querySelectorAll('.app-sidebar a, .app-sidebar button, .app-sidebar summary, .nav-overlay')].filter((item) => item.getClientRects().length);
+    const first = navigationItems[0];
+    const last = navigationItems.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
   document.querySelector('[data-calendar-dialog-open]')?.addEventListener('click', () => {
     if (calendarDialog?.showModal) calendarDialog.showModal();
     else calendarDialog?.setAttribute('open', '');
@@ -51,6 +105,15 @@ import { boundedProgress } from './pms-helpers.js';
     write('budget-label', data.budgetLabel);
     write('budget', data.budget);
     write('tasks', `${data.completed} of ${data.total} complete`);
+    const objective = projectPreview.querySelector('[data-preview-objective]');
+    if (objective) { objective.textContent = data.objective || ''; objective.hidden = !data.objective; }
+    write('pace', data.elapsed === '' ? data.pace : `${data.pace} · ${data.elapsed}% of schedule elapsed`);
+    const timeMarker = projectPreview.querySelector('[data-preview-time-marker]');
+    if (timeMarker) {
+      const elapsed = Number(data.elapsed);
+      timeMarker.hidden = data.elapsed === '' || !Number.isFinite(elapsed) || elapsed <= 0;
+      timeMarker.style.left = `${Math.min(100, Math.max(0, elapsed))}%`;
+    }
     projectPreview.querySelector('[data-preview-progress]').value = boundedProgress(data.progress);
     projectPreview.querySelector('[data-preview-link]').href = data.href;
     projectPreview.showModal();
@@ -75,6 +138,7 @@ import { boundedProgress } from './pms-helpers.js';
   taskPreview?.addEventListener('close', () => { taskPreviewTrigger?.focus(); taskPreviewTrigger = null; });
   const documentPreview = document.querySelector('#document-preview-dialog');
   const documentPreviewFrame = documentPreview?.querySelector('[data-document-preview-frame]');
+  const documentPreviewVideo = documentPreview?.querySelector('[data-document-preview-video]');
   let documentPreviewTrigger = null;
   document.querySelectorAll('[data-document-preview]').forEach((button) => button.addEventListener('click', () => {
     if (!documentPreview?.showModal || !documentPreviewFrame) return;
@@ -84,13 +148,29 @@ import { boundedProgress } from './pms-helpers.js';
     documentPreview.querySelector('[data-document-preview-type]').textContent = button.dataset.previewType || 'FILE';
     documentPreview.querySelector('[data-document-preview-open]').href = url;
     documentPreview.querySelector('[data-document-preview-download]').href = button.dataset.downloadUrl || url;
-    documentPreviewFrame.src = url;
+    if (button.dataset.previewType === 'MP4' && documentPreviewVideo) {
+      documentPreviewFrame.hidden = true;
+      documentPreviewFrame.src = 'about:blank';
+      documentPreviewVideo.hidden = false;
+      documentPreviewVideo.src = url;
+    } else if (button.dataset.previewType === 'DOCX') {
+      if (documentPreviewVideo) documentPreviewVideo.hidden = true;
+      documentPreviewFrame.hidden = false;
+      const frameUrl = new URL(url, window.location.href);
+      frameUrl.searchParams.set('embedded', '1');
+      documentPreviewFrame.src = frameUrl.toString();
+    } else {
+      if (documentPreviewVideo) documentPreviewVideo.hidden = true;
+      documentPreviewFrame.hidden = false;
+      documentPreviewFrame.src = url;
+    }
     documentPreview.showModal();
   }));
   documentPreview?.querySelectorAll('[data-document-preview-close]').forEach((button) => button.addEventListener('click', () => documentPreview.close()));
   documentPreview?.addEventListener('click', (event) => { if (event.target === documentPreview) documentPreview.close(); });
   documentPreview?.addEventListener('close', () => {
     if (documentPreviewFrame) documentPreviewFrame.src = 'about:blank';
+    if (documentPreviewVideo) { documentPreviewVideo.pause(); documentPreviewVideo.removeAttribute('src'); documentPreviewVideo.load(); }
     documentPreviewTrigger?.focus();
     documentPreviewTrigger = null;
   });
@@ -111,17 +191,71 @@ import { boundedProgress } from './pms-helpers.js';
   const taskReopenDialog = taskReopen && document.getElementById(taskReopen);
   if (taskReopenDialog?.showModal && document.querySelector('.alert.error')) taskReopenDialog.showModal();
   document.querySelectorAll('.app-sidebar .side-link').forEach((link) => link.addEventListener('click', () => setNavigation(false)));
-  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setNavigation(false); if (settingsMenu?.open) { settingsMenu.open = false; settingsMenu.querySelector('summary')?.focus(); } if (createMenu?.open) { createMenu.open = false; createMenu.querySelector('summary')?.focus(); } } });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setNavigation(false); topbarMenus.forEach((menu) => { if (menu.open) { menu.open = false; menu.querySelector('summary')?.focus(); } }); if (createMenu?.open) { createMenu.open = false; createMenu.querySelector('summary')?.focus(); } } });
   document.querySelectorAll('[data-print]').forEach((button) => button.addEventListener('click', () => window.print()));
   document.querySelectorAll('[data-project-submission-form]').forEach((form) => {
     const choices = [...form.querySelectorAll('input[type="radio"][name$="_submission_method"]')];
     const panels = [...form.querySelectorAll('[data-submission-panel]')];
     const updateSubmissionPanels = () => {
       const method = choices.find((choice) => choice.checked)?.value || 'online';
-      panels.forEach((panel) => { panel.hidden = panel.dataset.submissionPanel !== method; });
+      panels.forEach((panel) => {
+        panel.hidden = panel.dataset.submissionPanel !== method;
+        // Hidden required fields must not block the other submission method.
+        panel.querySelectorAll('input, select, textarea').forEach((field) => { field.disabled = panel.hidden; });
+      });
     };
     choices.forEach((choice) => choice.addEventListener('change', updateSubmissionPanels));
     updateSubmissionPanels();
+    const budget = form.querySelector('[data-budget-builder]');
+    if (budget) {
+      const list = budget.querySelector('[data-budget-list]');
+      const template = budget.querySelector('[data-budget-row-template]');
+      const totalInput = budget.querySelector('[data-budget-total-input]');
+      const totalOutput = budget.querySelector('[data-budget-total]');
+      const lockMessage = budget.querySelector('[data-budget-lock-message]');
+      let nextBudgetIndex = Date.now();
+      const currency = (cents) => `PHP ${(cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const updateBudget = () => {
+        const rows = [...list.querySelectorAll('[data-budget-row]')];
+        const totalCents = rows.reduce((sum, row) => {
+          const quantity = Number(row.querySelector('[data-budget-quantity]')?.value) || 0;
+          const unitCents = Math.round((Number(row.querySelector('[data-budget-unit-cost]')?.value) || 0) * 100);
+          const lineCents = Math.round(quantity * unitCents);
+          row.querySelector('[data-budget-line-total]').textContent = currency(lineCents);
+          return sum + lineCents;
+        }, 0);
+        totalInput.value = (totalCents / 100).toFixed(2);
+        totalOutput.textContent = currency(totalCents);
+        form.querySelectorAll('[data-budget-letter-total]').forEach((target) => { target.textContent = currency(totalCents); });
+        rows.forEach((row) => { row.querySelector('[data-budget-remove]').disabled = rows.length === 1; });
+        if (lockMessage) {
+          const lockedCents = Math.round((Number(budget.dataset.lockedTotal) || 0) * 100);
+          const matches = lockedCents === totalCents;
+          lockMessage.classList.toggle('is-mismatch', !matches);
+          lockMessage.textContent = matches
+            ? `Itemized total matches the BOD-approved budget of ${currency(lockedCents)}.`
+            : `Adjust the list to match the BOD-approved budget of ${currency(lockedCents)} (${currency(Math.abs(lockedCents - totalCents))} ${totalCents < lockedCents ? 'still unitemized' : 'over budget'}).`;
+        }
+      };
+      budget.addEventListener('input', updateBudget);
+      budget.addEventListener('click', (event) => {
+        const add = event.target.closest('[data-budget-add]');
+        const remove = event.target.closest('[data-budget-remove]');
+        if (add) {
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', String(nextBudgetIndex++));
+          const row = wrapper.firstElementChild;
+          list.append(row);
+          row.querySelector('select, input')?.focus();
+          updateBudget();
+        }
+        if (remove && list.querySelectorAll('[data-budget-row]').length > 1) {
+          remove.closest('[data-budget-row]').remove();
+          updateBudget();
+        }
+      });
+      updateBudget();
+    }
     for (const [group, output] of [['income_lines', '[data-proposal-income-total]'], ['expense_lines', '[data-proposal-expense-total]']]) {
       const amountFields = [...form.querySelectorAll(`input[name^="proposal[${group}]"]`)];
       const total = form.querySelector(output);
@@ -141,7 +275,7 @@ import { boundedProgress } from './pms-helpers.js';
     const form = button.form;
     if (!form) return;
     event.preventDefault();
-    if (!form.reportValidity()) return;
+    if (!button.formNoValidate && !form.noValidate && !form.reportValidity()) return;
     if (!confirmDialog?.showModal) {
       if (window.confirm(button.dataset.confirm)) form.requestSubmit(button);
       return;

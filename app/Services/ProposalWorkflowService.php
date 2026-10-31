@@ -36,7 +36,7 @@ class ProposalWorkflowService
                     if ($project->concept_submission_method === 'upload') {
                         if (!$project->documents()->where('submission_stage', 'concept')->whereNotNull('path')->exists()) $this->invalid('Upload the completed concept proposal template first.');
                     } else {
-                        ChapterService::requireFields($project->concept ?? [], ChapterForms::CONCEPT, 'concept');
+                        ChapterService::requireFields($project->concept ?? [], ChapterForms::CONCEPT_REQUIRED, 'concept');
                     }
                     if (!$project->starts_on || !$project->venue) $this->invalid('Set the proposed date and venue first.');
                     $project->budget_reviewed_at = null;

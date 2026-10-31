@@ -9,7 +9,7 @@
 @endphp
 <div class="page-heading">
     <div>
-        <a class="back-link" href="{{ route('records', $kind) }}"><x-icon name="arrowLeft" /> {{ $kind === 'letters' ? 'External LOIs' : 'Reports' }}</a>
+        <a class="back-link" href="{{ $project ? route('projects.show', $project).'#completion' : route('records', $kind) }}"><x-icon name="arrowLeft" /> {{ $project ? $project->title : ($kind === 'letters' ? 'External LOIs' : 'Reports') }}</a>
         <div class="chapter-form-brand"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="JCI logo" width="92" height="52"><span>JCI Carmona<small>JCI Philippines</small></span></div>
         <div class="eyebrow">{{ $project?->reference ?? 'CHAPTER FINANCES' }}</div>
         <h1>{{ $kind === 'letters' ? 'External partnership LOI' : 'Prepare report' }}</h1>
@@ -85,6 +85,6 @@
         @endif
         <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>{{ $project ? '04' : '03' }}</span><div><h2>Supporting file</h2><p>Add project photographs, attendance records, receipts, or another approved supporting document.</p></div></div><div class="form-grid"><div class="full"><x-field name="attachment" label="Supporting report file (optional; max 10 MB)" type="file"/></div></div></section>
     @endif
-    <div class="form-footer"><a class="btn secondary" href="{{ $record->exists ? route('records.show', [$kind, $record->id]) : route('records', $kind) }}"><x-icon name="close" /> Cancel</a><button class="btn primary"><x-icon name="save" /> Save draft</button></div>
+    <div class="form-footer"><a class="btn secondary" href="{{ $record->exists ? route('records.show', [$kind, $record->id]) : ($project ? route('projects.show', $project).'#completion' : route('records', $kind)) }}"><x-icon name="close" /> Cancel</a><button class="btn primary"><x-icon name="save" /> Save draft</button></div>
 </form>
 @endsection

@@ -11,7 +11,7 @@
     <label class="registration-review-label" for="review_notes">Review notes (required for rejection)</label>
     <textarea id="review_notes" name="review_notes" maxlength="2000">{{ old('review_notes') }}</textarea>
     <label class="registration-verify"><input type="checkbox" name="verified_identity" value="1" @checked(old('verified_identity'))><span>I verified the chapter's decision on this application, the applicant's identity, and email ownership.</span></label>
-    <div class="button-row"><button class="btn primary" name="decision" value="approve" type="submit"><x-icon name="check" /> Approve application</button><button class="btn secondary" name="decision" value="reject" type="submit"><x-icon name="close" /> Reject application</button></div>
+    <div class="button-row"><button class="btn primary" name="decision" value="approve" type="submit" data-confirm="Approve this application and activate the account?"><x-icon name="check" /> Approve application</button><button class="btn secondary" name="decision" value="reject" type="submit" data-confirm="Reject this application? This decision will be recorded."><x-icon name="close" /> Reject application</button></div>
 </form>
 @elseif($registration->status === 'pending')
 <section class="panel form-panel"><h2>Awaiting Admin decision</h2><p>BOD members can inspect applications. Only an administrator can approve or reject registration.</p></section>

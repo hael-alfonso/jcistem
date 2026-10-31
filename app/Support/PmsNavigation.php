@@ -39,22 +39,20 @@ final class PmsNavigation
                 ['templates', 'Forms & Templates', 'folder', []],
                 ...($user->role === 'admin' ? [['records', 'Completion Report Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']]] : []),
                 ...($user->role === 'treasurer' ? [['records', 'Liquidation Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']]] : []),
-                ['projects', 'Project Archive', 'folder', ['filter' => 'Archived']],
+            ],
+            'FILES' => [
+                ['documents', 'File Library', 'folder', []],
             ],
             'CALENDAR' => [
                 ['calendar', 'Calendar', 'calendar', []],
             ],
-            'NOTIFICATIONS' => [
-                ['notifications', 'Notifications', 'bell', []],
-            ],
-            'ACCOUNT' => [
+            'PROFILE' => [
                 ['account', 'My Profile', 'user', []],
-                ['settings', 'My Settings', 'settings', []],
-                ...($canManageSystem ? [
-                    ['pms.settings', 'System Settings', 'shieldCheck', []],
-                    ['activity-log', 'Activity History', 'clock', []],
-                ] : []),
-                [null, 'Logout', 'logout', ['action' => 'logout']],
+            ],
+            'SETTINGS' => [
+                ['settings', 'Workspace Settings', 'settings', []],
+                ...($canManageSystem ? [['pms.settings', 'System Controls', 'shieldCheck', []]] : []),
+                ...(Permissions::allows($user, Permissions::AUDIT_VIEW) ? [['activity-log', 'Activity Log', 'clock', []]] : []),
             ],
         ];
 
@@ -77,16 +75,17 @@ final class PmsNavigation
             'FINANCIAL' => 'wallet',
             'MEMBERS' => 'users',
             'REPORTS & DOCUMENTS' => 'report',
+            'FILES' => 'folder',
             'CALENDAR' => 'calendar',
-            'NOTIFICATIONS' => 'bell',
-            'ACCOUNT' => 'user',
+            'PROFILE' => 'user',
+            'SETTINGS' => 'settings',
             default => 'folder',
         };
     }
 
     public static function direct(string $menu): bool
     {
-        return in_array($menu, ['CALENDAR', 'NOTIFICATIONS'], true);
+        return in_array($menu, ['CALENDAR', 'FILES', 'PROFILE'], true);
     }
 
     public static function url(array $item): string
@@ -101,7 +100,10 @@ final class PmsNavigation
     public static function active(array $item): bool
     {
         [$route, , , $params] = $item;
-        if (!$route || !request()->routeIs($route)) return false;
+        if (!$route) return false;
+        // Keep project detail, edit, and document pages under the project collection.
+        if ($route === 'projects' && !$params && request()->routeIs('projects.*') && !request()->routeIs('projects.create')) return true;
+        if (!request()->routeIs($route)) return false;
         foreach ($params as $key => $value) {
             if ((string) (request()->route($key) ?? request()->query($key)) !== (string) $value) return false;
         }

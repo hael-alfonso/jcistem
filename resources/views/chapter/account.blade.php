@@ -1,7 +1,7 @@
 @extends('layouts.chapter')
 @section('title','My Profile')
 @section('content')
-<div class="page-heading profile-page-heading"><div><div class="eyebrow">JCI CARMONA · MEMBER PROFILE</div><h1>My Profile</h1><p>Manage the personal and membership information shown in your chapter workspace.</p></div><a class="btn secondary" href="{{ route('settings') }}"><x-icon name="settings" /> Open settings</a></div>
+<div class="page-heading profile-page-heading"><div><div class="eyebrow">JCI CARMONA · MEMBER PROFILE</div><h1>My Profile</h1><p>Manage the personal and membership information shown in your chapter workspace.</p></div></div>
 <form method="POST" action="{{ route('account.update') }}" enctype="multipart/form-data">
     @csrf @method('PUT')
     <section class="panel form-panel profile-editor" id="profile">

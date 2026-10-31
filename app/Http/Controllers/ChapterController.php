@@ -3,8 +3,8 @@ namespace App\Http\Controllers;
 
 use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport};
 use Carbon\CarbonImmutable;
-use App\Services\ChapterService;
-use App\Support\{ChapterCharts, ChapterForms, Permissions};
+use App\Services\{ChapterService, OfficePreviewService, ProjectWordDocumentService};
+use App\Support\{ChapterCharts, ChapterForms, Permissions, ProjectBudget};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
@@ -52,6 +52,12 @@ class ChapterController extends Controller
             $query->where(fn ($q) => $q->where('status', 'BOD Agenda')->orWhereHas('decisions'));
         }
         elseif ($request->filter === 'concepts') $query->whereIn('status', ['Draft Concept', 'Submitted for President Review', 'Needs Revision', 'Endorsed for Development', 'Declined']);
+        elseif ($request->filter === 'active') $query->whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review']);
+        elseif ($request->filter === 'closed') $query->whereIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved']);
+        elseif ($request->filter === 'approved') $query->whereIn('status', ['Approved', 'Plan Locked']);
+        elseif ($request->filter === 'ongoing') $query->whereIn('status', ['Ongoing', 'Completion Review']);
+        elseif ($request->filter === 'completed') $query->whereIn('status', ['Completed', 'Archived']);
+        elseif ($request->filter === 'cancelled') $query->whereIn('status', ['Declined', 'Not Approved']);
         elseif ($request->filter === 'review') {
             $statuses = match ($request->user()->role) {
                 'admin' => ['Admin Review', 'BOD Agenda'],
@@ -85,10 +91,11 @@ class ChapterController extends Controller
         $section = $proposal ? 'proposal' : 'concept';
         $methodField = $section.'_submission_method';
         $request->merge([$methodField => $request->input($methodField, 'online')]);
-        $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'proposed_budget' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', $methodField => ['required', Rule::in(['online', 'upload'])], 'submission_file' => 'nullable|file|mimes:pdf,doc,docx|max:10240', 'revision_note' => 'nullable|string|max:2000'];
+        $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'proposed_budget' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'budget_items' => 'nullable|array|max:50', 'budget_items.*.category' => ['required', Rule::in(array_keys(ProjectBudget::CATEGORIES))], 'budget_items.*.description' => 'required|string|max:255', 'budget_items.*.quantity' => 'required|numeric|decimal:0,2|min:0.01|max:999999.99', 'budget_items.*.unit_cost' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', $methodField => ['required', Rule::in(['online', 'upload'])], 'submission_file' => 'nullable|file|mimes:pdf,doc,docx|max:10240', 'revision_note' => 'nullable|string|max:2000'];
         foreach ($proposal ? ChapterForms::PROPOSAL : ChapterForms::CONCEPT as $key => $label) $rules[$section.'.'.$key] = 'nullable|string|max:15000';
         if ($proposal) {
             $rules['proposal.committee_director'] = 'nullable|string|max:200';
+            $rules['proposal.president_name'] = 'nullable|string|max:200';
             $rules['proposal.board_meeting_date'] = 'nullable|date_format:Y-m-d';
             $rules['proposal.projected_income'] = 'nullable|numeric|min:0|max:999999999.99';
             $rules['proposal.income_lines'] = 'nullable|array';
@@ -97,6 +104,15 @@ class ChapterController extends Controller
             foreach (array_keys(ChapterForms::PROPOSAL_EXPENSE_LINES) as $key) $rules['proposal.expense_lines.'.$key] = 'nullable|numeric|decimal:0,2|min:0|max:999999999.99';
         }
         $data = $request->validate($rules);
+        $budgetItems = ProjectBudget::normalize($data['budget_items'] ?? []);
+        if ($budgetItems) {
+            $data['budget_items'] = $budgetItems;
+            $data['proposed_budget'] = ProjectBudget::total($budgetItems);
+        } elseif ($project?->budget_items) {
+            $data['budget_items'] = $project->budget_items;
+        } else {
+            unset($data['budget_items']);
+        }
         if ($proposal && $data[$methodField] === 'online') {
             $incomeLines = array_filter($data['proposal']['income_lines'] ?? [], fn ($value) => $value !== null && $value !== '');
             if ($incomeLines) {
@@ -106,6 +122,7 @@ class ChapterController extends Controller
             } elseif (isset($project->proposal['projected_income'])) {
                 $data['proposal']['projected_income'] = $project->proposal['projected_income'];
             }
+            if ($budgetItems) $data['proposal']['expense_lines'] = ProjectBudget::officialExpenseLines($budgetItems);
         }
         $method = $data[$methodField];
         $hasPriorUpload = $project?->documents()->where('submission_stage', $section)->exists() ?? false;
@@ -164,7 +181,8 @@ class ChapterController extends Controller
         $project->load(['owner', 'chair', 'tasks', 'allocations', 'transactions', 'documents', 'letters', 'reports', 'events', 'reviews.user']);
         $members = User::where('status', 'active')->orderBy('name')->get();
         $assignableMembers = $members->where('role', '!=', 'admin');
-        return view('chapter.project', compact('project', 'members', 'assignableMembers'));
+        $evidencePhotoLimit = (int) (\App\Models\ChapterSetting::where('key', 'evidence_photo_limit')->value('value') ?? 8);
+        return view('chapter.project', compact('project', 'members', 'assignableMembers', 'evidencePhotoLimit'));
     }
 
     public function proposalPacket(Request $request, Project $project)
@@ -173,6 +191,22 @@ class ChapterController extends Controller
         abort_unless($project->proposal, 404);
         $project->load(['owner', 'chair', 'documents', 'reviews']);
         return view('chapter.proposal-packet', compact('project'));
+    }
+
+    public function projectWordDocument(Request $request, Project $project, string $stage, ProjectWordDocumentService $documents)
+    {
+        abort_unless(ChapterService::canView($project, $request->user()), 403);
+        abort_unless(in_array($stage, ['concept', 'proposal'], true), 404);
+        abort_unless($stage === 'concept' ? filled($project->concept) : filled($project->proposal), 404);
+        abort_unless(($stage === 'concept' ? $project->concept_submission_method : $project->proposal_submission_method) !== 'upload', 404);
+        $project->loadMissing(['owner', 'chair']);
+        [$path, $filename] = $documents->create($project, $stage);
+
+        return response()->download($path, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ])->deleteFileAfterSend(true);
     }
 
     public function projectMemberPhoto(Request $request, Project $project, User $member)
@@ -320,7 +354,7 @@ class ChapterController extends Controller
 
     public function calendar(Request $request)
     {
-        $query = $request->validate(['month' => 'nullable|date_format:Y-m', 'day' => 'nullable|date_format:Y-m-d']);
+        $query = $request->validate(['month' => 'nullable|date_format:Y-m', 'day' => 'nullable|date_format:Y-m-d', 'type' => ['nullable', Rule::in(['projects', 'activities', 'tasks', 'dues'])]]);
         $month = CarbonImmutable::createFromFormat('!Y-m', $query['month'] ?? now()->format('Y-m'))->startOfMonth();
         $gridStart = $month->startOfWeek(\Carbon\CarbonInterface::SUNDAY);
         $gridEnd = $month->endOfMonth()->endOfWeek(\Carbon\CarbonInterface::SATURDAY);
@@ -351,7 +385,15 @@ class ChapterController extends Controller
             }
         }
         foreach ($tasks as $task) $add($task->deadline, $task->title, 'Task deadline', $task->project?->title, route('projects.show', $task->project_id).'#tasks');
-        foreach ($dues as $due) if ($due->balance > 0) $add($due->due_date, 'Member dues ? '.$due->period, 'Dues', '?'.number_format($due->balance, 2).' outstanding', route('dues'));
+        foreach ($dues as $due) if ($due->balance > 0) $add($due->due_date, 'Member dues · '.$due->period, 'Dues', 'PHP '.number_format($due->balance, 2).' outstanding', route('dues'));
+        if (!empty($query['type'])) {
+            $calendarItems = collect($calendarItems)->map(fn ($items) => array_values(array_filter($items, fn ($item) => match ($query['type']) {
+                'projects' => str_starts_with($item['type'], 'Project '),
+                'activities' => in_array($item['type'], ['Activity', 'Milestone', 'Meeting', 'Review'], true),
+                'tasks' => $item['type'] === 'Task deadline',
+                'dues' => $item['type'] === 'Dues',
+            })))->filter()->all();
+        }
         $weeks = [];
         for ($week = $gridStart; $week->lessThanOrEqualTo($gridEnd); $week = $week->addWeek()) {
             $days = [];
@@ -360,7 +402,8 @@ class ChapterController extends Controller
         }
         $defaultDay = $month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString();
         $selectedDay = isset($query['day']) && str_starts_with($query['day'], $month->format('Y-m')) ? $query['day'] : $defaultDay;
-        return view('chapter.calendar', compact('month', 'weeks', 'calendarItems', 'selectedDay'));
+        $calendarFilter = $query['type'] ?? null;
+        return view('chapter.calendar', compact('month', 'weeks', 'calendarItems', 'selectedDay', 'calendarFilter'));
     }
 
     public function eventSave(Request $request)
@@ -378,7 +421,7 @@ class ChapterController extends Controller
     public function upload(Request $request, Project $project)
     {
         abort_unless($project->canManage($request->user()) || $project->canEdit($request->user()), 403);
-        $data = $request->validate(['title' => 'required|string|max:200', 'category' => 'required|string|max:100', 'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,txt|max:10240']);
+        $data = $request->validate(['title' => 'required|string|max:200', 'category' => 'required|string|max:100', 'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,txt,mp4|max:10240']);
         $path = $request->file('file')->store('project-documents', 'local');
         try {
             DB::transaction(function () use ($request, $project, $data, $path) {
@@ -389,6 +432,90 @@ class ChapterController extends Controller
         return back()->with('success', 'Document uploaded securely.');
     }
 
+    public function uploadPartnership(Request $request, Project $project)
+    {
+        $user = $request->user();
+        abort_unless($user->status === 'active' && ($user->role === 'admin' || $project->created_by === $user->id || $project->isChair($user)), 403);
+        $data = $request->validate([
+            'title' => 'required|string|max:200',
+            'file' => 'required|file|mimes:pdf,doc,docx|max:10240',
+        ]);
+        $path = $request->file('file')->store('project-partnerships', 'local');
+        try {
+            DB::transaction(function () use ($request, $project, $data, $path) {
+                $previous = $project->documents()->where('submission_stage', 'partnership')->lockForUpdate()->latest('version')->first();
+                $document = ProjectDocument::create([
+                    'project_id' => $project->id,
+                    'uploaded_by' => $request->user()->id,
+                    'title' => $data['title'],
+                    'category' => 'External Partnership Letter',
+                    'submission_stage' => 'partnership',
+                    'version' => ($previous?->version ?? 0) + 1,
+                    'replaces_document_id' => $previous?->id,
+                    'submitted_at' => now(),
+                    'path' => $path,
+                    'original_name' => $request->file('file')->getClientOriginalName(),
+                ]);
+                ChapterService::audit('partnership_letter_uploaded', $document);
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete($path);
+            throw $exception;
+        }
+
+        return redirect()->to(route('projects.show', $project).'#partnerships')->with('success', 'Partnership letter uploaded securely.');
+    }
+
+    public function storeEvidence(Request $request, Project $project)
+    {
+        abort_unless($project->isChair($request->user()) && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed'], true), 403);
+
+        $evidenceLimit = (int) (\App\Models\ChapterSetting::where('key', 'evidence_photo_limit')->value('value') ?? 8);
+        $data = $request->validate([
+            'type' => ['required', Rule::in(['attendance', 'evaluation'])],
+            'title' => 'required|string|max:160',
+            'activity_on' => 'required|date',
+            'notes' => 'nullable|string|max:5000',
+            'photos' => 'nullable|array|max:'.$evidenceLimit,
+            'photos.*' => 'required|image|mimes:jpg,jpeg,png,webp|max:10240',
+        ]);
+        $files = $request->file('photos') ?? [];
+        if ($data['type'] === 'attendance' && !$files) {
+            throw ValidationException::withMessages(['photos' => 'Add at least one attendance photo.']);
+        }
+        if ($data['type'] === 'evaluation' && !$files && blank($data['notes'] ?? null)) {
+            throw ValidationException::withMessages(['notes' => 'Write an evaluation or add a photo.']);
+        }
+
+        $paths = [];
+        try {
+            foreach ($files as $file) $paths[] = $file->store('project-evidence', 'local');
+            DB::transaction(function () use ($request, $project, $data, $files, $paths) {
+                $entries = $paths ?: [null];
+                foreach ($entries as $index => $path) {
+                    $document = ProjectDocument::create([
+                        'project_id' => $project->id,
+                        'uploaded_by' => $request->user()->id,
+                        'title' => $data['title'].(count($entries) > 1 ? ' · Photo '.($index + 1) : ''),
+                        'category' => $data['type'] === 'attendance' ? 'Attendance photo' : 'Project evaluation',
+                        'submission_stage' => $data['type'],
+                        'activity_on' => $data['activity_on'],
+                        'notes' => $index === 0 ? ($data['notes'] ?? null) : null,
+                        'path' => $path,
+                        'original_name' => $path ? $files[$index]->getClientOriginalName() : null,
+                        'submitted_at' => now(),
+                    ]);
+                    ChapterService::audit('project_evidence_added', $document);
+                }
+            });
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete($paths);
+            throw $exception;
+        }
+
+        return redirect()->to(route('projects.show', $project).'#evidence')->with('success', 'Project evidence saved.');
+    }
+
     public function download(Request $request, ProjectDocument $document)
     {
         abort_unless(ChapterService::canView($document->project, $request->user()), 403);
@@ -396,37 +523,34 @@ class ChapterController extends Controller
         return Storage::disk('local')->download($document->path, $document->original_name, ['X-Content-Type-Options' => 'nosniff']);
     }
 
-    public function previewDocument(Request $request, ProjectDocument $document)
+    public function previewDocument(Request $request, ProjectDocument $document, OfficePreviewService $previews)
     {
         abort_unless(ChapterService::canView($document->project, $request->user()), 403);
         abort_unless($document->path && Storage::disk('local')->exists($document->path), 404);
         abort_unless($document->canPreviewInline(), 415, 'This file type must be downloaded to view it.');
 
-        if ($document->extension() === 'docx') {
-            $temporaryPdf = tempnam(storage_path('app'), 'document-preview-');
+        if (in_array($document->extension(), ['doc', 'docx'], true)) {
             try {
-                abort_unless($temporaryPdf !== false, 500, 'The document preview could not be prepared.');
-                \PhpOffice\PhpWord\Settings::setPdfRenderer(
-                    \PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF,
-                    base_path('vendor/dompdf/dompdf')
-                );
-                $word = \PhpOffice\PhpWord\IOFactory::load(Storage::disk('local')->path($document->path));
-                $writer = \PhpOffice\PhpWord\IOFactory::createWriter($word, 'PDF');
-                $writer->save($temporaryPdf);
-                $pdf = file_get_contents($temporaryPdf);
-                throw_if($pdf === false || !str_starts_with($pdf, '%PDF'), \RuntimeException::class, 'The generated preview is not a valid PDF.');
+                $preview = $previews->render($document);
             } catch (\Throwable $exception) {
                 report($exception);
                 abort(422, 'This Word file could not be previewed. Download the original file instead.');
-            } finally {
-                if ($temporaryPdf && is_file($temporaryPdf)) @unlink($temporaryPdf);
             }
 
             $previewName = pathinfo($document->original_name, PATHINFO_FILENAME).'.pdf';
 
-            return response($pdf, 200, [
+            return response()->file($preview, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="'.str_replace('"', '', $previewName).'"',
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store',
+            ]);
+        }
+
+        if ($document->extension() === 'mp4') {
+            return response()->file(Storage::disk('local')->path($document->path), [
+                'Content-Type' => 'video/mp4',
+                'Content-Disposition' => 'inline',
                 'X-Content-Type-Options' => 'nosniff',
                 'Cache-Control' => 'private, no-store',
             ]);
@@ -435,20 +559,33 @@ class ChapterController extends Controller
         return Storage::disk('local')->response(
             $document->path,
             $document->original_name,
-            ['Content-Type' => $document->previewMimeType(), 'X-Content-Type-Options' => 'nosniff'],
+            ['Content-Type' => $document->previewMimeType(), 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store'],
             'inline'
         );
     }
 
+    public function originalDocumentPreview(Request $request, ProjectDocument $document)
+    {
+        abort_unless(ChapterService::canView($document->project, $request->user()), 403);
+        abort_unless($document->extension() === 'docx', 415);
+        abort_unless($document->path && Storage::disk('local')->exists($document->path), 404);
+
+        return response()->view('chapter.document-original-preview', compact('document'))
+            ->header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; object-src 'none'; form-action 'none'");
+    }
+
     public function documents(Request $request)
     {
-        $request->validate(['q' => 'nullable|string|max:200']);
+        $request->validate(['q' => 'nullable|string|max:200', 'type' => 'nullable|in:all,evidence,attendance,evaluation,documents']);
 
         $documents = ProjectDocument::query()
             ->with('project')
             ->whereHas('project', fn ($query) => $query->when($request->user()->role === 'member', fn ($query) => $query->where(fn ($query) => $query
                 ->whereIn('status', Project::APPROVED)
                 ->orWhere('created_by', $request->user()->id))))
+            ->when($request->query('type') === 'evidence', fn ($query) => $query->whereIn('submission_stage', ['attendance', 'evaluation']))
+            ->when(in_array($request->query('type'), ['attendance', 'evaluation'], true), fn ($query) => $query->where('submission_stage', $request->query('type')))
+            ->when($request->query('type') === 'documents', fn ($query) => $query->where(fn ($query) => $query->whereNull('submission_stage')->orWhereNotIn('submission_stage', ['attendance', 'evaluation'])))
             ->when($request->filled('q'), fn ($query) => $query->where(fn ($query) => $query
                 ->where('title', 'like', '%'.$request->string('q').'%')
                 ->orWhere('category', 'like', '%'.$request->string('q').'%')

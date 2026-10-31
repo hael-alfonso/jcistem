@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ProjectDocument extends ChapterRecord
 {
     // Files are stored privately and served through an authorized controller.
-    protected $casts = ['submitted_at' => 'datetime'];
+    protected $casts = ['submitted_at' => 'datetime', 'activity_on' => 'date'];
 
     public function extension(): string
     {
@@ -20,9 +20,11 @@ class ProjectDocument extends ChapterRecord
             'pdf' => 'application/pdf',
             'jpg', 'jpeg' => 'image/jpeg',
             'png' => 'image/png',
+            'webp' => 'image/webp',
             'txt' => 'text/plain; charset=UTF-8',
             'csv' => 'text/csv; charset=UTF-8',
-            'docx' => 'application/pdf',
+            'mp4' => 'video/mp4',
+            'doc', 'docx' => 'application/pdf',
             default => null,
         };
     }

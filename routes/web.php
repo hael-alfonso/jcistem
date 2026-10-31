@@ -45,6 +45,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/projects', [ChapterController::class, 'projects'])->name('projects');
     Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
+    Route::get('/projects/{project}/word/{stage}', [ChapterController::class, 'projectWordDocument'])->whereNumber('project')->whereIn('stage', ['concept', 'proposal'])->name('projects.word');
+    Route::post('/projects/{project}/partnerships', [ChapterController::class, 'uploadPartnership'])->whereNumber('project')->name('projects.partnerships.store');
     Route::get('/projects/{project}', [ChapterController::class, 'show'])->name('projects.show')->whereNumber('project');
     Route::get('/projects/{project}/proposal', [ChapterController::class, 'proposalPacket'])->name('projects.proposal')->whereNumber('project');
     Route::get('/projects/{project}/people/{member}/photo', [ChapterController::class, 'projectMemberPhoto'])->name('projects.people.photo')->whereNumber(['project', 'member']);
@@ -59,7 +61,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/documents', [ChapterController::class, 'documents'])->name('documents');
     Route::post('/calendar', [ChapterController::class, 'eventSave'])->name('calendar.store');
     Route::post('/projects/{project}/documents', [ChapterController::class, 'upload'])->name('documents.store');
+    Route::post('/projects/{project}/evidence', [ChapterController::class, 'storeEvidence'])->name('projects.evidence.store');
     Route::get('/documents/{document}/preview', [ChapterController::class, 'previewDocument'])->name('documents.preview');
+    Route::get('/documents/{document}/original-preview', [ChapterController::class, 'originalDocumentPreview'])->name('documents.original-preview');
     Route::get('/documents/{document}/download', [ChapterController::class, 'download'])->name('documents.download');
     Route::get('/notifications', [ChapterController::class, 'notifications'])->name('notifications');
     Route::post('/notifications/read', [ChapterController::class, 'readNotifications'])->name('notifications.read');

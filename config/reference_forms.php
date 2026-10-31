@@ -3,13 +3,13 @@
 return [
     'external-partnership-letter' => [
         'title' => 'External Partnership Letter',
-        'description' => 'For sponsors, partner organizations, and external support requests.',
-        'file' => '01_JCI_Carmona_External_Partnership_Letter.docx',
+        'description' => 'Official partnership proposal letter for sponsors, organizations, and external support requests.',
+        'file' => '02_JCI_Carmona_External_Partnership_Letter.docx',
     ],
     'internal-project-letter' => [
         'title' => 'Internal Project Proposal Letter',
-        'description' => 'For proposing a project to the chapter President and Board; separate from an external partnership letter.',
-        'file' => '02_JCI_Carmona_Internal_Project_Letter.docx',
+        'description' => 'Official concept-stage letter to the JCI Carmona President and Board.',
+        'file' => '01_JCI_Carmona_Internal_Project_Letter.docx',
     ],
     'project-proposal-form' => [
         'title' => 'Project Proposal Form (PPF)',

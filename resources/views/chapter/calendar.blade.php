@@ -14,14 +14,15 @@
             <div class="calendar-period"><span class="eyebrow">CHAPTER SCHEDULE</span><h2>{{ $month->format('F Y') }}</h2><small>{{ $calendarEntryCount }} {{ \Illuminate\Support\Str::plural('entry', $calendarEntryCount) }} across {{ $scheduledDayCount }} scheduled {{ \Illuminate\Support\Str::plural('day', $scheduledDayCount) }}</small></div>
             <div class="calendar-controls">
                 <div class="calendar-month-nav" aria-label="Calendar navigation">
-                    <a class="calendar-step" href="{{ route('calendar', ['month' => $month->subMonth()->format('Y-m')]) }}" aria-label="Previous month">&lsaquo;</a>
-                    <a class="calendar-today" href="{{ route('calendar') }}">Today</a>
-                    <a class="calendar-step" href="{{ route('calendar', ['month' => $month->addMonth()->format('Y-m')]) }}" aria-label="Next month">&rsaquo;</a>
+                    <a class="calendar-step" href="{{ route('calendar', array_filter(['month' => $month->subMonth()->format('Y-m'), 'type' => $calendarFilter])) }}" aria-label="Previous month"><x-icon name="arrowLeft"/></a>
+                    <a class="calendar-today" href="{{ route('calendar', array_filter(['type' => $calendarFilter])) }}">Today</a>
+                    <a class="calendar-step" href="{{ route('calendar', array_filter(['month' => $month->addMonth()->format('Y-m'), 'type' => $calendarFilter])) }}" aria-label="Next month"><x-icon name="arrow"/></a>
                 </div>
-                <form method="GET" action="{{ route('calendar') }}" class="calendar-jump"><label class="sr-only" for="calendar-month">Jump to month</label><input id="calendar-month" type="month" name="month" value="{{ $month->format('Y-m') }}"><button type="submit"><x-icon name="arrow" /> Go</button></form>
+                <form method="GET" action="{{ route('calendar') }}" class="calendar-jump">@if($calendarFilter)<input type="hidden" name="type" value="{{ $calendarFilter }}">@endif<label class="sr-only" for="calendar-month">Jump to month</label><input id="calendar-month" type="month" name="month" value="{{ $month->format('Y-m') }}"><button type="submit"><x-icon name="arrow" /> Go</button></form>
                 @if(auth()->user()->role === 'admin')<button class="btn primary calendar-add-button" type="button" data-calendar-dialog-open><x-icon name="calendar"/>Add activity</button>@endif
             </div>
         </header>
+        <nav class="calendar-type-filters" aria-label="Filter calendar entries">@foreach(['' => 'All', 'projects' => 'Projects', 'activities' => 'Activities', 'tasks' => 'Tasks', 'dues' => 'Dues'] as $value => $label)<a href="{{ route('calendar', array_filter(['month' => $month->format('Y-m'), 'day' => $selectedDay, 'type' => $value])) }}" class="{{ ($calendarFilter ?? '') === $value ? 'is-active' : '' }}" @if(($calendarFilter ?? '') === $value) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
         <div class="calendar-scroll">
             <div class="calendar-weekdays" aria-hidden="true">@foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $weekday)<span>{{ $weekday }}</span>@endforeach</div>
             <div class="calendar-month">
@@ -29,13 +30,13 @@
                     @foreach($week as $day)
                         @php $date = $day->toDateString(); $dayItems = $calendarItems[$date] ?? []; @endphp
                         <div class="calendar-cell {{ $day->month !== $month->month ? 'is-outside' : '' }} {{ $date === $selectedDay ? 'is-selected' : '' }} {{ $date === now()->toDateString() ? 'is-today' : '' }}">
-                            <a class="calendar-date" href="{{ route('calendar', ['month' => $day->format('Y-m'), 'day' => $date]) }}" aria-label="Show {{ $day->format('F j, Y') }} agenda">{{ $day->day }}</a>
+                            <a class="calendar-date" href="{{ route('calendar', array_filter(['month' => $day->format('Y-m'), 'day' => $date, 'type' => $calendarFilter])) }}" aria-label="Show {{ $day->format('F j, Y') }} agenda">{{ $day->day }}</a>
                             <div class="calendar-cell-events">
                                 @foreach(array_slice($dayItems, 0, 3) as $item)
                                     @if($item['url'])<a class="calendar-event kind-{{ \Illuminate\Support\Str::slug($item['type']) }}" href="{{ $item['url'] }}" title="{{ $item['context'] }}"><span>{{ $item['title'] }}</span></a>
                                     @else<span class="calendar-event kind-{{ \Illuminate\Support\Str::slug($item['type']) }}" title="{{ $item['context'] }}"><span>{{ $item['title'] }}</span></span>@endif
                                 @endforeach
-                                @if(count($dayItems) > 3)<a class="calendar-more" href="{{ route('calendar', ['month' => $day->format('Y-m'), 'day' => $date]) }}">+{{ count($dayItems) - 3 }} more</a>@endif
+                                @if(count($dayItems) > 3)<a class="calendar-more" href="{{ route('calendar', array_filter(['month' => $day->format('Y-m'), 'day' => $date, 'type' => $calendarFilter])) }}">+{{ count($dayItems) - 3 }} more</a>@endif
                             </div>
                         </div>
                     @endforeach

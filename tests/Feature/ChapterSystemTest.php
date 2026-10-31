@@ -32,14 +32,14 @@ class ChapterSystemTest extends TestCase
         $member = $this->user();
         $project = $this->project($member, ['status' => 'Ongoing', 'chair_id' => $member->id]);
         $this->actingAs($member)->get('/dashboard')->assertOk()
-            ->assertSee('All Projects')->assertSee('Project Budgets')->assertSee('My Profile')
+            ->assertSee('All Chapter Projects')->assertSee('Project Budget Overview')->assertSee('My Profile')
             ->assertDontSee('Master Ledger');
         $this->get('/projects')->assertOk()->assertSee('Quick view')->assertSee('project-preview-dialog');
         $this->get('/finance')->assertOk()->assertSee('Financial monitoring');
 
         $treasurer = $this->user('treasurer');
         $this->actingAs($treasurer)->get('/dashboard')->assertOk()
-            ->assertSee('Master Ledger')->assertSee('Report Reviews');
+            ->assertSee('Master Ledger')->assertSee('Liquidation Reviews');
         $this->actingAs($treasurer)->get('/projects/'.$project->id.'/liquidation')->assertOk();
 
         $admin = $this->user('admin');
@@ -161,7 +161,7 @@ class ChapterSystemTest extends TestCase
 
         $draft = $this->project($chair, ['status' => 'Approved', 'chair_id' => $chair->id]);
         $draft->update(['plan_locked_at' => null]);
-        $this->actingAs($chair)->get('/projects/'.$draft->id.'/edit')->assertOk()->assertSee('Internal Board transmittal');
+        $this->actingAs($chair)->get('/projects/'.$draft->id.'/edit')->assertOk()->assertSee('Project proposal form');
         $this->actingAs($chair)->get('/projects/'.$project->id.'/proposal')
             ->assertOk()->assertSee('Internal Chapter Project Proposal Transmittal Letter');
         $this->get('/records/letters/create?project_id='.$project->id)->assertOk()->assertSee('External partnership LOI');
@@ -292,6 +292,32 @@ class ChapterSystemTest extends TestCase
         $this->put('/account', ['name' => $member->name, 'email' => $member->email, 'username' => $member->username, 'remove_photo' => 1])->assertSessionHasNoErrors();
         $this->assertArrayNotHasKey('photo_path', $member->fresh()->profile);
         Storage::disk('local')->assertMissing($secondPath);
+    }
+
+    public function test_profile_and_personal_settings_are_separate(): void
+    {
+        $member = $this->user();
+
+        $this->actingAs($member)->get('/account')
+            ->assertOk()
+            ->assertSee('My Profile')
+            ->assertSee('Profile photo')
+            ->assertDontSee('Notification preferences')
+            ->assertDontSee('Open another account');
+
+        $this->get('/settings')
+            ->assertOk()
+            ->assertSee('Workspace Settings')
+            ->assertSee('Starting workspace')
+            ->assertSee('Layout and navigation')
+            ->assertDontSee('Profile photo');
+
+        $this->put('/settings', [
+            'profile' => ['preferences' => ['start_page' => 'tasks', 'interface_density' => 'compact', 'navigation_mode' => 'expanded', 'reduce_motion' => 1]],
+        ])->assertSessionHasNoErrors()->assertSessionHas('success', 'Settings saved.');
+
+        $this->assertSame('tasks', data_get($member->fresh()->profile, 'preferences.start_page'));
+        $this->assertTrue((bool) data_get($member->fresh()->profile, 'preferences.reduce_motion'));
     }
 }
 

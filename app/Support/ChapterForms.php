@@ -5,21 +5,35 @@ class ChapterForms
 {
     public const AREAS = ['Community Impact', 'Individual Development', 'Business & Entrepreneurship', 'International Cooperation'];
     public const CONCEPT = [
-        'background' => 'Background / community need',
-        'objective' => 'Main objective',
-        'beneficiaries' => 'Target beneficiaries / community',
-        'approach' => 'Brief project concept / proposed approach',
-        'participants' => 'Estimated participants / beneficiaries',
-        'partners' => 'Possible partners / stakeholders',
-        'resources' => 'Preliminary resource requirements',
-        'benefit' => 'Expected output / community benefit',
-        'risks' => 'Initial risks / considerations',
-        'request' => 'Request for endorsement / proponent signature',
+        'letter_date' => 'Letter date',
+        'president_name' => 'Local Organization President',
+        'chapter_address' => 'Chapter address',
+        'sdg_number' => 'United Nations SDG number',
+        'sdg_name' => 'United Nations SDG name',
+        'objective' => 'Primary project objective',
+        'beneficiaries' => 'Target beneficiaries / expected participants',
+        'committee_size' => 'Required number of active JCI members',
+        'funding_source' => 'Fundraising strategy or chapter allocation',
+        'resources' => 'Additional resource requirements',
+        'request' => 'Formal request to the Board',
+        'proponent_position' => 'Your JCI position / title',
+        'contact_info' => 'Your contact information',
     ];
     public const CONCEPT_SECTIONS = [
-        'Purpose and SDG alignment' => ['background', 'objective', 'approach'],
-        'Project overview' => ['beneficiaries', 'participants', 'partners'],
-        'Resource requirements and request' => ['resources', 'benefit', 'risks', 'request'],
+        'Recipient and SDG alignment' => ['letter_date', 'president_name', 'chapter_address', 'sdg_number', 'sdg_name'],
+        'Project overview' => ['objective', 'beneficiaries', 'committee_size'],
+        'Resource requirements and signatory' => ['funding_source', 'resources', 'request', 'proponent_position', 'contact_info'],
+    ];
+    public const CONCEPT_REQUIRED = [
+        'president_name' => 'Local Organization President',
+        'sdg_number' => 'SDG number',
+        'sdg_name' => 'SDG name',
+        'objective' => 'Primary project objective',
+        'beneficiaries' => 'Target beneficiaries',
+        'committee_size' => 'Required active JCI members',
+        'funding_source' => 'Funding source',
+        'proponent_position' => 'JCI position / title',
+        'contact_info' => 'Contact information',
     ];
     public const PROPOSAL = [
         'rationale' => 'Project rationale / needs analysis',

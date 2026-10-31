@@ -63,14 +63,15 @@ class RecordController extends Controller
     public function create(Request $request, string $kind)
     {
         $class = $this->model($kind);
-        $request->validate(['project_id' => 'nullable|integer|exists:projects,id']);
+        $request->validate(['project_id' => 'nullable|integer|exists:projects,id', 'type' => ['nullable', Rule::in(['Progress', 'Completion', 'Liquidation'])]]);
         $project = $request->filled('project_id') ? Project::findOrFail($request->project_id) : null;
         if ($project) abort_unless($project->canManage($request->user()) || $project->canReport($request->user()), 403);
         else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
+        $reportType = $kind === 'reports' && $project ? ($request->query('type') ?: 'Progress') : null;
         $record = new $class([
             'project_id' => $project?->id,
             'title' => $kind === 'letters' ? 'Project Proposal and Invitation for Partnership – '.$project->title : null,
-            'type' => $project ? ($kind === 'letters' ? 'JCI LOI' : 'Progress') : 'Overall Financial',
+            'type' => $project ? ($kind === 'letters' ? 'JCI LOI' : $reportType) : 'Overall Financial',
             'data' => $kind === 'letters' ? [
                 'letter_date' => now()->format('Y-m-d'),
                 'purpose' => $project->proposal['rationale'] ?? '',
@@ -328,15 +329,32 @@ class RecordController extends Controller
 
     public function settingsSave(Request $request)
     {
+        if ($request->boolean('reset_preferences')) {
+            $user = $request->user();
+            DB::transaction(function () use ($user) {
+                $before = $user->toArray();
+                $profile = $user->profile ?? [];
+                $profile['preferences'] = [
+                    'start_page' => 'dashboard',
+                    'interface_density' => 'comfortable',
+                    'navigation_mode' => 'accordion',
+                    'reduce_motion' => false,
+                    'color_theme' => 'system',
+                ];
+                $user->profile = $profile;
+                $user->save();
+                ChapterService::audit('account_settings_reset', $user, $before);
+            });
+            return back()->with('success', 'Workspace settings restored to default.');
+        }
         $data = $request->validate([
-            'profile.preferences.task_reminders' => 'sometimes|boolean',
-            'profile.preferences.dues_reminders' => 'sometimes|boolean',
-            'current_password' => 'nullable|required_with:password|current_password',
-            'password' => ['nullable', 'confirmed', Password::min(10)],
+            'profile.preferences.start_page' => ['required', Rule::in(['dashboard', 'projects', 'tasks', 'calendar'])],
+            'profile.preferences.interface_density' => ['required', Rule::in(['comfortable', 'compact'])],
+            'profile.preferences.navigation_mode' => ['required', Rule::in(['accordion', 'expanded'])],
+            'profile.preferences.reduce_motion' => 'required|boolean',
+            'profile.preferences.color_theme' => ['nullable', Rule::in(['system', 'jci', 'teal', 'navy'])],
         ]);
         $user = $request->user();
-        unset($data['current_password']);
-        if (empty($data['password'])) unset($data['password']);
 
         DB::transaction(function () use ($user, $data) {
             $before = $user->toArray();
@@ -344,8 +362,6 @@ class RecordController extends Controller
             $user->fill($data)->save();
             ChapterService::audit('account_settings_updated', $user, $before);
         });
-
-        if (isset($data['password'])) $request->session()->regenerate();
 
         return back()->with('success', 'Settings saved.');
     }

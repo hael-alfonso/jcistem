@@ -176,7 +176,14 @@ class AuthController extends Controller
         Auth::login($claimed, false);
         $request->session()->regenerate();
         $request->session()->put('active_login_token', $token);
-        return redirect()->intended(route('dashboard'));
+        $startPage = data_get($claimed->profile, 'preferences.start_page', 'dashboard');
+        $destination = match ($startPage) {
+            'projects' => route('projects', ['filter' => 'mine']),
+            'tasks' => route('tasks', ['mine' => 1]),
+            'calendar' => route('calendar'),
+            default => route('dashboard'),
+        };
+        return redirect()->intended($destination);
     }
 
     public function logout(Request $request): RedirectResponse

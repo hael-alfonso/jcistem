@@ -3,7 +3,12 @@
 .auth-home { display: inline-flex; align-items: center; gap: 10px; padding-block: 12px; color: var(--muted); font-size: 13px; }
 .auth-home:hover { color: var(--blue); }
 .auth-shell { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 700px; min-height: max(700px, calc(100svh - 162px)); overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #fff; box-shadow: 0 10px 40px #132b4608; }
-.auth-intro { position: relative; isolation: isolate; display: flex; flex-direction: column; overflow: hidden; padding: 40px 48px 27px; background-color: #0c0e29; background-image: linear-gradient(90deg, #0c0e29 0%, rgb(12 14 41 / 98%) 52%, rgb(12 14 41 / 68%) 70%, rgb(12 14 41 / 0%) 84%), url('../images/community/jci-scotland-banner.webp'); background-position: center; background-size: cover; background-repeat: no-repeat; color: #fff; }
+.auth-intro { position: relative; isolation: isolate; display: flex; flex-direction: column; overflow: hidden; padding: 40px 48px 27px; background: #0c0e29; color: #fff; }
+.auth-intro::before, .auth-intro::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+.auth-intro::before { z-index: -2; background: url('../images/community/jci-scotland-banner.webp') center / cover no-repeat; transform: scale(1.015); transition: transform .38s cubic-bezier(.2,.7,.2,1), opacity .3s ease; }
+.auth-intro::after { z-index: -1; background: linear-gradient(90deg, #0c0e29 0%, rgb(12 14 41 / 98%) 52%, rgb(12 14 41 / 68%) 70%, rgb(12 14 41 / 0%) 84%); }
+.auth-page.is-moving-forward .auth-intro::before { transform: scale(1.04) translateX(-10px); opacity: .78; }
+.auth-page.is-moving-back .auth-intro::before { transform: scale(1.04) translateX(10px); opacity: .78; }
 .auth-system, .auth-intro-copy, .auth-features, .auth-intro-footer { position: relative; z-index: 1; }
 .auth-intro-copy { max-width: min(400px, 70%); }
 .auth-features { max-width: 380px; }
@@ -98,6 +103,8 @@ html.auth-flow-back .auth-form-panel { animation-name: auth-form-enter-back; }
     .auth-header { min-height: 92px; }
     .auth-shell { max-width: 720px; min-height: 0; grid-template-columns: 1fr; box-shadow: 0 18px 46px rgb(19 43 70 / 8%); }
     .auth-intro { display: flex; min-height: 360px; padding: 34px 38px 28px; }
+    .auth-intro::before { background-position: center; }
+    .auth-intro::after { background: linear-gradient(90deg, #0c0e29f5 0%, #0c0e29d9 54%, #0c0e2940 100%); }
     .auth-intro-copy { max-width: min(400px, 70%); margin-top: 27px; }
     .auth-intro-copy > p:not(.eyebrow) { max-width: 410px; margin-top: 12px; }
     .auth-features { display: none; }
@@ -125,6 +132,8 @@ html.auth-flow-back .auth-form-panel { animation-name: auth-form-enter-back; }
     .auth-account-help { padding: 16px; }
     .auth-footer { font-size: 12px; }
     .auth-intro { min-height: 270px; padding: 24px 22px; }
+    .auth-intro::before { background-position: 58% center; }
+    .auth-intro::after { background: linear-gradient(90deg, #0c0e29f5 0%, #0c0e29d1 58%, #0c0e2938 100%); }
     .auth-system img { width: 33px; height: 41px; }
     .auth-system > span { font-size: 18px; }
     .auth-system small { font-size: 10px; }
@@ -155,7 +164,7 @@ html.auth-flow-back .auth-form-panel { animation-name: auth-form-enter-back; }
     .auth-registration-form { grid-template-columns: 1fr; gap: 17px; }
     .auth-registration-form .auth-consent, .auth-registration-form .auth-trap, .auth-registration-form .auth-submit { grid-column: auto; }
 }
-@media (prefers-reduced-motion: reduce) { .auth-form-panel, html.auth-flow-back .auth-form-panel, .auth-form-panel.is-leaving-left, .auth-form-panel.is-leaving-right { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .auth-form-panel, html.auth-flow-back .auth-form-panel, .auth-form-panel.is-leaving-left, .auth-form-panel.is-leaving-right { animation: none; } .auth-intro::before { transition: none; } }
 @media (max-width: 480px) {
     .auth-shell { min-height: 0; }
     .auth-field textarea { font-size: 16px; }

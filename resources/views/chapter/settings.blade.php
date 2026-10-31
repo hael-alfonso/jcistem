@@ -1,26 +1,34 @@
 @extends('layouts.chapter')
-@section('title','My Settings')
+@section('title','Workspace Settings')
 @section('content')
 @php $preferences = $member->profile['preferences'] ?? []; @endphp
-<div class="page-heading profile-page-heading"><div><div class="eyebrow">JCI CARMONA · PERSONAL SETTINGS</div><h1>My Settings</h1><p>Control your reminders and sign-in security without changing your member profile.</p></div><a class="btn secondary" href="{{ route('account') }}"><x-icon name="user" /> View profile</a></div>
+<div class="page-heading profile-page-heading"><div><div class="eyebrow">JCI CARMONA · WORKSPACE PREFERENCES</div><h1>Workspace Settings</h1><p>Choose how the PMS opens, feels, and organizes navigation for your account.</p></div></div>
 <form method="POST" action="{{ route('settings.update') }}" class="settings-layout">
     @csrf @method('PUT')
     <section class="panel form-panel settings-card">
-        <div class="section-heading"><span><x-icon name="bell"/></span><div><h2>Notification preferences</h2><p>Choose which scheduled reminders appear in your private notification center.</p></div></div>
-        <div class="settings-choice-list">
-            <label><input type="hidden" name="profile[preferences][task_reminders]" value="0"><input type="checkbox" name="profile[preferences][task_reminders]" value="1" @checked((bool) ($preferences['task_reminders'] ?? true))><span><strong>Task reminders</strong><small>Deadlines, overdue assignments, and work that needs your attention.</small></span></label>
-            <label><input type="hidden" name="profile[preferences][dues_reminders]" value="0"><input type="checkbox" name="profile[preferences][dues_reminders]" value="1" @checked((bool) ($preferences['dues_reminders'] ?? true))><span><strong>Dues reminders</strong><small>Upcoming and outstanding membership dues linked to your account.</small></span></label>
+        <div class="section-heading"><span><x-icon name="dashboard"/></span><div><h2>Starting workspace</h2><p>Open the part of JCISTEM you use most after signing in.</p></div></div>
+        <div class="settings-option-grid">
+            @foreach(['dashboard' => ['Dashboard', 'Chapter overview and items needing attention', 'dashboard'], 'projects' => ['My projects', 'Projects you proposed, chair, or support', 'briefcase'], 'tasks' => ['My tasks', 'Assigned work and upcoming deadlines', 'checklist'], 'calendar' => ['Calendar', 'Chapter dates, milestones, and meetings', 'calendar']] as $value => [$label, $description, $icon])
+                <label><input type="radio" name="profile[preferences][start_page]" value="{{ $value }}" @checked(($preferences['start_page'] ?? 'dashboard') === $value)><span><x-icon :name="$icon"/><strong>{{ $label }}</strong><small>{{ $description }}</small></span></label>
+            @endforeach
         </div>
     </section>
-    <section class="panel form-panel settings-card" id="security">
-        <div class="section-heading"><span><x-icon name="shieldCheck"/></span><div><h2>Password &amp; security</h2><p>Use your current password to set a new password for this account.</p></div></div>
-        <div class="form-grid settings-password-grid">
-            <x-field name="current_password" label="Current password" type="password" autocomplete="current-password"/>
-            <span></span>
-            <x-field name="password" label="New password (at least 10 characters)" type="password" minlength="10" autocomplete="new-password"/>
-            <x-field name="password_confirmation" label="Confirm new password" type="password" autocomplete="new-password"/>
+    <section class="panel form-panel settings-card">
+        <div class="section-heading"><span><x-icon name="settings"/></span><div><h2>Layout and navigation</h2><p>Use a comfortable view or fit more work on screen without changing your data.</p></div></div>
+        <div class="form-grid">
+            <x-field name="profile[preferences][interface_density]" label="Content spacing" type="select" :options="['comfortable' => 'Comfortable', 'compact' => 'Compact']" :value="$preferences['interface_density'] ?? 'comfortable'" required/>
+            <x-field name="profile[preferences][navigation_mode]" label="Sidebar groups" type="select" :options="['accordion' => 'Open one group at a time', 'expanded' => 'Keep groups open']" :value="$preferences['navigation_mode'] ?? 'accordion'" required/>
+        </div>
+        <label class="settings-toggle"><input type="hidden" name="profile[preferences][reduce_motion]" value="0"><input type="checkbox" name="profile[preferences][reduce_motion]" value="1" @checked((bool) ($preferences['reduce_motion'] ?? false))><span><strong>Reduce interface motion</strong><small>Minimize panel, dialog, and toast animations in the PMS.</small></span></label>
+    </section>
+    <section class="panel form-panel settings-card">
+        <div class="section-heading"><span><x-icon name="palette"/></span><div><h2>Color theme</h2><p>Choose a chapter palette for your workspace. Follow system uses the Admin default.</p></div></div>
+        <div class="settings-theme-options">
+            @foreach(['system' => ['Follow system', 'Uses the chapter default', 'system'], 'jci' => ['JCI Blue', 'The original JCISTEM palette', 'jci'], 'teal' => ['Carmona Teal', 'Calm teal accents', 'teal'], 'navy' => ['Deep Navy', 'A focused dark blue accent', 'navy']] as $value => [$label, $description, $swatch])
+                <label class="settings-theme-choice"><input type="radio" name="profile[preferences][color_theme]" value="{{ $value }}" @checked(($preferences['color_theme'] ?? 'system') === $value)><span class="theme-swatch theme-swatch-{{ $swatch }}" aria-hidden="true"></span><span><strong>{{ $label }}</strong><small>{{ $description }}</small></span></label>
+            @endforeach
         </div>
     </section>
-    <div class="settings-save-bar"><p>These settings apply only to your signed-in account.</p><button class="btn primary"><x-icon name="save" /> Save settings</button></div>
+    <div class="settings-save-bar"><p>These options affect only your workspace.</p><div class="button-row"><button class="btn secondary" type="submit" name="reset_preferences" value="1" formnovalidate data-confirm="Restore your workspace layout, navigation, motion, and color theme to the defaults?"><x-icon name="refresh" /> Reset to default</button><button class="btn primary" type="submit"><x-icon name="save" /> Save workspace settings</button></div></div>
 </form>
 @endsection

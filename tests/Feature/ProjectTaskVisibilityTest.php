@@ -43,7 +43,8 @@ class ProjectTaskVisibilityTest extends TestCase
         $this->actingAs($member)->get('/projects')->assertOk()
             ->assertSee($objective)->assertSee('Created by')->assertSee('Project chair')
             ->assertSee('Oct 20, 2026')->assertSee('0 of 1')
-            ->assertSee('value="Completion Review"', false);
+            ->assertSee('Time marker: 15% elapsed')->assertSee('Behind pace')
+            ->assertSee('value="ongoing"', false);
 
         $this->get('/tasks')->assertOk()
             ->assertSee('Prepare volunteer roster')->assertSee('data-label="Assigned to"', false)

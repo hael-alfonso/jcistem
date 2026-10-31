@@ -20,14 +20,20 @@
     <link rel="stylesheet" href="{{ asset('assets/css/project-documents.css') }}?v={{ filemtime(public_path('assets/css/project-documents.css')) }}">
     <script type="module" src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
 </head>
-<body>
 @php
     $user = auth()->user();
+    $workspacePreferences = $user?->profile['preferences'] ?? [];
     $unread = \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')->count();
+    $recentNotifications = \App\Models\Notification::where('user_id', $user->id)->latest()->limit(4)->get();
     $roleLabel = \App\Support\WorkspaceNav::label($user->role);
     $navigation = \App\Support\PmsNavigation::for($user);
+    $workspaceNotice = \Illuminate\Support\Facades\Cache::remember('jci.workspace_notice', 300, fn () => \App\Models\ChapterSetting::where('key', 'workspace_notice')->value('value') ?? '');
+    $systemTheme = \Illuminate\Support\Facades\Cache::remember('jci.workspace_theme', 300, fn () => \App\Models\ChapterSetting::where('key', 'workspace_theme')->value('value') ?? 'jci');
+    $preferredTheme = $workspacePreferences['color_theme'] ?? 'system';
+    $effectiveTheme = in_array($preferredTheme, ['jci', 'teal', 'navy'], true) ? $preferredTheme : (in_array($systemTheme, ['jci', 'teal', 'navy'], true) ? $systemTheme : 'jci');
     $activeGroup = collect($navigation)->search(fn ($items) => collect($items)->contains(fn ($item) => \App\Support\PmsNavigation::active($item)));
 @endphp
+<body class="workspace-density-{{ $workspacePreferences['interface_density'] ?? 'comfortable' }} workspace-theme-{{ $effectiveTheme }} {{ !empty($workspacePreferences['reduce_motion']) ? 'workspace-reduce-motion' : '' }}" data-navigation-mode="{{ $workspacePreferences['navigation_mode'] ?? 'accordion' }}">
 <a class="skip-link" href="#content">Skip to content</a>
 <div class="app-shell">
     <aside class="app-sidebar" id="navigation" aria-label="Workspace navigation">
@@ -51,7 +57,7 @@
                         @if($route === 'notifications' && $unread)<b>{{ $unread }}</b>@endif
                     </a>
                 @else
-                <details class="nav-section" name="sidebar-menu" @if($groupOpen) open @endif>
+                <details class="nav-section" @if(($workspacePreferences['navigation_mode'] ?? 'accordion') !== 'expanded') name="sidebar-menu" @endif @if($groupOpen || ($workspacePreferences['navigation_mode'] ?? 'accordion') === 'expanded') open @endif>
                     <summary><x-icon :name="\App\Support\PmsNavigation::icon($group)"/><span>{{ \App\Support\PmsNavigation::label($group) }}</span></summary>
                     <div class="nav-items">
                     @foreach($items as [$route, $label, $icon, $params])
@@ -73,37 +79,41 @@
                 @endif
             @endforeach
         </nav>
-        <div class="sidebar-account">
-            <div class="sidebar-account-identity">
-                <span class="avatar">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span>
-                <span><strong>{{ $user->name }}</strong><small>{{ $roleLabel }}</small></span>
-            </div>
-        </div>
     </aside>
     <button class="nav-overlay" type="button" aria-label="Close navigation"></button>
     <div class="app-main">
         <header class="app-topbar">
             <div class="topbar-context">
                 <button class="menu-button" type="button" aria-controls="navigation" aria-expanded="false" aria-label="Open navigation"><x-icon name="menu" /></button>
-                <span><a href="{{ route('dashboard') }}">Dashboard</a>@if($activeGroup)<span class="muted">/</span><span class="topbar-group">{{ \App\Support\PmsNavigation::label($activeGroup) }}</span>@endif @unless(request()->routeIs('dashboard'))<span class="muted">/</span><strong>@yield('title', 'Overview')</strong>@endunless</span>
+                <span><a href="{{ route('dashboard') }}">Dashboard</a>@if($activeGroup && !\App\Support\PmsNavigation::direct($activeGroup))<span class="muted">/</span><span class="topbar-group">{{ \App\Support\PmsNavigation::label($activeGroup) }}</span>@endif @unless(request()->routeIs('dashboard'))<span class="muted">/</span><strong>@yield('title', 'Overview')</strong>@endunless</span>
             </div>
             <div class="topbar-right">
-                <details class="topbar-settings-menu topbar-quick-menu">
-                    <summary aria-label="Open quick actions"><x-icon name="plus" /></summary>
-                    <div class="topbar-menu-panel">
-                        <span class="topbar-menu-label">Quick actions</span>
-                        <a href="{{ route('projects.create') }}"><x-icon name="filePlus" /> Submit new project</a>
-                        <a href="{{ route('tasks', ['mine' => 1]) }}"><x-icon name="checklist" /> My assigned tasks</a>
-                        @if(in_array($user->role, ['admin','treasurer','bod'], true))<a href="{{ route('projects', ['filter' => 'review']) }}"><x-icon name="clipboardCheck" /> Open review queue</a>@endif
-                        @if($user->role === 'treasurer')<a href="{{ route('ledger') }}"><x-icon name="wallet" /> Open master ledger</a>@endif
-                        <a href="{{ route('calendar') }}"><x-icon name="calendar" /> Open calendar</a>
+                <span class="today" aria-label="Today">{{ now()->format('D, d M Y') }}</span>
+                <details class="topbar-settings-menu topbar-notification-menu">
+                    <summary class="notification-link" aria-label="Notifications{{ $unread ? ' ('.$unread.' unread)' : '' }}" aria-controls="notification-dropdown" aria-expanded="false" title="Notifications"><x-icon name="bell" />@if($unread)<b>{{ $unread > 9 ? '9+' : $unread }}</b>@endif</summary>
+                    <div class="topbar-menu-panel topbar-notification-panel" id="notification-dropdown">
+                        <div class="topbar-notification-heading"><span>Notifications</span><a href="{{ route('notifications') }}">View all</a></div>
+                        @forelse($recentNotifications as $notification)
+                            <form class="topbar-notification-item {{ $notification->read_at ? 'is-read' : 'is-unread' }}" method="POST" action="{{ route('notifications.open', $notification) }}">@csrf
+                                <button type="submit"><span class="topbar-notification-title">{{ $notification->title }}</span><span class="topbar-notification-body">{{ $notification->body }}</span><small>{{ $notification->created_at->diffForHumans() }}</small></button>
+                            </form>
+                        @empty
+                            <p class="topbar-notification-empty">You're all caught up. New updates will appear here.</p>
+                        @endforelse
                     </div>
                 </details>
-                <span class="today">{{ now()->format('D, d M Y') }}</span>
-                <span class="topbar-role">{{ $roleLabel }}</span>
+                <details class="topbar-settings-menu topbar-profile-menu">
+                    <summary class="topbar-profile-trigger" aria-label="Account menu" aria-controls="account-dropdown" aria-expanded="false"><span class="avatar small">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span></summary>
+                    <div class="topbar-menu-panel" id="account-dropdown">
+                        <span class="topbar-menu-label">{{ $user->name }}<small>{{ $roleLabel }}</small></span>
+                        <a href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user" /> My Profile</a>
+                        <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit"><x-icon name="logout" /> Sign out</button></form>
+                    </div>
+                </details>
             </div>
         </header>
         <main class="app-content" id="content">
+            @if($workspaceNotice)<div class="workspace-notice" role="note"><x-icon name="bell"/><span>{{ $workspaceNotice }}</span></div>@endif
             @if(session('success'))<div class="app-toast-stack" aria-label="Notification"><div class="app-toast" role="status" data-toast><x-icon name="check"/><span>{{ session('success') }}</span><button type="button" aria-label="Dismiss notification" data-toast-dismiss><x-icon name="close"/></button></div></div>@endif
             @if($errors->any())
                 <div class="alert error" role="alert">

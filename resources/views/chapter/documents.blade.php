@@ -1,59 +1,42 @@
 @extends('layouts.chapter')
-@section('title', 'Project documents')
+@section('title', 'File Library')
 @section('content')
 <div class="page-heading collection-heading">
     <div>
         <div class="eyebrow">JCI CARMONA RECORDS</div>
-        <h1>Project documents</h1>
-        <p>Keep the files behind each JCI Carmona project easy to find, from planning through completion.</p>
+        <h1>File Library</h1>
+        <p>Find project uploads, attendance photos, and evaluations you are allowed to view.</p>
     </div>
     <a class="btn primary" href="{{ route('projects') }}"><x-icon name="folder" /> Open projects</a>
 </div>
 
-<section class="document-guide" aria-label="Document types">
-    <article class="panel document-guide-card">
-        <span class="document-guide-label">01 · INTERNAL REQUEST</span>
-        <h2>Project Concept Letters</h2>
-        <p>A member's initial project idea addressed to the Chapter President. Review and endorsement happen in the project's concept workflow before a full proposal is prepared.</p>
-        <a class="text-link" href="{{ route('projects', ['filter' => 'concepts']) }}"><x-icon name="arrow" /> View project concepts</a>
-    </article>
-    <article class="panel document-guide-card">
-        <span class="document-guide-label">02 · EXTERNAL CORRESPONDENCE</span>
-        <h2>External LOIs</h2>
-        <p>Letters for partners, sponsors, schools, local government units, and other collaborators are linked to a project and tracked through their own review flow.</p>
-        <a class="text-link" href="{{ route('records', 'letters') }}"><x-icon name="arrow" /> View external LOIs</a>
-    </article>
-    <article class="panel document-guide-card">
-        <span class="document-guide-label">03 · PROJECT ACCOUNTABILITY</span>
-        <h2>Reports &amp; evidence</h2>
-        <p>Project progress and completion reports record results. Supporting files such as photos, attendance sheets, approvals, and receipts belong with the relevant project.</p>
-        <a class="text-link" href="{{ route('records', 'reports') }}"><x-icon name="arrow" /> View reports</a>
-    </article>
-</section>
+<nav class="file-library-shortcuts" aria-label="Other document locations"><span>Related records</span><a class="text-link" href="{{ route('records', 'reports') }}"><x-icon name="report" /> Reports</a><a class="text-link" href="{{ route('records', 'letters') }}"><x-icon name="filePlus" /> External LOIs</a><a class="text-link" href="{{ route('templates') }}"><x-icon name="folder" /> Forms &amp; Templates</a>@if(auth()->user()->role === 'treasurer')<a class="text-link" href="{{ route('ledger') }}"><x-icon name="receipt" /> Receipts in ledger</a>@endif</nav>
 
 <section class="panel form-panel" aria-labelledby="project-files-heading">
     <div class="panel-heading flush">
         <div>
-            <h2 id="project-files-heading">Supporting project files</h2>
-            <p>Files uploaded to projects you can access. Open a project to add a file when you have editing rights.</p>
+            <h2 id="project-files-heading">Project files &amp; images</h2>
+            <p>Private uploads remain linked to their projects. Open a project to add files when your role allows it.</p>
         </div>
         <span>{{ number_format($documents->total()) }} {{ \Illuminate\Support\Str::plural('file', $documents->total()) }}</span>
     </div>
     <form class="list-filters document-search" method="GET" action="{{ route('documents') }}">
         <label><span>Search files</span><input name="q" value="{{ request('q') }}" placeholder="Title, category, or project"></label>
+        <label><span>Show</span><select name="type"><option value="all" @selected(request('type', 'all') === 'all')>All project uploads</option><option value="evidence" @selected(request('type') === 'evidence')>Attendance &amp; evaluations</option><option value="attendance" @selected(request('type') === 'attendance')>Attendance photos</option><option value="evaluation" @selected(request('type') === 'evaluation')>Evaluations</option><option value="documents" @selected(request('type') === 'documents')>Documents &amp; letters</option></select></label>
         <button class="btn secondary" type="submit"><x-icon name="search" /> Search</button>
-        @if(request()->filled('q'))<a class="text-link" href="{{ route('documents') }}"><x-icon name="close" /> Clear search</a>@endif
+        @if(request()->filled('q') || request()->filled('type'))<a class="text-link" href="{{ route('documents') }}"><x-icon name="close" /> Clear filters</a>@endif
     </form>
     @if($documents->isNotEmpty())
         <div class="table-wrap"><table>
             <thead><tr><th>File</th><th>Project</th><th>Added</th><th>Actions</th></tr></thead>
             <tbody>
                 @foreach($documents as $document)
+                    @php $projectSection = match ($document->submission_stage) { 'concept' => 'overview', 'proposal' => 'proposal', 'partnership' => 'partnerships', 'attendance', 'evaluation' => 'evidence', default => 'documents' }; @endphp
                     <tr>
-                        <td><strong>{{ $document->title }}</strong><small>{{ $document->category }} · {{ $document->original_name }}</small></td>
-                        <td><a class="text-link" href="{{ route('projects.show', $document->project) }}#documents">{{ $document->project->title }}</a></td>
-                        <td>{{ $document->created_at?->format('M d, Y') ?? '—' }}</td>
-                        <td><a class="text-link" href="{{ route('documents.download', $document) }}"><x-icon name="download" /> Download</a></td>
+                        <td><strong>{{ $document->title }}</strong><small>{{ $document->category }}@if($document->original_name) · {{ $document->original_name }}@endif</small></td>
+                        <td><a class="text-link" href="{{ route('projects.show', $document->project) }}#{{ $projectSection }}">{{ $document->project->title }}</a></td>
+                        <td>{{ $document->activity_on?->format('M d, Y') ?? $document->created_at?->format('M d, Y') ?? '—' }}</td>
+                        <td><div class="file-library-actions">@if($document->path && $document->canPreviewInline())<a class="text-link" href="{{ route($document->extension() === 'docx' ? 'documents.original-preview' : 'documents.preview', $document) }}" target="_blank" rel="noopener"><x-icon name="eye" /> View</a>@elseif(!$document->path)<a class="text-link" href="{{ route('projects.show', $document->project) }}#evidence"><x-icon name="eye" /> Read</a>@endif @if($document->path)<a class="text-link" href="{{ route('documents.download', $document) }}"><x-icon name="download" /> Download</a>@endif</div></td>
                     </tr>
                 @endforeach
             </tbody>
