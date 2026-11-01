@@ -54,7 +54,7 @@
         <section class="panel dashboard-project-list">
             <div class="panel-heading"><div><h2>My active projects</h2><p>Your current project work</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'mine']) }}"><x-icon name="arrow" /> All my projects</a></div>
             @foreach($active->take(3) as $project)
-                <a class="attention-row" href="{{ route('projects.show', $project) }}"><span class="project-mark"><x-icon name="briefcase"/></span><span class="row-main"><strong>{{ $project->title }}</strong><small>{{ $project->status }} · {{ $project->progress }}% tasks completed</small></span><span class="arrow" aria-hidden="true">&rarr;</span></a>
+                <a class="attention-row" href="{{ route('projects.show', $project) }}"><span class="project-mark"><x-icon name="briefcase"/></span><span class="row-main"><strong>{{ $project->title }}</strong><small>{{ $project->status }} · {{ $project->progress }}% project progress</small></span><span class="arrow" aria-hidden="true">&rarr;</span></a>
             @endforeach
         </section>
     @endif
@@ -69,5 +69,13 @@
         @include('chapter.partials.dashboard-task-list')
     @endif
 @endif
+<div class="dashboard-grid dashboard-recent-grid" aria-label="Recent activity">
+    <section class="panel dashboard-project-list"><div class="panel-heading"><div><h2>Recent projects</h2><p>Latest updates in your project workspace</p></div><a class="text-link" href="{{ route('projects', $role === 'member' ? ['filter' => 'mine'] : []) }}">All projects</a></div>
+        @forelse($recentProjects as $project)<a class="attention-row" href="{{ route('projects.show', $project) }}"><span class="project-mark"><x-icon name="briefcase"/></span><span class="row-main"><strong>{{ $project->title }}</strong><small>{{ $project->status }} · {{ $project->updated_at?->format('M d') }}</small></span><span class="arrow" aria-hidden="true">&rarr;</span></a>@empty<p class="panel-empty">No projects to show yet.</p>@endforelse
+    </section>
+    <section class="panel dashboard-project-list"><div class="panel-heading"><div><h2>Recent transactions</h2><p>Posted income and expenses for visible projects</p></div><a class="text-link" href="{{ route('finance') }}">Financial overview</a></div>
+        @forelse($recentTransactions as $entry)<a class="attention-row" href="{{ route('projects.show', $entry->project) }}#budget"><span class="project-mark"><x-icon name="receipt"/></span><span class="row-main"><strong>{{ $entry->project?->title ?? 'Project' }}</strong><small>{{ $entry->description ?: $entry->category }} · {{ $entry->transaction_date?->format('M d') }}</small></span><strong class="dashboard-transaction-amount {{ $entry->direction === 'debit' ? 'is-expense' : 'is-income' }}">{{ $entry->direction === 'debit' ? '−' : '+' }}PHP {{ number_format((float) $entry->amount, 2) }}</strong></a>@empty<p class="panel-empty">No posted project transactions yet.</p>@endforelse
+    </section>
+</div>
 </div>
 @endsection

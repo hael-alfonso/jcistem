@@ -19,10 +19,6 @@ class ConcurrentWorkspaceLoginTest extends TestCase
         $adminWorkspace = $this->newWorkspace($cookies);
         $this->signIn($adminWorkspace, $admin, $cookies);
         $duplicateAdminWorkspace = $this->newWorkspace($cookies);
-        $this->requestAsBrowser('POST', $duplicateAdminWorkspace.'/login', $cookies, [
-            'login' => $admin->email,
-            'password' => 'password',
-        ])->assertRedirect($duplicateAdminWorkspace.'/login')->assertSessionHasErrors('login');
         $this->visitDashboard($adminWorkspace, $cookies)->assertOk()->assertSee('Alicia Admin');
         $workspaces = ['admin' => $adminWorkspace];
         foreach ([
@@ -85,7 +81,7 @@ class ConcurrentWorkspaceLoginTest extends TestCase
         $this->visitDashboard($secondWorkspace, $cookies)->assertOk()->assertSee('Alicia Admin');
     }
 
-    public function test_existing_signed_in_session_is_adopted_and_blocks_a_second_login(): void
+    public function test_existing_signed_in_session_is_adopted_and_a_new_valid_login_replaces_it(): void
     {
         $user = User::factory()->create(['name' => 'Alicia Admin', 'role' => 'admin', 'status' => 'active']);
         $cookies = [];
@@ -108,8 +104,9 @@ class ConcurrentWorkspaceLoginTest extends TestCase
         $this->requestAsBrowser('POST', $newWorkspace.'/login', $cookies, [
             'login' => $user->email,
             'password' => 'password',
-        ])->assertRedirect($newWorkspace.'/login')->assertSessionHasErrors('login');
-        $this->visitDashboard($workspace, $cookies)->assertOk()->assertSee('Alicia Admin');
+        ])->assertRedirect($newWorkspace.'/dashboard');
+        $this->visitDashboard($workspace, $cookies)->assertRedirect($workspace.'/login');
+        $this->visitDashboard($newWorkspace, $cookies)->assertOk()->assertSee('Alicia Admin');
     }
 
     public function test_account_can_sign_in_again_after_its_login_claim_expires(): void

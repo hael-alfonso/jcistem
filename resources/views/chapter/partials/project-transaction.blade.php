@@ -1,9 +1,17 @@
-<details class="panel form-panel no-print"><summary class="large-summary">＋ Record financial transaction</summary><form method="POST" action="{{ route('project-transactions.store', $project) }}" enctype="multipart/form-data" class="form-grid">@csrf
-<x-field name="reference" label="Unique transaction reference" required/><x-field name="transaction_date" label="Transaction date" type="date" :value="now()->format('Y-m-d')" required/>
-<x-field name="type" label="Transaction type" type="select" :options="array_combine(['Income','Expense'],['Income','Expense'])" required/>
-<x-field name="amount" label="Amount (PHP)" type="number" step="0.01" min="0.01" required/>
-<x-field name="category" label="Category" required/><x-field name="account" label="Account / fund" value="Chapter fund" required/>
-<x-field name="counterparty" label="Payee / payer" required/><x-field name="payment_method" label="Payment method" type="select" :options="array_combine(['Cash','Bank transfer','GCash','Cheque','Other'],['Cash','Bank transfer','GCash','Cheque','Other'])" value="Cash" required/>
-<x-field name="description" label="Description" type="textarea" required/><x-field name="remarks" label="Remarks / adjustment explanation" type="textarea"/>
-<x-field name="receipt" label="Receipt / supporting document (PDF or image, max 10 MB)" type="file" required/>
-<div class="full"><div class="notice">Record dues payments in Member Dues to keep the monthly dues record linked to the ledger. Expenses may not exceed the project's available allocation.</div><button class="btn primary" data-confirm="Post this project transaction to the official ledger? Corrections require a recorded void."><x-icon name="check" /> Post transaction</button></div></form></details>
+@if(collect($project->budget_items ?? [])->isNotEmpty())
+<details class="record-detail no-print">
+    <summary><x-icon name="receipt" /> Submit an expense claim for Treasurer review<x-icon name="chevron" class="disclosure-icon" /></summary>
+    <form method="POST" action="{{ route('expense-claims.store', $project) }}" enctype="multipart/form-data" class="form-grid">@csrf
+        <x-field name="spent_on" label="Expense date" type="date" :value="now()->format('Y-m-d')" required/>
+        <x-field name="budget_item_id" label="Approved expense line" type="select" :options="collect($project->budget_items ?? [])->mapWithKeys(fn ($item) => [$item['id'] => $item['description']])->all()" required/>
+        <x-field name="amount" label="Amount paid (PHP)" type="number" step="0.01" min="0.01" required/>
+        <x-field name="payee" label="Paid to" required/>
+        <x-field name="receipt_reference" label="Receipt or invoice number (optional)"/>
+        <x-field name="description" label="What was purchased and why" type="textarea" required/>
+        <x-field name="receipt" label="Original receipt (PDF or image, max 10 MB)" type="file" accept=".pdf,.jpg,.jpeg,.png" required/>
+        <div class="full"><p class="hint">The Treasurer verifies the receipt and budget line before this expense enters the official ledger.</p><button class="btn primary" data-confirm="Send this expense claim and receipt to the Treasurer?">Submit claim</button></div>
+    </form>
+</details>
+@else
+<p class="hint">Itemized budget lines and Treasurer allocations are needed before the Chair can submit expense claims.</p>
+@endif

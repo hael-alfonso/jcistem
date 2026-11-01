@@ -5,7 +5,7 @@
     <div>
         <div class="eyebrow">{{ $kind === 'letters' ? 'JCI CORRESPONDENCE' : 'DOCUMENT THE DIFFERENCE' }}</div>
         <h1>{{ $kind === 'letters' ? 'JCI Letters of Intent' : 'Reports' }}</h1>
-        <p>{{ $kind === 'letters' ? 'Prepare, review, and track JCI letters of intent for project partnerships.' : 'Find project progress, completion, and chapter financial reports in one place.' }}</p>
+        <p>{{ $kind === 'letters' ? 'Submit external LOIs to Admin, then print approved copies for hard-copy delivery.' : 'Find Project Completion Reports, liquidation reports, and chapter financial records.' }}</p>
     </div>
     @if($projects->isNotEmpty() || ($kind === 'reports' && auth()->user()->role === 'treasurer'))
         <details class="record-create-dropdown no-print">
@@ -19,7 +19,7 @@
 </div>
 @if($kind === 'reports')
 <nav class="filter-tabs" aria-label="Report type">
-    @foreach(['' => 'All reports', 'Progress' => 'Progress', 'Completion' => 'Completion', 'Liquidation' => 'Liquidation', 'Overall Financial' => 'Financial'] as $type => $label)
+    @foreach(['' => 'All reports', 'Completion' => 'PCR', 'Liquidation' => 'Liquidation', 'Overall Financial' => 'Financial'] as $type => $label)
         <a class="{{ request('type','') === $type ? 'selected' : '' }}" href="{{ route('records', array_filter(['kind' => 'reports', 'type' => $type, 'q' => request('q'), 'status' => request('status')])) }}" @if(request('type','') === $type) aria-current="page" @endif>{{ $label }}</a>
     @endforeach
 </nav>

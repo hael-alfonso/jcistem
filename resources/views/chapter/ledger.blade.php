@@ -6,6 +6,7 @@
 <x-field name="reference" label="Unique transaction reference" required/><x-field name="transaction_date" label="Transaction date" type="date" :value="now()->format('Y-m-d')" required/>
 <x-field name="type" label="Transaction type" type="select" :options="array_combine(['Income','Expense','Disbursement','Adjustment credit','Adjustment debit'],['Income','Expense','Disbursement','Adjustment credit','Adjustment debit'])" required/>
 <x-field name="project_id" label="Project (optional for chapter transactions)" type="select" :options="$projects->pluck('title','id')->all()"/>
+<label class="field"><span>Specific expense line (for project expenses)</span><select name="budget_item_id" data-ledger-budget-line><option value="">Select after choosing a project</option>@foreach($projects as $project)@foreach($project->budget_items ?? [] as $item)<option value="{{ $item['id'] ?? '' }}" data-project-id="{{ $project->id }}">{{ $item['description'] }} · {{ $project->title }}</option>@endforeach @endforeach</select></label>
 <x-field name="member_id" label="Related member (optional)" type="select" :options="$members->pluck('name','id')->all()"/>
 <x-field name="amount" label="Amount (PHP)" type="number" step="0.01" min="0.01" required/>
 <x-field name="category" label="Category" required/><x-field name="account" label="Account / fund" value="Chapter fund" required/>

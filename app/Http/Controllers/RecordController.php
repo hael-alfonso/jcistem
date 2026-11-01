@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Project, Loi, ProjectReport, LedgerEntry, User};
+use App\Models\{Project, Loi, ProjectReport, LedgerEntry, Partner, User};
 use App\Services\ChapterService;
 use App\Support\ChapterForms;
 use App\Support\Permissions;
@@ -28,7 +28,7 @@ class RecordController extends Controller
     public function index(Request $request, string $kind)
     {
         $class = $this->model($kind);
-        $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Progress', 'Completion', 'Liquidation', 'Overall Financial'])]]);
+        $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Completion', 'Liquidation', 'Overall Financial'])]]);
         $user = $request->user();
         $query = $class::with(['project', 'author'])->where(function ($q) use ($user, $kind) {
             if ($user->role === 'treasurer') $q->whereNull('project_id')->orWhereNotNull('project_id');
@@ -52,6 +52,7 @@ class RecordController extends Controller
             }
         });
         $records = $query->when($request->boolean('mine'), fn ($q) => $q->whereHas('project', fn ($p) => $p->where('chair_id', $user->id)))
+            ->when($kind === 'reports', fn ($q) => $q->where('type', '!=', 'Progress'))
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%')->orWhereHas('project', fn ($p) => $p->where('title', 'like', '%'.$request->string('q').'%'))))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($kind === 'reports' && $request->filled('type'), fn ($q) => $q->where('type', $request->type))
@@ -63,11 +64,11 @@ class RecordController extends Controller
     public function create(Request $request, string $kind)
     {
         $class = $this->model($kind);
-        $request->validate(['project_id' => 'nullable|integer|exists:projects,id', 'type' => ['nullable', Rule::in(['Progress', 'Completion', 'Liquidation'])]]);
+        $request->validate(['project_id' => 'nullable|integer|exists:projects,id', 'type' => ['nullable', Rule::in(['Completion', 'Liquidation'])]]);
         $project = $request->filled('project_id') ? Project::findOrFail($request->project_id) : null;
         if ($project) abort_unless($project->canManage($request->user()) || $project->canReport($request->user()), 403);
         else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
-        $reportType = $kind === 'reports' && $project ? ($request->query('type') ?: 'Progress') : null;
+        $reportType = $kind === 'reports' && $project ? ($request->query('type') ?: 'Completion') : null;
         $record = new $class([
             'project_id' => $project?->id,
             'title' => $kind === 'letters' ? 'Project Proposal and Invitation for Partnership – '.$project->title : null,
@@ -80,7 +81,8 @@ class RecordController extends Controller
                 'signatory' => $project->chair?->name ?? '',
             ] : [],
         ]);
-        return view('chapter.record-form', compact('record', 'project', 'kind'));
+        $partners = $kind === 'letters' ? Partner::orderBy('name')->get(['id', 'name']) : collect();
+        return view('chapter.record-form', compact('record', 'project', 'kind', 'partners'));
     }
 
     public function edit(Request $request, string $kind, int $id)
@@ -88,7 +90,8 @@ class RecordController extends Controller
         $class = $this->model($kind); $record = $class::findOrFail($id);
         abort_unless($this->editable($record, $request), 403);
         $project = $record->project;
-        return view('chapter.record-form', compact('record', 'project', 'kind'));
+        $partners = $kind === 'letters' ? Partner::orderBy('name')->get(['id', 'name']) : collect();
+        return view('chapter.record-form', compact('record', 'project', 'kind', 'partners'));
     }
 
     public function save(Request $request, string $kind, ?int $id = null)
@@ -100,10 +103,17 @@ class RecordController extends Controller
         $project = $record ? $record->project : ($request->filled('project_id') ? Project::findOrFail($request->project_id) : null);
         if ($project) abort_unless($project->canManage($request->user()) || $project->canReport($request->user()), 403);
         else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
-        $labels = $kind === 'letters' ? ChapterForms::LETTER : ($project ? ChapterForms::REPORT : ChapterForms::FINANCIAL_REPORT);
-        $rules = ['title' => 'required|string|max:200', 'type' => ['required', Rule::in($kind === 'letters' ? ['JCI LOI', 'External Partner Letter'] : ($project ? ['Progress', 'Completion', 'Liquidation'] : ['Overall Financial']))], 'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png|max:10240'];
+        $reportType = $record?->type ?? $request->input('type');
+        $labels = $kind === 'letters' ? ChapterForms::LETTER : ($project ? ($reportType === 'Liquidation' ? ChapterForms::LIQUIDATION : ChapterForms::REPORT) : ChapterForms::FINANCIAL_REPORT);
+        $rules = ['title' => 'required|string|max:200', 'type' => ['required', Rule::in($kind === 'letters' ? ['JCI LOI', 'External Partner Letter'] : ($project ? ['Completion', 'Liquidation'] : ['Overall Financial']))], 'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png|max:10240'];
+        if ($record) $rules['type'][] = Rule::in([$record->type]);
         foreach ($labels as $key => $label) $rules['data.'.$key] = 'nullable|string|max:20000';
         if ($kind === 'letters') $rules['data.letter_date'] = 'nullable|date_format:Y-m-d';
+        if ($kind === 'letters') $rules['partner_id'] = 'nullable|integer|exists:partners,id';
+        if ($kind === 'reports' && $reportType === 'Liquidation') {
+            $rules['data.report_date'] = 'nullable|date_format:Y-m-d';
+            $rules['data.cash_received'] = 'nullable|numeric|min:0|max:999999999999.99';
+        }
         if (!$project) {
             $rules['data.period_start'] = 'required|date_format:Y-m-d';
             $rules['data.period_end'] = 'required|date_format:Y-m-d|after_or_equal:data.period_start';
@@ -122,6 +132,11 @@ class RecordController extends Controller
                 if ($record) $versions[] = ['version' => $record->version, 'saved_at' => now()->toIso8601String(), 'title' => $record->title, 'status' => $record->status, 'data' => $record->data];
                 $record ??= new $class(['project_id' => $project?->id, 'created_by' => $request->user()->id, 'status' => 'Draft', 'version' => 0]);
                 $body = $data['data'] ?? [];
+                if ($record instanceof Loi && !empty($data['partner_id'])) {
+                    $partner = Partner::findOrFail($data['partner_id']);
+                    $record->partner_id = $partner->id;
+                    $body['organization'] = $partner->name;
+                }
                 if ($project) $body['project_snapshot'] = ['reference' => $project->reference, 'title' => $project->title, 'area' => $project->area, 'description' => $project->proposal['description'] ?? '', 'date' => $project->starts_on?->format('Y-m-d'), 'end_date' => $project->ends_on?->format('Y-m-d'), 'venue' => $project->venue, 'allocated' => $project->allocated, 'expenses' => $project->spent, 'remaining' => $project->remaining];
                 if ($path) { $body['attachment_path'] = $path; $body['attachment_name'] = $request->file('attachment')->getClientOriginalName(); }
                 elseif (isset($record->data['attachment_path'])) { $body['attachment_path'] = $record->data['attachment_path']; $body['attachment_name'] = $record->data['attachment_name']; }
@@ -155,12 +170,17 @@ class RecordController extends Controller
             $action = $data['action'];
             if ($action === 'submit') {
                 abort_unless($this->editable($record, $request), 403);
+                if ($kind === 'letters' && !$record->partner_id) {
+                    $organization = trim($record->data['organization'] ?? '');
+                    if ($organization !== '') $record->partner_id = Partner::firstOrCreate(['name' => $organization], ['address' => $record->data['address'] ?? null])->id;
+                }
+                abort_if($kind === 'reports' && $record->type === 'Progress', 403);
                 if ($kind === 'reports' && in_array($record->type, ['Completion', 'Liquidation'])) {
                     abort_unless($record->project?->canReport($request->user()), 403);
                     if ($record->project->tasks()->where('status', '!=', 'Completed')->exists()) throw ValidationException::withMessages(['action' => 'Complete project tasks before submitting reports.']);
                     if ($record->type === 'Liquidation' && $record->project->transactions()->where('status', 'Posted')->where('direction', 'debit')->whereNull('document_path')->exists()) throw ValidationException::withMessages(['action' => 'Every posted expense needs a receipt before liquidation submission.']);
                 }
-                ChapterService::requireFields($record->data ?? [], $kind === 'letters' ? ChapterForms::LETTER_REQUIRED : ($record->project_id ? ChapterForms::REPORT : ChapterForms::FINANCIAL_REPORT), 'data');
+                ChapterService::requireFields($record->data ?? [], $kind === 'letters' ? ChapterForms::LETTER_REQUIRED : ($record->project_id ? ($record->type === 'Liquidation' ? ['report_date' => 'Report date', 'voucher_reference' => 'Voucher reference', 'cash_received' => 'Cash advanced or received'] : ChapterForms::REPORT) : ChapterForms::FINANCIAL_REPORT), 'data');
                 if (!$record->project_id) {
                     $body = $record->data;
                     $entries = LedgerEntry::where('status', 'Posted')->whereBetween('transaction_date', [$body['period_start'], $body['period_end']])->get();
@@ -178,12 +198,13 @@ class RecordController extends Controller
                         'actual_expenses' => $debits->sum('amount'),
                         'pending_liquidation' => $debits->where('liquidation_status', '!=', 'Liquidated')->count(),
                         'missing_evidence' => $debits->filter(fn ($entry) => !$entry->document_path)->count(),
+                        'expense_lines' => $debits->map(fn ($entry) => ['date' => $entry->transaction_date?->format('Y-m-d'), 'reference' => $entry->reference, 'receipt' => $entry->document_name, 'description' => $entry->description, 'quantity' => 1, 'amount' => (float) $entry->amount])->values()->all(),
                         'captured_at' => now()->toIso8601String(),
                     ];
                     $record->data = $body;
                 }
                 $record->status = $kind === 'letters' ? 'For Review' : 'Submitted';
-                ChapterService::notify(User::where('role', $kind === 'reports' && in_array($record->type, ['Liquidation', 'Overall Financial']) ? 'treasurer' : 'admin')->where('status', 'active')->pluck('id'), $kind === 'letters' ? 'JCI LOI for review' : 'Report submitted', $record->title, route('records.show', [$kind, $id], false));
+                ChapterService::notify(User::where('role', $kind === 'reports' && in_array($record->type, ['Liquidation', 'Overall Financial']) ? 'treasurer' : 'admin')->where('status', 'active')->pluck('id'), $kind === 'letters' ? 'JCI LOI for review' : 'Report submitted', $record->title, route('records.show', [$kind, $id], false), true);
             } elseif (in_array($action, ['return', 'approve'])) {
                 $reviewRole = $kind === 'reports' && in_array($record->type, ['Liquidation', 'Overall Financial']) ? 'treasurer' : 'admin';
                 abort_unless($request->user()->role === $reviewRole && in_array($record->status, ['For Review', 'Submitted']), 403);
@@ -192,9 +213,14 @@ class RecordController extends Controller
                 $record->status = $action === 'return' ? 'Returned' : ($kind === 'letters' ? 'Approved for Sending' : 'Reviewed');
                 $record->review_comments = $data['comments'];
                 if ($kind === 'reports') { $record->reviewed_by = $action === 'approve' ? $request->user()->id : null; $record->reviewed_at = $action === 'approve' ? now() : null; }
-                ChapterService::notify([$record->created_by, $record->project?->chair_id], 'Document review: '.$record->status, $record->title, route('records.show', [$kind, $id], false));
+                ChapterService::notify([$record->created_by, $record->project?->chair_id], 'Document review: '.$record->status, $record->title, route('records.show', [$kind, $id], false), true);
             } elseif ($action === 'sent') {
                 abort_unless($kind === 'letters' && $manager && $record->status === 'Approved for Sending', 403);
+                $delivery = $request->validate(['delivered_on' => 'required|date', 'delivery_notes' => 'nullable|string|max:2000']);
+                $body = $record->data ?? [];
+                $body['delivered_on'] = $delivery['delivered_on'];
+                $body['delivery_notes'] = $delivery['delivery_notes'] ?? null;
+                $record->data = $body;
                 $record->status = 'Sent';
             } elseif ($action === 'revise') {
                 abort_unless($manager && in_array($record->status, ['Reviewed', 'Sent', 'Approved for Sending']), 403);
@@ -262,6 +288,7 @@ class RecordController extends Controller
                 $before = $member->toArray();
                 $profileData['profile'] = array_merge($member->profile ?? [], $profileData['profile'] ?? []);
                 $member->fill($profileData)->save();
+                \App\Support\MemberId::assign($member);
                 ChapterService::audit('member_profile_saved', $member, $before);
             });
             return redirect()->route('members')->with('success', 'Member details saved.');
@@ -278,6 +305,7 @@ class RecordController extends Controller
             $member ??= new User;
             if ($member->exists) $data['profile'] = array_merge($member->profile ?? [], $data['profile'] ?? []);
             $member->fill($data)->save();
+            \App\Support\MemberId::assign($member);
             ChapterService::audit('member_account_saved', $member, $before);
         });
         return redirect()->route('members')->with('success', 'Member account saved.');
@@ -298,7 +326,7 @@ class RecordController extends Controller
 
     public function accountSave(Request $request)
     {
-        $data = $request->validate(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($request->user()->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($request->user()->id)], 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048', 'remove_photo' => 'nullable|boolean']);
+        $data = $request->validate(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($request->user()->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($request->user()->id)], 'profile.title' => 'nullable|string|max:30', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.date_of_birth' => 'nullable|date|before:today', 'profile.occupation' => ['nullable', Rule::in(['Student', 'Employed', 'Self-employed', 'Other'])], 'profile.organization' => 'nullable|string|max:200', 'profile.position' => 'nullable|string|max:160', 'profile.business_sector' => 'nullable|string|max:160', 'profile.university_major' => 'nullable|string|max:160', 'profile.emergency_contact' => 'nullable|string|max:500', 'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048', 'remove_photo' => 'nullable|boolean']);
         $data['username'] = strtolower($data['username']);
         $user = $request->user();
         $oldPhoto = $user->profile['photo_path'] ?? null;

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{BodDecision, Project, ProjectReport, Task, User, LedgerEntry};
+use App\Models\{BodDecision, ExpenseClaim, Project, ProjectReport, Task, User, LedgerEntry};
 use App\Services\ProposalWorkflowService;
 use App\Support\{ChapterForms, PmsNavigation};
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -53,6 +53,16 @@ class PmsWorkflowTest extends TestCase
             $this->assertSame($owner->id, $project->fresh()->chair_id);
             $this->assertFalse($project->fresh()->canManage($owner));
             $this->actingAs($owner)->post($url, ['action' => 'start'])->assertForbidden();
+            $this->post($url, ['action' => 'lock_plan'])->assertSessionHasErrors('action');
+            $project->budget_items = [['id' => (string) \Illuminate\Support\Str::uuid(), 'category' => 'materials_supplies', 'description' => 'Community kits', 'quantity' => '1.00', 'unit_cost' => '5000.00', 'amount' => '5000.00']];
+            $project->save();
+            $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $project->budget_items[0]['id'], 'amount' => '5000.00', 'approved_by' => 'Board', 'approved_on' => '2026-10-02', 'remarks' => 'Premature allocation'])->assertStatus(422);
+            $this->actingAs($owner);
+            $this->post($url, ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
+            $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Full budget checked'])->assertSessionHasNoErrors();
+            $formalDecision = ['action' => 'approve_full_proposal', 'comments' => 'Full proposal approved', 'meeting_date' => '2026-10-02', 'resolution_number' => 'FULL-'.$project->id, 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')];
+            $this->actingAs($admin)->post($url, $formalDecision)->assertSessionHasNoErrors();
+            $this->actingAs($owner);
             $this->post($url, ['action' => 'lock_plan'])->assertSessionHasNoErrors();
             $this->assertTrue($project->fresh()->canManage($owner));
             $this->post($url, ['action' => 'start'])->assertSessionHasNoErrors();
@@ -84,7 +94,10 @@ class PmsWorkflowTest extends TestCase
         $chair = $this->actor('admin'); $admin = $this->actor('admin'); $treasurer = $this->actor('treasurer');
         $project = $this->approved($chair, 'Completion Review'); $reports = [];
         foreach (['Completion', 'Liquidation'] as $type) {
-            $this->actingAs($chair)->post('/records/reports', ['project_id' => $project->id, 'title' => $type.' report', 'type' => $type, 'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Complete evidence and results')])->assertSessionHasNoErrors();
+            $reportData = $type === 'Liquidation'
+                ? ['report_date' => '2026-10-31', 'voucher_reference' => 'CDV-001', 'cash_received' => '0.00', 'receipt_notes' => 'No posted expenses', 'reconciliation_notes' => 'No cash advanced', 'treasurer_name' => 'LO Treasurer', 'president_name' => 'LO President']
+                : array_fill_keys(array_keys(ChapterForms::REPORT), 'Complete evidence and results');
+            $this->actingAs($chair)->post('/records/reports', ['project_id' => $project->id, 'title' => $type.' report', 'type' => $type, 'data' => $reportData])->assertSessionHasNoErrors();
             $report = ProjectReport::where('type', $type)->firstOrFail(); $reports[$type] = $report;
             $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         }
@@ -108,19 +121,79 @@ class PmsWorkflowTest extends TestCase
         Storage::fake('local');
         $chair = $this->actor(); $other = $this->actor(); $treasurer = $this->actor('treasurer');
         $project = $this->approved($chair); $foreign = $this->approved($other);
-        $project->allocations()->create(['category' => 'Materials', 'amount' => '100.10']);
-        $payload = ['reference' => 'CHAIR-01', 'transaction_date' => '2026-10-20', 'type' => 'Expense', 'amount' => '100.11', 'category' => 'Materials', 'account' => 'Project fund', 'counterparty' => 'Private supplier', 'payment_method' => 'Cash', 'description' => 'Private transaction description', 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')];
-        $this->actingAs($chair)->post('/projects/'.$foreign->id.'/transactions', $payload)->assertForbidden();
-        $this->post('/projects/'.$project->id.'/transactions', $payload)->assertSessionHasErrors('amount');
+        $item = (string) \Illuminate\Support\Str::uuid();
+        $project->budget_items = [['id' => $item, 'category' => 'materials_supplies', 'description' => 'Materials', 'quantity' => '1.00', 'unit_cost' => '100.10', 'amount' => '100.10']];
+        $project->save();
+        $project->allocations()->create(['category' => 'Materials', 'budget_item_id' => $item, 'amount' => '100.10']);
+        $payload = ['spent_on' => '2026-10-20', 'budget_item_id' => $item, 'amount' => '100.11', 'payee' => 'Private supplier', 'description' => 'Private transaction description', 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')];
+        $this->actingAs($chair)->post('/projects/'.$foreign->id.'/expense-claims', $payload)->assertForbidden();
+        $this->post('/projects/'.$project->id.'/expense-claims', $payload)->assertSessionHasErrors('amount');
         $payload['amount'] = '100.10';
-        $this->post('/projects/'.$project->id.'/transactions', $payload)->assertSessionHasNoErrors();
+        $this->post('/projects/'.$project->id.'/expense-claims', $payload)->assertSessionHasNoErrors();
+        $claim = ExpenseClaim::firstOrFail();
+        $this->assertSame('Pending', $claim->status);
+        $this->assertSame(0, LedgerEntry::count());
+        $project->tasks()->create(['title' => 'Prepare materials', 'status' => 'Completed']);
+        $this->post('/projects/'.$project->id.'/transition', ['action' => 'request_completion'])->assertSessionHasErrors('action');
+        $this->actingAs($treasurer)->post('/expense-claims/'.$claim->id.'/decision', ['action' => 'approve', 'review_note' => 'Receipt checked', 'account' => 'Project fund', 'payment_method' => 'Cash'])->assertSessionHasNoErrors();
         $entry = LedgerEntry::firstOrFail();
         $this->assertSame('100.10', $entry->amount);
+        $this->assertSame($entry->id, $claim->fresh()->ledger_entry_id);
+        $this->actingAs($chair);
         $this->get('/ledger')->assertForbidden();
         $this->actingAs($other)->get('/projects/'.$project->id)->assertOk()->assertDontSee('Private transaction description');
         $this->get('/ledger/'.$entry->id.'/receipt')->assertForbidden();
         $this->actingAs($chair)->get('/ledger/'.$entry->id.'/receipt')->assertOk();
         $this->actingAs($treasurer)->get('/ledger/'.$entry->id.'/receipt')->assertOk();
+        $this->post('/ledger/'.$entry->id, ['action' => 'void', 'remarks' => 'Duplicate receipt'])->assertSessionHasNoErrors();
+        $this->assertSame('Void', $claim->fresh()->status);
+    }
+
+    public function test_allocations_and_expenses_are_limited_to_specific_budget_lines(): void
+    {
+        Storage::fake('local');
+        $chair = $this->actor(); $treasurer = $this->actor('treasurer');
+        $project = $this->approved($chair);
+        $first = (string) \Illuminate\Support\Str::uuid();
+        $second = (string) \Illuminate\Support\Str::uuid();
+        $project->budget_items = [
+            ['id' => $first, 'category' => 'materials_supplies', 'description' => 'Learning kits', 'quantity' => '10.00', 'unit_cost' => '10.00', 'amount' => '100.00'],
+            ['id' => $second, 'category' => 'food_refreshments', 'description' => 'Volunteer meals', 'quantity' => '10.00', 'unit_cost' => '10.00', 'amount' => '100.00'],
+        ];
+        $project->save();
+        $approval = ['amount' => '100.00', 'approved_by' => 'BOD', 'approved_on' => '2026-10-31', 'remarks' => 'Approved line'];
+        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', $approval + ['budget_item_id' => $first])->assertSessionHasNoErrors();
+        $this->post('/projects/'.$project->id.'/budget', $approval + ['budget_item_id' => $second])->assertSessionHasNoErrors();
+        $this->assertCount(2, $project->allocations()->get());
+        $expense = ['spent_on' => '2026-10-31', 'amount' => '101.00', 'payee' => 'Supplier', 'description' => 'Learning kits', 'budget_item_id' => $first, 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')];
+        $this->actingAs($chair)->post('/projects/'.$project->id.'/expense-claims', $expense)->assertSessionHasErrors('amount');
+        $expense['amount'] = '80.00';
+        $this->post('/projects/'.$project->id.'/expense-claims', $expense)->assertSessionHasNoErrors();
+        $claim = ExpenseClaim::firstOrFail();
+        $this->assertDatabaseMissing('ledger_entries', ['budget_item_id' => $first, 'amount' => '80.00']);
+        $this->actingAs($treasurer)->post('/expense-claims/'.$claim->id.'/decision', ['action' => 'approve', 'review_note' => 'Matched receipt', 'account' => 'Project fund', 'payment_method' => 'Cash'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('ledger_entries', ['reference' => 'CLAIM-'.str_pad((string) $claim->id, 6, '0', STR_PAD_LEFT), 'budget_item_id' => $first, 'category' => 'Materials and supplies']);
+        $this->get('/projects/'.$project->id)->assertOk()->assertSee('Learning kits')->assertSee('PHP 80.00');
+    }
+
+    public function test_legacy_allocation_and_expense_can_be_reconciled_without_changing_totals(): void
+    {
+        Storage::fake('local');
+        $chair = $this->actor(); $treasurer = $this->actor('treasurer');
+        $project = $this->approved($chair);
+        $allocation = $project->allocations()->create(['category' => 'Materials', 'amount' => '100.00']);
+        $entry = LedgerEntry::create(['project_id' => $project->id, 'reference' => 'OLD-EXPENSE-1', 'description' => 'Historical kits', 'amount' => '40.00', 'status' => 'Posted', 'direction' => 'debit']);
+        $plan = ['budget_items' => [
+            ['category' => 'materials_supplies', 'description' => 'Learning kits', 'quantity' => '1', 'unit_cost' => '100.00'],
+            ['category' => 'other', 'description' => 'Other approved needs', 'quantity' => '1', 'unit_cost' => '4900.00'],
+        ]];
+        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget/reconcile-plan', $plan)->assertSessionHasNoErrors();
+        $itemId = $project->fresh()->budget_items[0]['id'];
+        $this->post('/projects/'.$project->id.'/budget/reconcile-allocation/'.$allocation->id, ['lines' => [$itemId => '100.00']])->assertSessionHasNoErrors();
+        $this->post('/projects/'.$project->id.'/budget/reconcile-entry/'.$entry->id, ['budget_item_id' => $itemId])->assertSessionHasNoErrors();
+        $this->assertSame('100.00', number_format((float) $project->allocations()->sum('amount'), 2, '.', ''));
+        $this->assertSame($itemId, $entry->fresh()->budget_item_id);
+        $this->actingAs($chair)->post('/projects/'.$project->id.'/expense-claims', ['spent_on' => '2026-10-31', 'budget_item_id' => $itemId, 'amount' => '60.00', 'payee' => 'Local supplier', 'description' => 'Remaining materials', 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
     }
 
     public function test_every_visible_menu_destination_renders_for_each_role(): void
@@ -190,7 +263,11 @@ class PmsWorkflowTest extends TestCase
         $chair = $this->actor(); $treasurer = $this->actor('treasurer'); $project = $this->approved($chair, 'Approved');
         $project->update(['plan_locked_at' => null]);
         $this->actingAs($chair)->put('/projects/'.$project->id, ['title' => $project->title, 'area' => $project->area, 'proposed_budget' => '6000.00'])->assertSessionHasErrors('proposed_budget');
-        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['category' => 'Supplies', 'amount' => '5000.01', 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Over budget'])->assertSessionHasErrors('amount');
+        $lineId = (string) \Illuminate\Support\Str::uuid();
+        $project->update(['budget_items' => [['id' => $lineId, 'category' => 'materials_supplies', 'description' => 'Supplies', 'quantity' => '1.00', 'unit_cost' => '5000.00', 'amount' => '5000.00']]]);
+        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $lineId, 'amount' => '5000.01', 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Before full-proposal approval'])->assertStatus(422);
+        $project->update(['proposal_reviewed_at' => now()]);
+        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $lineId, 'amount' => '5000.01', 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Over budget'])->assertSessionHasErrors('amount');
         $project->update(['status' => 'Archived']);
         $entry = LedgerEntry::create(['project_id' => $project->id, 'reference' => 'CLOSED', 'amount' => '10.00', 'status' => 'Posted', 'direction' => 'debit']);
         $this->post('/ledger/'.$entry->id, ['action' => 'void', 'remarks' => 'After closure'])->assertForbidden();

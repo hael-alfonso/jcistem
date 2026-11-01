@@ -42,6 +42,14 @@
                         <td @class(['danger-text' => $row['remaining'] < 0])>PHP {{ number_format($row['remaining'], 2) }}</td>
                         <td>@if($row['allocated'] > 0)<progress aria-label="{{ $row['project']->title }} budget utilization" max="100" value="{{ min(100, $row['utilization']) }}"></progress>{{ number_format($row['utilization'], 1) }}%@else<span>No allocation</span>@endif</td>
                     </tr>
+                    @if($row['project']->budget_items)
+                    <tr class="finance-breakdown-row"><td colspan="6"><details><summary>Expense breakdown for {{ $row['project']->title }}</summary><div class="table-wrap"><table><thead><tr><th>Specific expense</th><th>Proposed</th><th>Allocated</th><th>Posted expense</th></tr></thead><tbody>
+                    @foreach($row['project']->budget_items as $item)
+                    @php $lineId = $item['id'] ?? null; $lineAllocation = $row['project']->allocations->firstWhere('budget_item_id', $lineId); $lineSpent = $row['project']->transactions->where('budget_item_id', $lineId)->where('status', 'Posted')->where('direction', 'debit')->sum('amount'); @endphp
+                    <tr><td>{{ $item['description'] }}</td><td>PHP {{ number_format((float) $item['amount'], 2) }}</td><td>PHP {{ number_format((float) ($lineAllocation?->amount ?? 0), 2) }}</td><td>PHP {{ number_format((float) $lineSpent, 2) }}</td></tr>
+                    @endforeach
+                    </tbody></table></div></details></td></tr>
+                    @endif
                 @empty
                     <tr><td colspan="6"><div class="empty-state"><h3>No project budgets yet.</h3><p>The Treasurer can record allocations after final project approval.</p></div></td></tr>
                 @endforelse

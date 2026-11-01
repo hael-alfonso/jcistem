@@ -163,14 +163,13 @@ class AuthController extends Controller
         $token = Str::random(64);
         $claimed = DB::transaction(function () use ($user, $token, $credentials) {
             $account = User::whereKey($user->getAuthIdentifier())->lockForUpdate()->firstOrFail();
-            $recentLogin = $account->active_login_seen_at?->gt(now()->subMinutes(config('session.lifetime')));
-            if ($account->status !== 'active' || ($account->active_login_token && $recentLogin)) return null;
+            if ($account->status !== 'active') return null;
             $changes = ['active_login_token' => $token, 'active_login_seen_at' => now(), 'last_login_at' => now()];
             if (Hash::needsRehash($account->password)) $changes['password'] = Hash::make($credentials['password']);
             $account->forceFill($changes)->save();
             return $account;
         });
-        if (!$claimed) return back()->withErrors(['login' => 'We could not sign you in on this device. Use Forgot password? to restore secure account access.'])->onlyInput('login');
+        if (!$claimed) return back()->withErrors(['login' => 'This account is inactive. Contact the chapter administrator.'])->onlyInput('login');
 
         RateLimiter::clear($key);
         Auth::login($claimed, false);

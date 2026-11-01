@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport};
+use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport, LedgerEntry};
 use Carbon\CarbonImmutable;
 use App\Services\{ChapterService, OfficePreviewService, ProjectWordDocumentService};
 use App\Support\{ChapterCharts, ChapterForms, Permissions, ProjectBudget};
@@ -22,8 +22,8 @@ class ChapterController extends Controller
             || $project->chair_id === $request->user()->id || $assignedTasks->contains('project_id', $project->id));
         $dashboardProjects = $request->user()->role === 'member' ? $personalProjects : $projects;
         $reviewStatuses = match ($request->user()->role) {
-            'admin' => ['Admin Review', 'Completion Review'],
-            'treasurer' => ['Treasurer Review'],
+            'admin' => ['Admin Review', 'Submitted for Formal Approval', 'Completion Review'],
+            'treasurer' => ['Treasurer Review', 'Submitted for Formal Approval'],
             'bod' => ['BOD Agenda'],
             default => [],
         };
@@ -33,14 +33,17 @@ class ChapterController extends Controller
         $charts = ChapterCharts::projectMix($dashboardProjects);
         $taskStatuses = $assignedTasks->countBy('status');
         $financeCharts = ChapterCharts::finances($projects->whereIn('status', Project::APPROVED));
-        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'reviewStatuses', 'myDuesBalance', 'tasks', 'charts', 'taskStatuses', 'financeCharts'));
+        $recentProjects = $dashboardProjects->sortByDesc('updated_at')->take(4);
+        $recentTransactions = LedgerEntry::with('project')->whereIn('project_id', $dashboardProjects->whereIn('status', Project::APPROVED)->pluck('id'))
+            ->where('status', 'Posted')->orderByDesc('transaction_date')->orderByDesc('id')->limit(4)->get();
+        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'reviewStatuses', 'myDuesBalance', 'tasks', 'charts', 'taskStatuses', 'financeCharts', 'recentProjects', 'recentTransactions'));
     }
 
     public function projects(Request $request)
     {
         $request->validate(['q' => 'nullable|string|max:200', 'filter' => 'nullable|string|max:80']);
         $query = ChapterService::visibleProjects($request->user())
-            ->with(['chair', 'owner'])
+            ->with(['chair', 'owner', 'reports'])
             ->withCount(['tasks', 'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'Completed')])
             ->withSum('allocations as allocated_amount', 'amount');
         if ($request->filled('q')) $query->where('title', 'like', '%'.$request->string('q').'%');
@@ -52,7 +55,7 @@ class ChapterController extends Controller
             $query->where(fn ($q) => $q->where('status', 'BOD Agenda')->orWhereHas('decisions'));
         }
         elseif ($request->filter === 'concepts') $query->whereIn('status', ['Draft Concept', 'Submitted for President Review', 'Needs Revision', 'Endorsed for Development', 'Declined']);
-        elseif ($request->filter === 'active') $query->whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review']);
+        elseif ($request->filter === 'active') $query->whereIn('status', ['Approved', 'Submitted for Formal Approval', 'Plan Locked', 'Ongoing', 'Completion Review']);
         elseif ($request->filter === 'closed') $query->whereIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved']);
         elseif ($request->filter === 'approved') $query->whereIn('status', ['Approved', 'Plan Locked']);
         elseif ($request->filter === 'ongoing') $query->whereIn('status', ['Ongoing', 'Completion Review']);
@@ -60,8 +63,8 @@ class ChapterController extends Controller
         elseif ($request->filter === 'cancelled') $query->whereIn('status', ['Declined', 'Not Approved']);
         elseif ($request->filter === 'review') {
             $statuses = match ($request->user()->role) {
-                'admin' => ['Admin Review', 'BOD Agenda'],
-                'treasurer' => ['Treasurer Review'],
+                'admin' => ['Admin Review', 'BOD Agenda', 'Submitted for Formal Approval'],
+                'treasurer' => ['Treasurer Review', 'Submitted for Formal Approval'],
                 'bod' => ['BOD Agenda'],
                 default => null,
             };
@@ -91,7 +94,7 @@ class ChapterController extends Controller
         $section = $proposal ? 'proposal' : 'concept';
         $methodField = $section.'_submission_method';
         $request->merge([$methodField => $request->input($methodField, 'online')]);
-        $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'proposed_budget' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'budget_items' => 'nullable|array|max:50', 'budget_items.*.category' => ['required', Rule::in(array_keys(ProjectBudget::CATEGORIES))], 'budget_items.*.description' => 'required|string|max:255', 'budget_items.*.quantity' => 'required|numeric|decimal:0,2|min:0.01|max:999999.99', 'budget_items.*.unit_cost' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', $methodField => ['required', Rule::in(['online', 'upload'])], 'submission_file' => 'nullable|file|mimes:pdf,doc,docx|max:10240', 'revision_note' => 'nullable|string|max:2000'];
+        $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'proposed_budget' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'budget_items' => 'nullable|array|max:50', 'budget_items.*.id' => 'nullable|uuid', 'budget_items.*.category' => ['required', Rule::in(array_keys(ProjectBudget::CATEGORIES))], 'budget_items.*.description' => 'required|string|max:255', 'budget_items.*.quantity' => 'required|numeric|decimal:0,2|min:0.01|max:999999.99', 'budget_items.*.unit_cost' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', $methodField => ['required', Rule::in(['online', 'upload'])], 'submission_file' => 'nullable|file|mimes:pdf,doc,docx|max:10240', 'revision_note' => 'nullable|string|max:2000'];
         foreach ($proposal ? ChapterForms::PROPOSAL : ChapterForms::CONCEPT as $key => $label) $rules[$section.'.'.$key] = 'nullable|string|max:15000';
         if ($proposal) {
             $rules['proposal.committee_director'] = 'nullable|string|max:200';
@@ -112,6 +115,11 @@ class ChapterController extends Controller
             $data['budget_items'] = $project->budget_items;
         } else {
             unset($data['budget_items']);
+        }
+        if ($proposal && $project->allocations()->whereNotNull('budget_item_id')->exists()) {
+            $originalLines = collect($project->budget_items ?? [])->mapWithKeys(fn ($item) => [$item['id'] ?? '' => [$item['category'] ?? '', $item['description'] ?? '', (string) ($item['amount'] ?? '')]])->all();
+            $updatedLines = collect($data['budget_items'] ?? [])->mapWithKeys(fn ($item) => [$item['id'] ?? '' => [$item['category'] ?? '', $item['description'] ?? '', (string) ($item['amount'] ?? '')]])->all();
+            if ($originalLines !== $updatedLines) throw ValidationException::withMessages(['budget_items' => 'Expense lines with approved allocations are locked. Ask the Treasurer to review an amendment first.']);
         }
         if ($proposal && $data[$methodField] === 'online') {
             $incomeLines = array_filter($data['proposal']['income_lines'] ?? [], fn ($value) => $value !== null && $value !== '');
@@ -178,7 +186,7 @@ class ChapterController extends Controller
     public function show(Request $request, Project $project)
     {
         abort_unless(ChapterService::canView($project, $request->user()), 403);
-        $project->load(['owner', 'chair', 'tasks', 'allocations', 'transactions', 'documents', 'letters', 'reports', 'events', 'reviews.user']);
+        $project->load(['owner', 'chair', 'tasks', 'allocations', 'transactions', 'expenseClaims.submitter', 'documents', 'letters', 'reports', 'events', 'reviews.user']);
         $members = User::where('status', 'active')->orderBy('name')->get();
         $assignableMembers = $members->where('role', '!=', 'admin');
         $evidencePhotoLimit = (int) (\App\Models\ChapterSetting::where('key', 'evidence_photo_limit')->value('value') ?? 8);
@@ -229,9 +237,9 @@ class ChapterController extends Controller
     {
         $data = $request->validate([
             'action' => 'required|string', 'comments' => 'nullable|string|max:5000',
-            'meeting_date' => 'required_if:action,approve,reject,defer|nullable|date|before_or_equal:today',
-            'resolution_number' => 'required_if:action,approve|nullable|string|max:255|unique:bod_decisions,resolution_number',
-            'evidence' => 'required_if:action,approve,reject,defer|nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'meeting_date' => 'required_if:action,approve,reject,defer,approve_full_proposal|nullable|date|before_or_equal:today',
+            'resolution_number' => 'required_if:action,approve,approve_full_proposal|nullable|string|max:255|unique:bod_decisions,resolution_number',
+            'evidence' => 'required_if:action,approve,reject,defer,approve_full_proposal|nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
         $path = $request->hasFile('evidence') ? $request->file('evidence')->store('bod-evidence', 'local') : null;
         try {
@@ -421,7 +429,7 @@ class ChapterController extends Controller
     public function upload(Request $request, Project $project)
     {
         abort_unless($project->canManage($request->user()) || $project->canEdit($request->user()), 403);
-        $data = $request->validate(['title' => 'required|string|max:200', 'category' => 'required|string|max:100', 'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,txt,mp4|max:10240']);
+        $data = $request->validate(['title' => 'required|string|max:200', 'category' => 'required|string|max:100', 'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,pptx,csv,jpg,jpeg,png,txt,mp4|max:10240']);
         $path = $request->file('file')->store('project-documents', 'local');
         try {
             DB::transaction(function () use ($request, $project, $data, $path) {
@@ -529,6 +537,10 @@ class ChapterController extends Controller
         abort_unless($document->path && Storage::disk('local')->exists($document->path), 404);
         abort_unless($document->canPreviewInline(), 415, 'This file type must be downloaded to view it.');
 
+        if (in_array($document->extension(), ['xls', 'xlsx', 'pptx'], true)) {
+            return redirect()->route('documents.original-preview', $document);
+        }
+
         if (in_array($document->extension(), ['doc', 'docx'], true)) {
             try {
                 $preview = $previews->render($document);
@@ -567,11 +579,12 @@ class ChapterController extends Controller
     public function originalDocumentPreview(Request $request, ProjectDocument $document)
     {
         abort_unless(ChapterService::canView($document->project, $request->user()), 403);
-        abort_unless($document->extension() === 'docx', 415);
+        abort_unless(in_array($document->extension(), ['docx', 'xls', 'xlsx', 'pptx'], true), 415);
         abort_unless($document->path && Storage::disk('local')->exists($document->path), 404);
 
-        return response()->view('chapter.document-original-preview', compact('document'))
-            ->header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; object-src 'none'; form-action 'none'");
+        $view = $document->extension() === 'docx' ? 'chapter.document-original-preview' : 'chapter.document-office-preview';
+        return response()->view($view, compact('document'))
+            ->header('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'none'; object-src 'none'; form-action 'none'");
     }
 
     public function documents(Request $request)
@@ -600,18 +613,22 @@ class ChapterController extends Controller
     public function notifications(Request $request)
     {
         $filter = $request->query('filter');
-        abort_unless(in_array($filter, [null, 'unread'], true), 404);
+        abort_unless(in_array($filter, [null, 'unread', 'important'], true), 404);
         $query = Notification::where('user_id', $request->user()->id);
         $unreadCount = (clone $query)->whereNull('read_at')->count();
+        $importantCount = (clone $query)->where('requires_open', true)->whereNull('read_at')->count();
+        $routineUnreadCount = $unreadCount - $importantCount;
         $items = $query->when($filter === 'unread', fn ($q) => $q->whereNull('read_at'))
+            ->when($filter === 'important', fn ($q) => $q->where('requires_open', true))
+            ->orderByRaw('CASE WHEN requires_open = 1 AND read_at IS NULL THEN 0 ELSE 1 END')
             ->latest()->paginate(20)->withQueryString();
-        return view('chapter.notifications', compact('items', 'unreadCount', 'filter'));
+        return view('chapter.notifications', compact('items', 'unreadCount', 'importantCount', 'routineUnreadCount', 'filter'));
     }
 
     public function readNotifications(Request $request)
     {
-        Notification::where('user_id', $request->user()->id)->whereNull('read_at')->update(['read_at' => now()]);
-        return back()->with('success', 'Notifications marked as read.');
+        $count = Notification::where('user_id', $request->user()->id)->where('requires_open', false)->whereNull('read_at')->update(['read_at' => now()]);
+        return back()->with('success', $count.' routine '.($count === 1 ? 'notification' : 'notifications').' marked as read. Important updates stay unread until opened.');
     }
 
     public function openNotification(Request $request, Notification $notification)

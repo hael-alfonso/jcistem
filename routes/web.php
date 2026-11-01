@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\{AuthController, ChapterController, ContactInquiryController, FinanceController, RecordController, RegistrationController};
+use App\Http\Controllers\{AgreementController, AuthController, BudgetReconciliationController, ChapterController, ContactInquiryController, ExpenseClaimController, FinanceController, PartnerController, RecordController, RegistrationController};
 use Illuminate\Support\Facades\Route;
 
 $workspaceRoutes = function () {
@@ -59,6 +59,20 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/tasks', [ChapterController::class, 'tasks'])->name('tasks');
     Route::get('/calendar', [ChapterController::class, 'calendar'])->name('calendar');
     Route::get('/documents', [ChapterController::class, 'documents'])->name('documents');
+    Route::get('/partner-directory', [PartnerController::class, 'index'])->name('partners.index');
+    Route::post('/partner-directory', [PartnerController::class, 'save'])->name('partners.store');
+    Route::get('/partner-directory/{partner}', [PartnerController::class, 'show'])->name('partners.show');
+    Route::put('/partner-directory/{partner}', [PartnerController::class, 'save'])->name('partners.update');
+    Route::post('/partner-directory/{partner}/activities', [PartnerController::class, 'activity'])->name('partners.activities.store');
+    Route::get('/partnership-agreements', [AgreementController::class, 'index'])->name('agreements.index');
+    Route::get('/partner-directory/{partner}/agreements/create', [AgreementController::class, 'create'])->name('agreements.create');
+    Route::post('/partner-directory/{partner}/agreements', [AgreementController::class, 'save'])->name('agreements.store');
+    Route::get('/partnership-agreements/{agreement}', [AgreementController::class, 'show'])->name('agreements.show');
+    Route::get('/partnership-agreements/{agreement}/edit', [AgreementController::class, 'edit'])->name('agreements.edit');
+    Route::put('/partner-directory/{partner}/agreements/{agreement}', [AgreementController::class, 'save'])->name('agreements.update');
+    Route::post('/partnership-agreements/{agreement}/transition', [AgreementController::class, 'transition'])->name('agreements.transition');
+    Route::post('/partnership-agreements/{agreement}/signed', [AgreementController::class, 'signed'])->name('agreements.signed');
+    Route::get('/partnership-agreements/{agreement}/signed', [AgreementController::class, 'download'])->name('agreements.download');
     Route::post('/calendar', [ChapterController::class, 'eventSave'])->name('calendar.store');
     Route::post('/projects/{project}/documents', [ChapterController::class, 'upload'])->name('documents.store');
     Route::post('/projects/{project}/evidence', [ChapterController::class, 'storeEvidence'])->name('projects.evidence.store');
@@ -74,8 +88,14 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/inquiries/{inquiry}', [ContactInquiryController::class, 'show'])->middleware('permission:inquiries.manage')->name('inquiries.show');
     Route::put('/inquiries/{inquiry}', [ContactInquiryController::class, 'update'])->middleware('permission:inquiries.manage')->name('inquiries.update');
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
-    Route::post('/projects/{project}/transactions', [FinanceController::class, 'projectTransaction'])->name('project-transactions.store');
+    Route::get('/expense-claims', [ExpenseClaimController::class, 'index'])->name('expense-claims.index');
+    Route::post('/projects/{project}/expense-claims', [ExpenseClaimController::class, 'store'])->name('expense-claims.store');
+    Route::post('/expense-claims/{claim}/decision', [ExpenseClaimController::class, 'review'])->name('expense-claims.review');
+    Route::get('/expense-claims/{claim}/receipt', [ExpenseClaimController::class, 'receipt'])->name('expense-claims.receipt');
     Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->middleware('permission:finance.manage')->name('budget.store');
+    Route::post('/projects/{project}/budget/reconcile-plan', [BudgetReconciliationController::class, 'plan'])->middleware('permission:finance.manage')->name('budget.reconcile-plan');
+    Route::post('/projects/{project}/budget/reconcile-allocation/{allocation}', [BudgetReconciliationController::class, 'allocation'])->middleware('permission:finance.manage')->name('budget.reconcile-allocation');
+    Route::post('/projects/{project}/budget/reconcile-entry/{entry}', [BudgetReconciliationController::class, 'entry'])->middleware('permission:finance.manage')->name('budget.reconcile-entry');
     Route::get('/projects/{project}/liquidation', [FinanceController::class, 'liquidationReport'])->middleware('permission:finance.manage')->name('projects.liquidation');
     Route::get('/ledger/export', [FinanceController::class, 'export'])->middleware('permission:finance.manage')->name('ledger.export');
     Route::get('/ledger', [FinanceController::class, 'ledger'])->middleware('permission:finance.manage')->name('ledger');

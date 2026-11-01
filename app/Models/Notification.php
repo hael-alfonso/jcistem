@@ -6,5 +6,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class Notification extends ChapterRecord
 {
-    protected $casts = ['read_at' => 'datetime'];
+    protected $casts = ['read_at' => 'datetime', 'requires_open' => 'boolean'];
 }

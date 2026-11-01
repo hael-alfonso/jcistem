@@ -32,6 +32,7 @@
                 <x-field name="data[recipient]" label="Recipient name" :value="$letterData['recipient'] ?? ''"/>
                 <x-field name="data[recipient_title]" label="Recipient title / position" :value="$letterData['recipient_title'] ?? ''"/>
                 <x-field name="data[organization]" label="Company, organization, or LGU" :value="$letterData['organization'] ?? ''"/>
+                <x-field name="partner_id" label="Existing partner (optional)" type="select" :options="['' => 'New partner / enter organization below'] + $partners->pluck('name', 'id')->all()" :value="$record->partner_id"/>
                 <div class="full"><x-field name="data[address]" label="Mailing address" type="textarea" :value="$letterData['address'] ?? ''"/></div>
             </div>
         </section>
@@ -61,22 +62,28 @@
                 <div class="full"><x-field name="data[body]" label="Additional message (optional)" type="textarea" :value="$letterData['body'] ?? ''"/></div>
                 <div class="full"><x-field name="attachment" label="Supporting file (optional; max 10 MB)" type="file"/></div>
             </div>
-            <p class="hint">Save a draft to preview and print the letter. Submit the complete draft for Admin review before marking it as sent. Earlier versions are retained.</p>
+            <p class="hint">Submit the completed LOI to Admin. Print the approved letter for signing and hard-copy delivery to the partner. Earlier versions are retained.</p>
         </section>
     @else
         <section class="panel form-panel chapter-form-section">
             <div class="section-heading"><span>01</span><div><h2>Report details</h2><p>Save a draft, then submit the completed report for review.</p></div></div>
             <div class="form-grid">
                 <x-field name="title" label="Document title / subject" :value="$record->title" required/>
-                <x-field name="type" label="Report type" type="select" :options="$project ? ['Progress' => 'Progress report', 'Completion' => 'Project completion report', 'Liquidation' => 'Project liquidation report'] : ['Overall Financial' => 'Overall Financial Report']" :value="$record->type" required/>
+                <x-field name="type" label="Report type" type="select" :options="$project ? ['Completion' => 'Project Completion Report (PCR)', 'Liquidation' => 'Liquidation Report'] : ['Overall Financial' => 'Overall Financial Report']" :value="$record->type" required/>
             </div>
         </section>
         @if($project)
+            @if($record->type === 'Liquidation')
+                <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>02</span><div><h2>Cash and voucher details</h2><p>Expense rows and actual totals come from posted project ledger entries and their receipts.</p></div></div><div class="form-grid">
+                    @foreach(\App\Support\ChapterForms::LIQUIDATION as $key => $label)<div class="full"><x-field :name="'data['.$key.']'" :label="$label" :type="$key === 'report_date' ? 'date' : ($key === 'cash_received' ? 'number' : 'textarea')" :value="$record->data[$key] ?? ($key === 'report_date' ? now()->format('Y-m-d') : '')"/></div>@endforeach
+                </div></section>
+            @else
             @foreach(\App\Support\ChapterForms::REPORT_SECTIONS as $heading => $keys)
                 <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>{{ str_pad((string) ($loop->iteration + 1), 2, '0', STR_PAD_LEFT) }}</span><div><h2>{{ $heading }}</h2><p>{{ $loop->first ? 'Compare completed work with the approved proposal and record who was reached.' : 'Record member roles, supporting evidence, issues, and the next action.' }}</p></div></div><div class="form-grid">
                     @foreach($keys as $key)<div class="full"><x-field :name="'data['.$key.']'" :label="\App\Support\ChapterForms::REPORT[$key]" type="textarea" :value="$record->data[$key] ?? ''"/></div>@endforeach
                 </div></section>
             @endforeach
+            @endif
             <div class="notice">When submitted, the report captures the project's projected and posted income and expenses, plus pending liquidation and missing-evidence counts. The Treasurer confirms liquidation in the ledger.</div>
         @else
             <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>02</span><div><h2>Financial period and reconciliation</h2><p>Report only on the stated date range. The submitted report captures posted ledger totals.</p></div></div><div class="form-grid">

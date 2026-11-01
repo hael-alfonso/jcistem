@@ -14,7 +14,7 @@
     @if($comments ?? false)
         <x-field name="comments" label="Review comments / conditions" type="textarea" required/>
     @endif
-    <button class="btn {{ $tone ?? (in_array($action, ['decline', 'reject']) ? 'danger' : (str_starts_with($action, 'revise_') || str_starts_with($action, 'return_') ? 'caution' : 'secondary')) }}" @if(in_array($action, ['endorse', 'decline', 'approve', 'reject', 'complete', 'archive', 'lock_plan', 'start', 'request_completion', 'budget_review', 'restart_review']) || str_starts_with($action, 'revise_') || str_starts_with($action, 'return_')) data-confirm="{{ $label }}? This decision will be recorded in the project history." @endif>
+    <button class="btn {{ $tone ?? (in_array($action, ['decline', 'reject']) ? 'danger' : (str_starts_with($action, 'revise_') || str_starts_with($action, 'return_') ? 'caution' : 'secondary')) }}" @if(in_array($action, ['endorse', 'decline', 'approve', 'reject', 'complete', 'archive', 'lock_plan', 'start', 'request_completion', 'budget_review', 'review_full_budget', 'submit_full_proposal', 'restart_review']) || str_starts_with($action, 'revise_') || str_starts_with($action, 'return_')) data-confirm="{{ $label }}? This decision will be recorded in the project history." @endif>
         <x-icon name="{{ $actionIcon }}" /> {{ $label }}
     </button>
 </form>

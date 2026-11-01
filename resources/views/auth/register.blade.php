@@ -10,7 +10,9 @@
         <section class="auth-registration-section" aria-labelledby="application-contact">
             <div class="auth-registration-section-heading"><span>01</span><div><h2 id="application-contact">Your details</h2><p>How the chapter can identify and contact you.</p></div></div>
             <div class="auth-registration-grid">
+                <div class="auth-field"><label for="auth-title">Title (optional)</label><div class="auth-input-wrap"><select id="auth-title" name="title"><option value="">Select if applicable</option>@foreach(['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Other'] as $option)<option value="{{ $option }}" @selected(old('title') === $option)>{{ $option }}</option>@endforeach</select></div>@error('title')<p class="field-error">{{ $message }}</p>@enderror</div>
                 <x-auth-field name="name" label="Full name" required autocomplete="name" maxlength="200" />
+                <x-auth-field name="date_of_birth" label="Date of birth (optional)" type="date" max="{{ now()->subDay()->toDateString() }}" />
                 <x-auth-field name="phone" label="Mobile number (optional)" type="tel" autocomplete="tel" maxlength="40" />
                 <x-auth-field name="email" label="Email address" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" maxlength="200" />
                 <x-auth-field name="address" label="City / address (optional)" autocomplete="street-address" maxlength="500" />
@@ -22,13 +24,16 @@
             <div class="auth-registration-grid">
                 <div class="auth-field"><label for="auth-occupation">Current status</label><div class="auth-input-wrap"><select id="auth-occupation" name="occupation"><option value="">Select if applicable</option>@foreach(['Student', 'Employed', 'Self-employed', 'Other'] as $option)<option value="{{ $option }}" @selected(old('occupation') === $option)>{{ $option }}</option>@endforeach</select></div>@error('occupation')<p class="field-error">{{ $message }}</p>@enderror</div>
                 <x-auth-field name="organization" label="School, employer, or business (optional)" maxlength="200" />
+                <x-auth-field name="position" label="Current position or role (optional)" maxlength="160" />
+                <x-auth-field name="business_sector" label="Business sector (optional)" maxlength="160" />
+                <x-auth-field name="university_major" label="University / course or major (optional)" maxlength="160" />
                 <fieldset class="auth-interests"><legend>Areas of interest</legend><div>@foreach(\App\Support\ChapterForms::AREAS as $interest)<label><input type="checkbox" name="interests[]" value="{{ $interest }}" @checked(in_array($interest, old('interests', []), true))><span>{{ $interest }}</span></label>@endforeach</div>@error('interests')<p class="field-error">{{ $message }}</p>@enderror</fieldset>
                 <div class="auth-field auth-field-wide"><label for="auth-motivation">Why would you like to join JCI Carmona? (optional)</label><textarea id="auth-motivation" name="motivation" maxlength="1000" rows="3">{{ old('motivation') }}</textarea>@error('motivation')<p class="field-error">{{ $message }}</p>@enderror</div>
             </div>
         </section>
 
         <section class="auth-registration-section" aria-labelledby="application-account">
-            <div class="auth-registration-section-heading"><span>03</span><div><h2 id="application-account">Create your sign-in</h2><p>You can use your username or email address after Admin approval.</p></div></div>
+            <div class="auth-registration-section-heading"><span>03</span><div><h2 id="application-account">Create your sign-in</h2><p>You can use your username or email address after Admin approval. Your JCI Carmona member ID is assigned automatically when approved.</p></div></div>
             <div class="auth-registration-grid">
                 <x-auth-field name="username" label="Preferred username" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="50" pattern="[A-Za-z0-9._-]+" />
                 <p class="auth-registration-hint">Use letters, numbers, dots, hyphens, or underscores.</p>

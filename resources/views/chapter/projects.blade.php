@@ -71,7 +71,7 @@ $projectPageTitle = match(request('filter')) { 'Archived' => 'Project Archive', 
         <h2 id="project-preview-title" data-preview-title></h2>
         <p class="project-preview-status" data-preview-status></p><p class="project-preview-objective" data-preview-objective hidden></p>
         <dl class="project-preview-facts"><div><dt>Area of opportunity</dt><dd data-preview-area></dd></div><div><dt>Project chair</dt><dd data-preview-chair></dd></div><div><dt>Schedule</dt><dd data-preview-dates></dd></div><div><dt data-preview-budget-label></dt><dd data-preview-budget></dd></div></dl>
-        <div class="project-preview-progress"><div><strong>Task progress</strong><span data-preview-tasks></span></div><div class="project-work-progress-track"><progress max="100" value="0" data-preview-progress aria-label="Project task completion"></progress><span class="project-work-progress-marker" data-preview-time-marker hidden aria-hidden="true"></span></div><small data-preview-pace></small></div>
+        <div class="project-preview-progress"><div><strong>Project progress</strong><span data-preview-tasks></span></div><div class="project-work-progress-track"><progress max="100" value="0" data-preview-progress aria-label="Project completion"></progress><span class="project-work-progress-marker" data-preview-time-marker hidden aria-hidden="true"></span></div><small data-preview-pace></small></div>
         <div class="project-preview-actions"><button class="btn secondary" type="button" data-preview-close>Close</button><a class="btn primary" href="{{ route('projects') }}" data-preview-link>Open full project <x-icon name="arrow"/></a></div>
     </div>
 </dialog>

@@ -7,4 +7,5 @@ use Illuminate\Database\Eloquent\Model;
 class Loi extends ChapterRecord
 {
     protected $casts = ['data' => 'array', 'versions' => 'array'];
+    public function partner() { return $this->belongsTo(Partner::class); }
 }

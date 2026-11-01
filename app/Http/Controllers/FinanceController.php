@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Project, BudgetAllocation, LedgerEntry, MemberDue, User};
 use App\Services\ChapterService;
-use App\Support\{ChapterCharts, Permissions};
+use App\Support\{ChapterCharts, Permissions, ProjectBudget, ProjectFinanceGuard};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
@@ -14,7 +14,7 @@ class FinanceController extends Controller
 
     public function index(Request $request)
     {
-        $projects = ChapterService::visibleProjects($request->user())->with('chair')->latest()->get();
+        $projects = ChapterService::visibleProjects($request->user())->with(['chair', 'allocations', 'transactions'])->latest()->get();
         $charts = ChapterCharts::finances($projects);
         return view('chapter.finance', compact('charts'));
     }
@@ -22,16 +22,24 @@ class FinanceController extends Controller
     public function budget(Request $request, Project $project)
     {
         $this->treasurer($request);
-        $data = $request->validate(['category' => 'required|string|max:100', 'amount' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'approved_by' => 'required|string|max:200', 'approved_on' => 'required|date', 'remarks' => 'required|string|max:5000']);
+        $data = $request->validate(['budget_item_id' => 'required|uuid', 'amount' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'approved_by' => 'required|string|max:200', 'approved_on' => 'required|date', 'remarks' => 'required|string|max:5000']);
         DB::transaction(function () use ($project, $data, $request) {
             $project = Project::lockForUpdate()->findOrFail($project->id);
-            abort_unless(in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing']), 422, 'Budget allocations require an approved active project.');
-            $allocation = BudgetAllocation::firstOrNew(['project_id' => $project->id, 'category' => $data['category']]);
+            abort_unless(in_array($project->status, ['Plan Locked', 'Ongoing'], true)
+                || ($project->status === 'Approved' && $project->proposal_reviewed_at),
+                422, 'The full proposal must receive formal approval before new budget allocations are recorded.');
+            $item = collect($project->budget_items ?? [])->firstWhere('id', $data['budget_item_id']);
+            if (!$item) throw ValidationException::withMessages(['budget_item_id' => 'Choose a specific expense from the approved project budget.']);
+            if (\App\Support\Money::cents($data['amount']) > \App\Support\Money::cents($item['amount'])) throw ValidationException::withMessages(['amount' => 'The allocation cannot exceed this proposed expense amount.']);
+            $allocation = BudgetAllocation::firstOrNew(['project_id' => $project->id, 'budget_item_id' => $data['budget_item_id']]);
             $before = $allocation->toArray();
+            $lineSpent = \App\Support\Money::cents($project->transactions()->where('budget_item_id', $data['budget_item_id'])->where('status', 'Posted')->where('direction', 'debit')->sum('amount'));
+            $pending = \App\Support\Money::cents($project->expenseClaims()->where('budget_item_id', $data['budget_item_id'])->where('status', 'Pending')->sum('amount'));
+            if (\App\Support\Money::cents($data['amount']) < $lineSpent + $pending) throw ValidationException::withMessages(['amount' => 'Allocation cannot fall below posted spending and pending claims for this expense.']);
             $total = \App\Support\Money::cents($project->allocations()->sum('amount')) - \App\Support\Money::cents($allocation->amount) + \App\Support\Money::cents($data['amount']);
             if ($project->decisions()->where('decision', 'approved')->exists() && $total > \App\Support\Money::cents($project->proposed_budget)) throw ValidationException::withMessages(['amount' => 'Allocations cannot exceed the BOD-approved budget.']);
             if ($total < \App\Support\Money::cents($project->transactions()->where('status', 'Posted')->where('direction', 'debit')->sum('amount'))) throw ValidationException::withMessages(['amount' => 'Allocation cannot be reduced below posted expenses.']);
-            $allocation->fill($data + ['recorded_by' => $request->user()->id])->save();
+            $allocation->fill($data + ['category' => ProjectBudget::CATEGORIES[$item['category']] ?? 'Other expense', 'budget_item_description' => $item['description'], 'recorded_by' => $request->user()->id])->save();
             ChapterService::audit('budget_allocation_saved', $allocation, $before);
         });
         return back()->with('success', 'Budget allocation saved.');
@@ -53,18 +61,17 @@ class FinanceController extends Controller
     {
         $this->treasurer($request);
         $entries = LedgerEntry::with(['project', 'member'])->when($request->query('filter') === 'liquidation', fn ($q) => $q->where('direction', 'debit')->where('status', 'Posted'))->latest('transaction_date')->latest('id')->paginate(30)->withQueryString();
-        $projects = Project::whereIn('status', ['Approved', 'Plan Locked', 'Ongoing'])->orderBy('title')->get();
+        $projects = Project::whereIn('status', ['Plan Locked', 'Ongoing'])->orderBy('title')->get();
         $members = User::where('status', 'active')->orderBy('name')->get();
         return view('chapter.ledger', compact('entries', 'projects', 'members'));
     }
 
     public function store(Request $request)
     {
-        $chairProject = $request->attributes->get('chair_finance_project');
-        if (!$chairProject) $this->treasurer($request);
+        $this->treasurer($request);
         $data = $request->validate([
             'reference' => 'required|string|max:100|unique:ledger_entries,reference',
-            'project_id' => 'nullable|integer|exists:projects,id', 'member_id' => 'nullable|integer|exists:users,id',
+            'project_id' => 'nullable|integer|exists:projects,id', 'member_id' => 'nullable|integer|exists:users,id', 'budget_item_id' => 'nullable|uuid',
             'transaction_date' => 'required|date', 'type' => ['required', Rule::in(['Income', 'Expense', 'Disbursement', 'Adjustment credit', 'Adjustment debit'])],
             'category' => 'required|string|max:100', 'account' => 'required|string|max:150', 'counterparty' => 'required|string|max:200',
             'payment_method' => ['required', Rule::in(['Cash', 'Bank transfer', 'GCash', 'Cheque', 'Other'])],
@@ -81,11 +88,15 @@ class FinanceController extends Controller
             $data['document_path'] = $path; $data['document_name'] = $request->file('receipt')->getClientOriginalName();
         }
         try {
-            DB::transaction(function () use ($data, $request, $chairProject) {
+            DB::transaction(function () use ($data, $request) {
                 if (!empty($data['project_id'])) {
                     $project = Project::lockForUpdate()->findOrFail($data['project_id']);
-                    abort_unless(in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing']), 422, 'Transactions require an approved active project.');
-                    if ($chairProject) abort_unless($project->id === $chairProject->id && $project->canManage($request->user()), 403);
+                    abort_unless(in_array($project->status, ['Plan Locked', 'Ongoing']), 422, 'Transactions require a formally approved, active project.');
+                    if ($data['direction'] === 'debit') {
+                        abort_if($project->chair_id === $request->user()->id, 403, 'A Chair cannot verify their own project expense.');
+                        $item = ProjectFinanceGuard::expenseLine($project, $data['budget_item_id'] ?? '', $data['amount']);
+                        $data['category'] = ProjectBudget::CATEGORIES[$item['category']] ?? 'Other expense';
+                    }
                     $remaining = \App\Support\Money::cents($project->allocations()->sum('amount')) - \App\Support\Money::cents($project->transactions()->where('status', 'Posted')->where('direction', 'debit')->sum('amount'));
                     if ($data['direction'] === 'debit' && \App\Support\Money::cents($data['amount']) > $remaining) throw ValidationException::withMessages(['amount' => 'This expense exceeds the available allocation. Increase the authorized allocation first.']);
                 }
@@ -94,15 +105,6 @@ class FinanceController extends Controller
             });
         } catch (\Throwable $e) { if ($path) Storage::disk('local')->delete($path); throw $e; }
         return back()->with('success', 'Transaction posted to the official ledger.');
-    }
-
-    public function projectTransaction(Request $request, Project $project)
-    {
-        abort_unless($project->canManage($request->user()), 403);
-        $request->validate(['type' => 'required|in:Income,Expense', 'member_id' => 'prohibited', 'receipt' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240']);
-        $request->merge(['project_id' => $project->id]);
-        $request->attributes->set('chair_finance_project', $project);
-        return $this->store($request);
     }
 
     public function update(Request $request, LedgerEntry $entry)
@@ -132,6 +134,16 @@ class FinanceController extends Controller
                 }
                 if ($path) { $entry->document_path = $path; $entry->document_name = $request->file('receipt')->getClientOriginalName(); }
                 $entry->save();
+                if ($data['action'] === 'void') {
+                    $claim = \App\Models\ExpenseClaim::where('ledger_entry_id', $entry->id)->first();
+                    if ($claim) {
+                        $claimBefore = $claim->toArray();
+                        $claim->status = 'Void';
+                        $claim->save();
+                        ChapterService::audit('expense_claim_voided', $claim, $claimBefore, $data['remarks']);
+                        ChapterService::notify([$claim->submitted_by], 'Expense claim voided', $entry->reference.' was voided: '.$data['remarks'], route('expense-claims.index', [], false), true);
+                    }
+                }
                 ChapterService::audit('transaction_'.$data['action'], $entry, $before, $data['remarks']);
                 if ($entry->member_due_id) ChapterService::notify([$entry->member_id], 'Dues payment updated', $entry->reference.' was '.$entry->status, route('dues', [], false));
             });

@@ -55,7 +55,7 @@
     @if($proposal && $project->exists && $project->proposal)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View &amp; print proposal</a>@endif
 </div>
 <div class="project-entry-steps" aria-label="Form progress">
-    <span><b>1</b> Project details</span><span><b>2</b> Choose a method</span><span><b>3</b> Complete the {{ $proposal ? 'proposal' : 'letter' }}</span>
+    <span data-project-step-label="0"><b>1</b> Project details</span><span data-project-step-label="1"><b>2</b> Choose a method</span><span data-project-step-label="2"><b>3</b> Complete the {{ $proposal ? 'proposal' : 'letter' }}</span><span data-project-step-label="3"><b>4</b> Review &amp; confirm</span>
 </div>
 <div class="notice project-entry-notice">{{ $proposal ? 'The BOD-approved budget is locked. Review the printable packet before locking the plan. Paper signatures do not replace system approvals.' : 'Saving creates a draft for Admin, Treasurer, and BOD review. Implementation and spending still require a recorded BOD resolution and locked project plan.' }}</div>
 <form class="project-entry-form" method="POST" enctype="multipart/form-data" action="{{ $project->exists ? route('projects.update', $project) : route('projects.store') }}" data-project-submission-form>
@@ -167,7 +167,7 @@
         <div class="section-heading"><span>03</span><div><h2>Completed template</h2><p>Use the official form from Form Templates. New uploads are retained as a version history.</p></div></div>
         <a class="btn secondary proposal-template-download" href="{{ route('templates.reference.download', $proposal ? 'project-proposal-form' : 'internal-project-letter') }}"><x-icon name="download" /> Download {{ $proposal ? 'Project Proposal Form' : 'Internal Project Letter' }}</a>
         <div class="form-grid">
-            <x-field name="submission_file" label="Completed DOCX or PDF (max 10 MB)" type="file" accept=".doc,.docx,.pdf"/>
+            <x-field name="submission_file" label="Completed DOCX or PDF (max 10 MB)" type="file" accept=".doc,.docx,.pdf" :required="$submissionVersions->isEmpty()"/>
             <x-field name="revision_note" label="Version or revision note" type="textarea" maxlength="2000"/>
         </div>
         @if($submissionVersions->isNotEmpty())
@@ -181,7 +181,8 @@
             <p class="hint">A completed template is required before this draft can be submitted for review.</p>
         @endif
     </section>
-    <div class="form-footer project-entry-actions"><span>Save now and continue editing from the project workspace.</span><div><a class="btn secondary" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="close" /> Cancel</a><button class="btn primary"><x-icon name="save" /> Save {{ $proposal ? 'proposal' : 'concept' }} draft</button></div></div>
+    <section class="panel form-panel chapter-form-section" data-project-review hidden><div class="section-heading"><span>04</span><div><h2>Review your project details</h2><p>Check each answer, budget line, and uploaded file before saving. You can return to any step to make changes.</p></div></div><div data-project-review-summary></div><label class="field"><span><input type="checkbox" data-project-review-confirm> I reviewed the details above and confirm they are ready to save.</span></label></section>
+    <div class="form-footer project-entry-actions"><span data-project-step-hint>Complete each step, then review all details before saving.</span><div><a class="btn secondary" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="close" /> Cancel</a><button class="btn secondary" type="button" data-project-step-prev hidden>Previous</button><button class="btn primary" type="button" data-project-step-next hidden>Continue</button><button class="btn primary" data-project-save><x-icon name="save" /> Save {{ $proposal ? 'proposal' : 'concept' }} draft</button></div></div>
 </form>
 </div>
 @endsection

@@ -6,6 +6,7 @@ use App\Models\{RegistrationRequest, User};
 use App\Services\ChapterService;
 use App\Support\Permissions;
 use App\Support\ChapterForms;
+use App\Support\MemberId;
 use Illuminate\Http\{RedirectResponse, Request};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -29,6 +30,11 @@ class RegistrationController extends Controller
             'email' => ['required', 'email:rfc', 'max:200'],
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
+            'title' => ['nullable', 'string', 'max:30'],
+            'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'position' => ['nullable', 'string', 'max:160'],
+            'business_sector' => ['nullable', 'string', 'max:160'],
+            'university_major' => ['nullable', 'string', 'max:160'],
             'occupation' => ['nullable', Rule::in(['Student', 'Employed', 'Self-employed', 'Other'])],
             'organization' => ['nullable', 'string', 'max:200'],
             'interests' => ['nullable', 'array', 'max:4'],
@@ -60,6 +66,11 @@ class RegistrationController extends Controller
                 'reason' => trim($data['motivation'] ?? '') ?: 'Membership application and member portal registration',
                 'application_details' => [
                     'address' => trim($data['address'] ?? ''),
+                    'title' => trim($data['title'] ?? ''),
+                    'date_of_birth' => $data['date_of_birth'] ?? null,
+                    'position' => trim($data['position'] ?? ''),
+                    'business_sector' => trim($data['business_sector'] ?? ''),
+                    'university_major' => trim($data['university_major'] ?? ''),
                     'occupation' => $data['occupation'] ?? null,
                     'organization' => trim($data['organization'] ?? ''),
                     'interests' => array_values(array_unique($data['interests'] ?? [])),
@@ -73,7 +84,7 @@ class RegistrationController extends Controller
         });
 
         $admins = User::where('role', 'admin')->where('status', 'active')->pluck('id');
-        ChapterService::notify($admins, 'New member registration', $registration->name.' registered for a JCISTEM account. Review it before activation.', route('registrations.show', $registration));
+        ChapterService::notify($admins, 'New member registration', $registration->name.' registered for a JCISTEM account. Review it before activation.', route('registrations.show', $registration), true);
 
         return redirect()->route('register.thanks')->with('registration_reference', $registration->reference);
     }
@@ -132,11 +143,17 @@ class RegistrationController extends Controller
                     'profile' => [
                         'phone' => $registration->phone,
                         'address' => $registration->application_details['address'] ?? '',
+                        'title' => $registration->application_details['title'] ?? '',
+                        'date_of_birth' => $registration->application_details['date_of_birth'] ?? null,
+                        'position' => $registration->application_details['position'] ?? '',
+                        'business_sector' => $registration->application_details['business_sector'] ?? '',
+                        'university_major' => $registration->application_details['university_major'] ?? '',
                         'occupation' => $registration->application_details['occupation'] ?? null,
                         'organization' => $registration->application_details['organization'] ?? '',
                         'interests' => $registration->application_details['interests'] ?? [],
                     ],
                 ]);
+                MemberId::assign($member);
                 $registration->user_id = $member->id;
                 $registration->status = 'approved';
                 ChapterService::audit('member_account_approved', $member);

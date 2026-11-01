@@ -19,6 +19,11 @@ class RegistrationApprovalTest extends TestCase
             'email' => $email,
             'phone' => '09171234567',
             'address' => 'Carmona City, Cavite',
+            'title' => 'Ms.',
+            'date_of_birth' => '1998-04-15',
+            'position' => 'Youth volunteer',
+            'business_sector' => 'Education',
+            'university_major' => 'Education studies',
             'occupation' => 'Student',
             'organization' => 'Carmona College',
             'interests' => ['Community Impact', 'Individual Development'],
@@ -41,6 +46,7 @@ class RegistrationApprovalTest extends TestCase
         $registration = RegistrationRequest::firstOrFail();
         $this->assertSame('pending', $registration->status);
         $this->assertSame('Carmona City, Cavite', $registration->application_details['address']);
+        $this->assertSame('Youth volunteer', $registration->application_details['position']);
         $this->assertSame(['Community Impact', 'Individual Development'], $registration->application_details['interests']);
         $this->assertTrue(Hash::check('StrongMemberPass123', $registration->password));
         $this->assertDatabaseMissing('users', ['email' => 'applicant@example.test']);
@@ -65,6 +71,8 @@ class RegistrationApprovalTest extends TestCase
         $this->assertNull($registration->password);
         $this->assertSame('member', $member->role);
         $this->assertSame('active', $member->status);
+        $this->assertMatchesRegularExpression('/^JCI-CAR-\d{4}-\d{5,}$/', $member->member_no);
+        $this->assertSame('Youth volunteer', $member->profile['position']);
         $this->assertSame('Carmona City, Cavite', $member->profile['address']);
         $this->assertSame(['Community Impact', 'Individual Development'], $member->profile['interests']);
         $this->actingAs($member)->get('/account')->assertOk()->assertSee('Areas of interest');

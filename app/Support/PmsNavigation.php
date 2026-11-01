@@ -25,6 +25,7 @@ final class PmsNavigation
             ],
             'FINANCIAL' => [
                 ['finance', 'Project Budget Overview', 'chart', []],
+                ['expense-claims.index', $user->role === 'treasurer' ? 'Expense Claims to Review' : 'My Expense Claims', 'receipt', []],
                 [$user->role === 'treasurer' ? 'dues.manage' : 'dues', $user->role === 'treasurer' ? 'Manage Member Dues' : 'My Member Dues', 'receipt', []],
                 ...($user->role === 'treasurer' ? [['ledger', 'Master Ledger', 'wallet', []]] : []),
             ],
@@ -37,17 +38,22 @@ final class PmsNavigation
             'REPORTS & DOCUMENTS' => [
                 ['reports.generate', 'Report Generator', 'report', []],
                 ['templates', 'Forms & Templates', 'folder', []],
-                ...($user->role === 'admin' ? [['records', 'Completion Report Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']]] : []),
+                ...($user->role === 'admin' ? [['records', 'PCR Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']]] : []),
                 ...($user->role === 'treasurer' ? [['records', 'Liquidation Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']]] : []),
             ],
             'FILES' => [
                 ['documents', 'File Library', 'folder', []],
             ],
+            'PARTNERSHIPS' => [
+                ['partners.index', 'Partner Directory', 'users', []],
+                ['records', $user->role === 'admin' ? 'External LOI Reviews' : 'External LOIs', 'fileSignature', $user->role === 'admin' ? ['kind' => 'letters', 'status' => 'For Review'] : ['kind' => 'letters']],
+                ['agreements.index', 'Partnership Agreements', 'fileSignature', []],
+            ],
             'CALENDAR' => [
                 ['calendar', 'Calendar', 'calendar', []],
             ],
-            'PROFILE' => [
-                ['account', 'My Profile', 'user', []],
+            'NOTIFICATIONS' => [
+                ['notifications', 'Notifications', 'bell', []],
             ],
             'SETTINGS' => [
                 ['settings', 'Workspace Settings', 'settings', []],
@@ -77,7 +83,8 @@ final class PmsNavigation
             'REPORTS & DOCUMENTS' => 'report',
             'FILES' => 'folder',
             'CALENDAR' => 'calendar',
-            'PROFILE' => 'user',
+            'NOTIFICATIONS' => 'bell',
+            'PARTNERSHIPS' => 'users',
             'SETTINGS' => 'settings',
             default => 'folder',
         };
@@ -85,7 +92,7 @@ final class PmsNavigation
 
     public static function direct(string $menu): bool
     {
-        return in_array($menu, ['CALENDAR', 'FILES', 'PROFILE'], true);
+        return in_array($menu, ['CALENDAR', 'FILES', 'NOTIFICATIONS'], true);
     }
 
     public static function url(array $item): string
@@ -103,6 +110,8 @@ final class PmsNavigation
         if (!$route) return false;
         // Keep project detail, edit, and document pages under the project collection.
         if ($route === 'projects' && !$params && request()->routeIs('projects.*') && !request()->routeIs('projects.create')) return true;
+        if ($route === 'partners.index' && request()->routeIs('partners.*')) return true;
+        if ($route === 'agreements.index' && request()->routeIs('agreements.*')) return true;
         if (!request()->routeIs($route)) return false;
         foreach ($params as $key => $value) {
             if ((string) (request()->route($key) ?? request()->query($key)) !== (string) $value) return false;

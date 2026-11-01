@@ -71,24 +71,21 @@ class PublicEntryTest extends TestCase
             ->assertDontSee('DoNotReflectThisPassword');
     }
 
-    public function test_login_never_exposes_or_replaces_an_existing_session(): void
+    public function test_valid_login_replaces_stale_claim_without_exposing_session_controls(): void
     {
         $user = User::factory()->create(['status' => 'active', 'role' => 'member',
             'active_login_token' => 'existing-session', 'active_login_seen_at' => now()]);
         $cookies = [];
-        $this->browse('GET', self::WORKSPACE.'/login', $cookies);
-        $credentials = ['login' => $user->email, 'password' => 'password'];
-        $this->browse('POST', self::WORKSPACE.'/login', $cookies, $credentials)->assertSessionHasErrors('login');
         $page = $this->browse('GET', self::WORKSPACE.'/login', $cookies)->assertOk()
-            ->assertSee('Use Forgot password? to restore secure account access.')
             ->assertDontSee('Already signed in')
             ->assertDontSee('another device')
             ->assertDontSee('replace_session', false);
         $this->assertStringNotContainsString('auth-session-help', $page->getContent());
-        $this->assertSame('existing-session', $user->fresh()->active_login_token);
-        $this->browse('POST', self::WORKSPACE.'/login', $cookies, $credentials + ['replace_session' => '1'])
-            ->assertSessionHasErrors('login');
-        $this->assertSame('existing-session', $user->fresh()->active_login_token);
+        $credentials = ['login' => $user->email, 'password' => 'password'];
+        $this->browse('POST', self::WORKSPACE.'/login', $cookies, $credentials)
+            ->assertRedirect(self::WORKSPACE.'/dashboard');
+        $this->assertNotSame('existing-session', $user->fresh()->active_login_token);
+        $this->browse('GET', self::WORKSPACE.'/dashboard', $cookies)->assertOk();
     }
 
     public function test_all_three_recovery_steps_work_and_the_new_password_can_sign_in(): void

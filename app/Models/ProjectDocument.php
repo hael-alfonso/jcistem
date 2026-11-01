@@ -25,6 +25,9 @@ class ProjectDocument extends ChapterRecord
             'csv' => 'text/csv; charset=UTF-8',
             'mp4' => 'video/mp4',
             'doc', 'docx' => 'application/pdf',
+            'xls' => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             default => null,
         };
     }

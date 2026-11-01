@@ -8,6 +8,7 @@
     $recognition = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $letter['commitments'] ?? '') ?: [])));
 @endphp
 <article class="panel printable-document project-document external-loi-document">
+    @if(!in_array($record->status, ['Approved for Sending', 'Sent', 'Archived'], true))<p class="notice">REVIEW COPY · Admin approval required before printing for the partner.</p>@endif
     <header class="project-letterhead"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="JCI logo" width="140" height="78"><div><strong>JCI Carmona</strong><span>JCI Philippines · Carmona City, Cavite</span></div></header>
     <p class="document-overline">EXTERNAL PARTNERSHIP LETTER · {{ $snapshot['reference'] ?? $record->project?->reference ?? 'JCI CARMONA' }}</p>
     <p class="letter-date">{{ $letterDate }}</p>

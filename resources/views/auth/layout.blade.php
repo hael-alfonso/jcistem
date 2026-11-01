@@ -33,7 +33,7 @@
             <div class="auth-form-wrap{{ request()->routeIs('register') ? ' auth-register-wrap' : '' }}"><div class="auth-form-panel" data-auth-panel>
                 <div class="auth-feedback" aria-live="polite" aria-atomic="true">
                     @if($errors->any())
-                        <div class="alert error" role="alert">{{ request()->routeIs('login') && $errors->has('email') ? $errors->first('email') : ($errors->has('token') ? $errors->first('token') : 'Please check the details below and try again.') }}</div>
+                        <div class="alert error" role="alert">{{ $errors->first('login') ?: ($errors->first('email') ?: ($errors->first('token') ?: $errors->first())) }}</div>
                     @elseif(session('status'))
                         <div class="alert success" role="status">{{ session('status') }}</div>
                     @endif

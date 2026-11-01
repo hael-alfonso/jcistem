@@ -23,6 +23,7 @@
     <div class="budget-item-list" data-budget-list>
         @foreach($budgetRows as $index => $item)
             <div class="budget-item-row" data-budget-row>
+                <input type="hidden" name="budget_items[{{ $index }}][id]" value="{{ $item['id'] ?? '' }}">
                 <label><span>Category</span><select name="budget_items[{{ $index }}][category]" required><option value="">Select category</option>@foreach(\App\Support\ProjectBudget::CATEGORIES as $value => $label)<option value="{{ $value }}" @selected(($item['category'] ?? '') === $value)>{{ $label }}</option>@endforeach</select></label>
                 <label><span>Specific expense</span><input name="budget_items[{{ $index }}][description]" value="{{ $item['description'] ?? '' }}" maxlength="255" placeholder="Example: Printing of 100 learning kits" required></label>
                 <label><span>Quantity</span><input name="budget_items[{{ $index }}][quantity]" type="number" min="0.01" max="999999.99" step="0.01" value="{{ $item['quantity'] ?? '1.00' }}" required data-budget-quantity></label>

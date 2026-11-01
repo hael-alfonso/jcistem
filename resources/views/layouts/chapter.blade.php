@@ -24,7 +24,7 @@
     $user = auth()->user();
     $workspacePreferences = $user?->profile['preferences'] ?? [];
     $unread = \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')->count();
-    $recentNotifications = \App\Models\Notification::where('user_id', $user->id)->latest()->limit(4)->get();
+    $recentNotifications = \App\Models\Notification::where('user_id', $user->id)->orderByRaw('CASE WHEN requires_open = 1 AND read_at IS NULL THEN 0 ELSE 1 END')->latest()->limit(4)->get();
     $roleLabel = \App\Support\WorkspaceNav::label($user->role);
     $navigation = \App\Support\PmsNavigation::for($user);
     $workspaceNotice = \Illuminate\Support\Facades\Cache::remember('jci.workspace_notice', 300, fn () => \App\Models\ChapterSetting::where('key', 'workspace_notice')->value('value') ?? '');
@@ -79,6 +79,12 @@
                 @endif
             @endforeach
         </nav>
+        <div class="sidebar-account">
+            <a class="sidebar-profile-link {{ request()->routeIs('account') ? 'is-active' : '' }}" href="{{ route('account') }}" aria-label="My Profile: {{ $user->name }}" @if(request()->routeIs('account')) aria-current="page" @endif>
+                <span class="sidebar-profile-avatar" aria-hidden="true">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span>
+                <span class="sidebar-account-identity"><strong>{{ $user->name }}</strong><small>{{ $user->email }}</small></span>
+            </a>
+        </div>
     </aside>
     <button class="nav-overlay" type="button" aria-label="Close navigation"></button>
     <div class="app-main">
@@ -95,7 +101,7 @@
                         <div class="topbar-notification-heading"><span>Notifications</span><a href="{{ route('notifications') }}">View all</a></div>
                         @forelse($recentNotifications as $notification)
                             <form class="topbar-notification-item {{ $notification->read_at ? 'is-read' : 'is-unread' }}" method="POST" action="{{ route('notifications.open', $notification) }}">@csrf
-                                <button type="submit"><span class="topbar-notification-title">{{ $notification->title }}</span><span class="topbar-notification-body">{{ $notification->body }}</span><small>{{ $notification->created_at->diffForHumans() }}</small></button>
+                                <button type="submit"><span class="topbar-notification-title">{{ $notification->title }}@if($notification->requires_open && !$notification->read_at)<em>Important</em>@endif</span><span class="topbar-notification-body">{{ $notification->body }}</span><small>{{ $notification->created_at->diffForHumans() }}@if($notification->requires_open && !$notification->read_at) · Open to mark read @endif</small></button>
                             </form>
                         @empty
                             <p class="topbar-notification-empty">You're all caught up. New updates will appear here.</p>

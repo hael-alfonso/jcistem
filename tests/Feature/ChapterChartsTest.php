@@ -79,28 +79,40 @@ class ChapterChartsTest extends TestCase
                 'direction' => 'debit', 'status' => 'Posted', 'amount' => 350, 'transaction_date' => today(),
             ]);
 
-            $dashboard = $this->actingAs($user)->get('/dashboard')->assertOk()
-                ->assertDontSee('More dashboard details')->assertDontSee('dashboard-more')
-                ->assertDontSee('Projects by focus area')->assertSee('stat-content')
-                ->assertSee('<svg class="pie-svg"', false)
-                ->assertViewHas('taskStatuses', fn ($statuses) => $statuses->sum() === 1 && $statuses['Completed'] === 1);
-            if ($role === 'treasurer') {
-                $dashboard->assertSee('Budget utilization')->assertSee('Expenses over time')
-                    ->assertSee('Projects over budget')->assertDontSee('My task status')->assertDontSee('Projects by status');
-            } elseif ($role === 'member') {
-                $dashboard->assertSee('My next steps')->assertSee('My task status')
-                    ->assertDontSee('Budget utilization')->assertDontSee('Budget vs. expenses')->assertDontSee('Projects by status');
-            } else {
-                $dashboard->assertSee('Projects by status')->assertDontSee('My task status');
-                if ($role === 'admin') $dashboard->assertSee('Budget vs. expenses');
-                else $dashboard->assertSee('My review queue')->assertDontSee('Budget vs. expenses');
+            $dashboard = $this->actingAs($user)->get('/dashboard')->assertOk();
+            $markup = $dashboard->getContent();
+            foreach (['More dashboard details', 'dashboard-more', 'Projects by focus area'] as $absent) {
+                $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
             }
-            $this->get('/projects')->assertOk()->assertSee('modern-project-card')->assertSee('Budget project '.$role)->assertDontSee('Status colors');
-            $this->get('/tasks')->assertOk()->assertSee('Task summary')->assertSee('aria-label="Open My chart task"', false)->assertDontSee('tasks-card-grid');
-            $this->get('/finance')->assertOk()->assertSee('Budget vs. expenses')
-                ->assertSee('Expenses over time')->assertSee('Budget project '.$role)
-                ->assertSee('Budget project '.$role.' allocated budget: PHP 1,000.00')
-                ->assertSee('Budget project '.$role.' posted expenses: PHP 350.00');
+            foreach (['stat-content', '<svg class="pie-svg"'] as $present) {
+                $this->assertTrue(str_contains($markup, $present), "$role dashboard is missing $present");
+            }
+            $dashboard->assertViewHas('taskStatuses', fn ($statuses) => $statuses->sum() === 1 && $statuses['Completed'] === 1);
+            if ($role === 'treasurer') {
+                foreach (['Budget utilization', 'Expenses over time', 'Projects over budget'] as $present) $this->assertTrue(str_contains($markup, $present), "$role dashboard is missing $present");
+                foreach (['My task status', 'Projects by status'] as $absent) $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
+            } elseif ($role === 'member') {
+                foreach (['My next steps', 'My task status'] as $present) $this->assertTrue(str_contains($markup, $present), "$role dashboard is missing $present");
+                foreach (['Budget utilization', 'Budget vs. expenses', 'Projects by status'] as $absent) $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
+            } else {
+                $this->assertTrue(str_contains($markup, 'Projects by status'), "$role dashboard is missing Projects by status");
+                $this->assertFalse(str_contains($markup, 'My task status'), "$role dashboard unexpectedly shows My task status");
+                if ($role === 'admin') $this->assertTrue(str_contains($markup, 'Budget vs. expenses'), 'Admin dashboard is missing Budget vs. expenses');
+                else {
+                    $this->assertTrue(str_contains($markup, 'My review queue'), 'BOD dashboard is missing My review queue');
+                    $this->assertFalse(str_contains($markup, 'Budget vs. expenses'), 'BOD dashboard unexpectedly shows Budget vs. expenses');
+                }
+            }
+            $projectsMarkup = $this->get('/projects')->assertOk()->getContent();
+            foreach (['modern-project-card', 'Budget project '.$role] as $present) $this->assertTrue(str_contains($projectsMarkup, $present), "$role projects page is missing $present");
+            $this->assertFalse(str_contains($projectsMarkup, 'Status colors'), "$role projects page unexpectedly shows Status colors");
+            $tasksMarkup = $this->get('/tasks')->assertOk()->getContent();
+            foreach (['Task summary', 'aria-label="View My chart task"'] as $present) $this->assertTrue(str_contains($tasksMarkup, $present), "$role tasks page is missing $present");
+            $this->assertFalse(str_contains($tasksMarkup, 'tasks-card-grid'), "$role tasks page unexpectedly shows tasks-card-grid");
+            $financeMarkup = $this->get('/finance')->assertOk()->getContent();
+            foreach (['Budget vs. expenses', 'Expenses over time', 'Budget project '.$role, 'Budget project '.$role.' allocated budget: PHP 1,000.00', 'Budget project '.$role.' posted expenses: PHP 350.00'] as $present) {
+                $this->assertTrue(str_contains($financeMarkup, $present), "$role finance page is missing $present");
+            }
         }
     }
 

@@ -1,0 +1,10 @@
+#document-pages { width: min(100%, 1200px); margin: 0 auto; padding: 16px; overflow: auto; }
+#document-pages > * { max-width: 100%; }
+.office-sheet-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.office-sheet-tabs button { border: 1px solid #bfd6e3; border-radius: 8px; background: #f2f8fb; color: #164667; padding: 7px 12px; cursor: pointer; }
+.office-sheet-tabs button[aria-selected="true"] { background: #0b749e; color: #fff; border-color: #0b749e; }
+.office-sheet-content { overflow: auto; background: #fff; }
+.office-sheet-content table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 12px; }
+.office-sheet-content td, .office-sheet-content th { border: 1px solid #cfdae2; padding: 5px 8px; white-space: pre-wrap; }
+.viewer-status.is-error { color: #9c2f39; }
+@media (max-width: 720px) { #document-pages { padding: 8px; } }

@@ -26,6 +26,7 @@ final class ProjectBudget
                 $lineTotal = (int) round((float) $quantity * $unitCost);
 
                 return [
+                    'id' => !empty($item['id']) && \Illuminate\Support\Str::isUuid($item['id']) ? $item['id'] : (string) \Illuminate\Support\Str::uuid(),
                     'category' => (string) ($item['category'] ?? ''),
                     'description' => trim((string) ($item['description'] ?? '')),
                     'quantity' => $quantity,

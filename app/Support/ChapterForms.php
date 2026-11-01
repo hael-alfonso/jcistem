@@ -126,6 +126,15 @@ class ChapterForms
         'Purpose and results' => ['summary', 'objectives', 'beneficiaries', 'activities', 'outputs', 'outcomes'],
         'People, evidence, and follow-up' => ['participation', 'evidence', 'issues', 'recommendations'],
     ];
+    public const LIQUIDATION = [
+        'report_date' => 'Report date',
+        'voucher_reference' => 'Cash disbursement voucher / request number',
+        'cash_received' => 'Total cash advanced / received (PHP)',
+        'receipt_notes' => 'Receipt and invoice references',
+        'reconciliation_notes' => 'Cash return or reimbursement details',
+        'treasurer_name' => 'Verified by (LO Treasurer)',
+        'president_name' => 'Approved by (LO President)',
+    ];
     public const FINANCIAL_REPORT = [
         'period_start' => 'Reporting period start (YYYY-MM-DD)',
         'period_end' => 'Reporting period end (YYYY-MM-DD)',

@@ -153,7 +153,7 @@ import { boundedProgress } from './pms-helpers.js';
       documentPreviewFrame.src = 'about:blank';
       documentPreviewVideo.hidden = false;
       documentPreviewVideo.src = url;
-    } else if (button.dataset.previewType === 'DOCX') {
+    } else if (['DOCX', 'XLS', 'XLSX', 'PPTX'].includes(button.dataset.previewType)) {
       if (documentPreviewVideo) documentPreviewVideo.hidden = true;
       documentPreviewFrame.hidden = false;
       const frameUrl = new URL(url, window.location.href);
@@ -193,6 +193,36 @@ import { boundedProgress } from './pms-helpers.js';
   document.querySelectorAll('.app-sidebar .side-link').forEach((link) => link.addEventListener('click', () => setNavigation(false)));
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setNavigation(false); topbarMenus.forEach((menu) => { if (menu.open) { menu.open = false; menu.querySelector('summary')?.focus(); } }); if (createMenu?.open) { createMenu.open = false; createMenu.querySelector('summary')?.focus(); } } });
   document.querySelectorAll('[data-print]').forEach((button) => button.addEventListener('click', () => window.print()));
+  document.querySelectorAll('[data-ledger-budget-line]').forEach((select) => {
+    const project = select.form?.querySelector('select[name="project_id"]');
+    if (!project) return;
+    const updateLines = () => {
+      [...select.options].forEach((option) => { if (option.value) option.disabled = option.dataset.projectId !== project.value; });
+      if (select.selectedOptions[0]?.disabled) select.value = '';
+    };
+    project.addEventListener('change', updateLines);
+    updateLines();
+  });
+  const projectPages = document.querySelector('[data-project-pages]');
+  if (projectPages) {
+    const links = [...projectPages.querySelectorAll('a[href^="#"]')];
+    const sections = links.map((link) => document.getElementById(link.hash.slice(1)));
+    const showPage = () => {
+      const selected = links.find((link) => link.hash === window.location.hash) || links[0];
+      links.forEach((link, index) => {
+        sections[index].hidden = link !== selected;
+        if (link === selected) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+      });
+    };
+    links.forEach((link) => link.addEventListener('click', (event) => {
+      event.preventDefault();
+      history.pushState(null, '', link.hash);
+      showPage();
+      projectPages.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }));
+    window.addEventListener('popstate', showPage);
+    showPage();
+  }
   document.querySelectorAll('[data-project-submission-form]').forEach((form) => {
     const choices = [...form.querySelectorAll('input[type="radio"][name$="_submission_method"]')];
     const panels = [...form.querySelectorAll('[data-submission-panel]')];
@@ -206,6 +236,65 @@ import { boundedProgress } from './pms-helpers.js';
     };
     choices.forEach((choice) => choice.addEventListener('change', updateSubmissionPanels));
     updateSubmissionPanels();
+    const general = form.querySelector('#proposal-general');
+    const methodSection = form.querySelector('.submission-method-section');
+    const review = form.querySelector('[data-project-review]');
+    const reviewSummary = form.querySelector('[data-project-review-summary]');
+    const confirmReview = form.querySelector('[data-project-review-confirm]');
+    const previous = form.querySelector('[data-project-step-prev]');
+    const next = form.querySelector('[data-project-step-next]');
+    const save = form.querySelector('[data-project-save]');
+    let projectStep = 0;
+    const showProjectStep = () => {
+      if (!review) return;
+      general.hidden = projectStep !== 0;
+      methodSection.hidden = projectStep !== 1;
+      updateSubmissionPanels();
+      panels.forEach((panel) => { panel.hidden = projectStep !== 2 || panel.dataset.submissionPanel !== (choices.find((choice) => choice.checked)?.value || 'online'); });
+      review.hidden = projectStep !== 3;
+      previous.hidden = projectStep === 0;
+      next.hidden = projectStep === 3;
+      save.hidden = projectStep !== 3;
+      document.querySelectorAll('[data-project-step-label]').forEach((label, index) => {
+        label.classList.toggle('is-current', index === projectStep);
+        label.classList.toggle('is-complete', index < projectStep);
+        if (index === projectStep) label.setAttribute('aria-current', 'step'); else label.removeAttribute('aria-current');
+      });
+      form.querySelector('[data-project-step-hint]').textContent = projectStep === 3 ? 'Confirm the preview, then save the draft.' : 'Complete this step to continue.';
+    };
+    const activeStepFields = () => {
+      const group = projectStep === 0 ? general : projectStep === 1 ? methodSection : panels.find((panel) => !panel.hidden);
+      return [...(group?.querySelectorAll('input, select, textarea') || [])].filter((field) => !field.disabled);
+    };
+    const previewProjectDetails = () => {
+      reviewSummary.replaceChildren();
+      const heading = document.createElement('h3'); heading.textContent = 'Project details and selected method'; reviewSummary.append(heading);
+      const list = document.createElement('dl'); list.className = 'project-review-list';
+      const fields = [general, panels.find((panel) => panel.dataset.submissionPanel === (choices.find((choice) => choice.checked)?.value || 'online'))];
+      fields.forEach((group) => group?.querySelectorAll('input, select, textarea').forEach((field) => {
+        if (field.disabled || !field.name || field.type === 'hidden' || field.type === 'radio' || field.type === 'checkbox' || field.name === '_token') return;
+        const value = field.type === 'file' ? [...field.files].map((file) => file.name).join(', ') : field.tagName === 'SELECT' ? field.selectedOptions[0]?.textContent : field.value.trim();
+        if (!value || value.startsWith('Select ')) return;
+        const row = document.createElement('div'); const term = document.createElement('dt'); const detail = document.createElement('dd');
+        term.textContent = field.closest('label')?.querySelector('span')?.textContent?.trim() || field.name.replaceAll(/[\[\]_]/g, ' ');
+        detail.textContent = value; row.append(term, detail); list.append(row);
+      }));
+      reviewSummary.append(list);
+      const method = document.createElement('p'); method.className = 'hint'; method.textContent = `Submission method: ${choices.find((choice) => choice.checked)?.value === 'upload' ? 'Completed official template upload' : 'Online form'}.`; reviewSummary.append(method);
+    };
+    next?.addEventListener('click', () => {
+      const invalid = activeStepFields().find((field) => !field.checkValidity());
+      if (invalid) { invalid.reportValidity(); return; }
+      if (projectStep === 2) previewProjectDetails();
+      projectStep = Math.min(3, projectStep + 1); showProjectStep();
+      document.querySelector('.project-entry-steps')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    previous?.addEventListener('click', () => { projectStep = Math.max(0, projectStep - 1); showProjectStep(); document.querySelector('.project-entry-steps')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
+    form.addEventListener('submit', (event) => {
+      if (projectStep !== 3 || !confirmReview.checked) { event.preventDefault(); projectStep = 3; previewProjectDetails(); showProjectStep(); confirmReview.focus(); }
+    });
+    choices.forEach((choice) => choice.addEventListener('change', showProjectStep));
+    showProjectStep();
     const budget = form.querySelector('[data-budget-builder]');
     if (budget) {
       const list = budget.querySelector('[data-budget-list]');

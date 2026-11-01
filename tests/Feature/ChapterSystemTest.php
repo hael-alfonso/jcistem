@@ -31,9 +31,12 @@ class ChapterSystemTest extends TestCase
     {
         $member = $this->user();
         $project = $this->project($member, ['status' => 'Ongoing', 'chair_id' => $member->id]);
-        $this->actingAs($member)->get('/dashboard')->assertOk()
+        $dashboard = $this->actingAs($member)->get('/dashboard')->assertOk()
             ->assertSee('All Chapter Projects')->assertSee('Project Budget Overview')->assertSee('My Profile')
             ->assertDontSee('Master Ledger');
+        $markup = $dashboard->getContent();
+        $this->assertGreaterThan(strpos($markup, '</nav>'), strpos($markup, 'class="sidebar-account"'));
+        $this->assertLessThan(strpos($markup, '</aside>'), strpos($markup, 'class="sidebar-account"'));
         $this->get('/projects')->assertOk()->assertSee('Quick view')->assertSee('project-preview-dialog');
         $this->get('/finance')->assertOk()->assertSee('Financial monitoring');
 
@@ -83,17 +86,25 @@ class ChapterSystemTest extends TestCase
         $this->actingAs($treasurer)->post($transition, ['action' => 'budget_review', 'comments' => 'Budget is feasible.'])->assertSessionHasNoErrors();
         $this->actingAs($admin)->post($transition, ['action' => 'approve', 'comments' => 'Approved by the board.', 'meeting_date' => '2026-10-01', 'resolution_number' => 'BOD-TEST-1', 'evidence' => UploadedFile::fake()->create('resolution.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
         $this->actingAs($member)->put('/projects/'.$p->id, ['title' => $p->title, 'area' => $p->area, 'starts_on' => '2026-11-15', 'ends_on' => '2026-11-16', 'venue' => 'Carmona', 'proposed_budget' => 10000, 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Complete project plan')])->assertSessionHasNoErrors();
+        $p->update(['budget_items' => \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Learning materials', 'quantity' => 1, 'unit_cost' => 10000]])]);
+        $budgetItemId = $p->fresh()->budget_items[0]['id'];
+        $this->post($transition, ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
+        $this->actingAs($treasurer)->post($transition, ['action' => 'review_full_budget', 'comments' => 'Full proposal budget verified'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post($transition, ['action' => 'approve_full_proposal', 'comments' => 'Full proposal approved', 'meeting_date' => '2026-10-02', 'resolution_number' => 'BOD-TEST-2', 'evidence' => UploadedFile::fake()->create('full-proposal-approval.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->actingAs($member);
         $this->post($transition, ['action' => 'lock_plan'])->assertSessionHasNoErrors();
-        $budget = ['category' => 'Learning materials', 'amount' => 10000, 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Approved materials budget'];
+        $budget = ['budget_item_id' => $budgetItemId, 'amount' => 10000, 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Approved materials budget'];
         $this->actingAs($member)->post('/projects/'.$p->id.'/budget', $budget)->assertForbidden();
         $this->actingAs($treasurer)->post('/projects/'.$p->id.'/budget', $budget)->assertSessionHasNoErrors();
         $this->actingAs($member)->post($transition, ['action' => 'start'])->assertSessionHasNoErrors();
+        $this->post($transition, ['action' => 'request_completion'])->assertSessionHasErrors('action');
+        $this->assertSame('Ongoing', $p->fresh()->status);
         $this->post('/projects/'.$p->id.'/tasks', ['title' => 'Prepare learning kits', 'assignees' => [$assignee->id], 'priority' => 'High', 'status' => 'To Do', 'starts_on' => '2026-11-01', 'deadline' => '2026-11-10'])->assertSessionHasNoErrors();
         $task = Task::firstOrFail();
         $this->actingAs($assignee)->post('/projects/'.$p->id.'/tasks/'.$task->id.'/respond', ['response' => 'accepted'])->assertSessionHasNoErrors();
         $this->actingAs($assignee)->put('/projects/'.$p->id.'/tasks/'.$task->id, ['status' => 'Completed', 'notes' => 'Kits ready', 'evidence' => 'Inventory confirmed'])->assertSessionHasNoErrors();
         $this->assertSame('Prepare learning kits', $task->fresh()->title);
-        $expense = ['reference' => 'EXP-001', 'project_id' => $p->id, 'transaction_date' => '2026-11-02', 'type' => 'Expense', 'category' => 'Learning materials', 'account' => 'Chapter fund', 'counterparty' => 'Local supplier', 'payment_method' => 'Cash', 'description' => 'Learning kits', 'amount' => 2500, 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')];
+        $expense = ['reference' => 'EXP-001', 'project_id' => $p->id, 'budget_item_id' => $budgetItemId, 'transaction_date' => '2026-11-02', 'type' => 'Expense', 'category' => 'Learning materials', 'account' => 'Chapter fund', 'counterparty' => 'Local supplier', 'payment_method' => 'Cash', 'description' => 'Learning kits', 'amount' => 2500, 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')];
         $this->actingAs($treasurer)->post('/ledger', $expense)->assertSessionHasNoErrors();
         $this->assertSame(7500.0, $p->fresh()->remaining);
         $entry = LedgerEntry::firstOrFail();
@@ -105,7 +116,7 @@ class ChapterSystemTest extends TestCase
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->actingAs($admin)->post('/records/reports/'.$report->id.'/transition', ['action' => 'approve', 'comments' => 'Report reviewed.'])->assertSessionHasNoErrors();
         $this->assertSame('Completion Review', $p->fresh()->status);
-        $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Liquidation', 'type' => 'Liquidation', 'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Reconciled')])->assertSessionHasNoErrors();
+        $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Liquidation', 'type' => 'Liquidation', 'data' => ['report_date' => '2026-11-16', 'voucher_reference' => 'CDV-001', 'cash_received' => 2500, 'reconciliation_notes' => 'Reconciled']])->assertSessionHasNoErrors();
         $liquidation = ProjectReport::where('type', 'Liquidation')->firstOrFail();
         $this->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'approve', 'comments' => 'Receipts verified'])->assertSessionHasNoErrors();
@@ -145,7 +156,7 @@ class ChapterSystemTest extends TestCase
         $this->actingAs($admin)->post('/records/letters/'.$letter->id.'/transition', ['action' => 'approve', 'comments' => 'Approved for sending'])->assertSessionHasNoErrors();
         $project->update(['title' => 'Updated project title']);
         $this->assertSame('Community literacy project', $letter->fresh()->data['project_snapshot']['title']);
-        $this->actingAs($chair)->post('/records/letters/'.$letter->id.'/transition', ['action' => 'sent'])->assertSessionHasNoErrors();
+        $this->actingAs($chair)->post('/records/letters/'.$letter->id.'/transition', ['action' => 'sent', 'delivered_on' => '2026-10-25'])->assertSessionHasNoErrors();
         $this->post('/records/letters/'.$letter->id.'/transition', ['action' => 'revise'])->assertSessionHasNoErrors();
         $this->assertSame('Sent', $letter->fresh()->versions[0]['status']);
         $this->get('/records/letters/'.$letter->id)->assertOk();
@@ -185,7 +196,7 @@ class ChapterSystemTest extends TestCase
         $report = ProjectReport::firstOrFail();
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->assertEquals(1200, $report->fresh()->data['financial_snapshot']['actual_expenses']);
-        $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Projected')->assertSee('Actual posted');
+        $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Proposed')->assertSee('Actual posted');
     }
 
     public function test_members_cannot_access_private_concepts_financial_records_or_admin_controls(): void
@@ -201,9 +212,12 @@ class ChapterSystemTest extends TestCase
 
     public function test_expenses_cannot_exceed_allocation_and_voided_entries_stop_counting(): void
     {
-        $treasurer = $this->user('treasurer'); $project = $this->project($treasurer, ['status' => 'Approved']);
-        $project->allocations()->create(['category' => 'Supplies', 'amount' => 1000]);
-        $payload = ['reference' => 'EXP-002', 'project_id' => $project->id, 'transaction_date' => '2026-10-01', 'type' => 'Expense', 'category' => 'Supplies', 'account' => 'Chapter fund', 'counterparty' => 'Supplier', 'payment_method' => 'Cash', 'description' => 'Supplies', 'amount' => 1001];
+        $treasurer = $this->user('treasurer'); $project = $this->project($treasurer, ['status' => 'Ongoing']);
+        $project->budget_items = \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Supplies', 'quantity' => 1, 'unit_cost' => 1000], ['category' => 'other', 'description' => 'Other project needs', 'quantity' => 1, 'unit_cost' => 9000]]);
+        $project->save();
+        $budgetItemId = $project->budget_items[0]['id'];
+        $project->allocations()->create(['category' => 'Supplies', 'budget_item_id' => $budgetItemId, 'amount' => 1000]);
+        $payload = ['reference' => 'EXP-002', 'project_id' => $project->id, 'budget_item_id' => $budgetItemId, 'transaction_date' => '2026-10-01', 'type' => 'Expense', 'category' => 'Supplies', 'account' => 'Chapter fund', 'counterparty' => 'Supplier', 'payment_method' => 'Cash', 'description' => 'Supplies', 'amount' => 1001];
         $this->actingAs($treasurer)->post('/ledger', $payload)->assertSessionHasErrors('amount');
         $this->assertSame(0, LedgerEntry::count());
         $payload['amount'] = 1000;

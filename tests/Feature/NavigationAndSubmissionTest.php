@@ -20,11 +20,11 @@ class NavigationAndSubmissionTest extends TestCase
         foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
             $user = User::factory()->create(['role' => $role, 'status' => 'active']);
             $navigation = PmsNavigation::for($user);
-            $this->assertSame(['PROJECTS', 'TASKS', 'FINANCIAL', 'MEMBERS', 'REPORTS & DOCUMENTS', 'FILES', 'CALENDAR', 'PROFILE', 'SETTINGS'], array_keys($navigation));
+            $this->assertSame(['PROJECTS', 'TASKS', 'FINANCIAL', 'MEMBERS', 'REPORTS & DOCUMENTS', 'FILES', 'PARTNERSHIPS', 'CALENDAR', 'NOTIFICATIONS', 'SETTINGS'], array_keys($navigation));
             $routes = collect($navigation)->flatten(1)->pluck(0);
-            $this->assertTrue($routes->contains('account'));
+            $this->assertFalse($routes->contains('account')); // Profile is the separate sidebar account link.
             $this->assertTrue($routes->contains('documents'));
-            $this->assertFalse($routes->contains('notifications'));
+            $this->assertTrue($routes->contains('notifications'));
             $this->assertSame(1, $routes->filter(fn ($route) => $route === 'settings')->count());
             $labels = collect($navigation)->flatten(1)->pluck(1);
             $this->assertTrue($labels->contains('My Project Work'));
@@ -39,7 +39,7 @@ class NavigationAndSubmissionTest extends TestCase
             $page = $this->actingAs($user)->get(route('dashboard'))->assertOk()->getContent();
             $this->assertSame(2, substr_count($page, 'href="'.route('account').'"'));
             $this->assertSame(1, substr_count($page, 'href="'.route('settings').'"'));
-            $this->assertSame(1, substr_count($page, 'href="'.route('notifications').'"'));
+            $this->assertSame(2, substr_count($page, 'href="'.route('notifications').'"'));
         }
     }
 
@@ -56,6 +56,26 @@ class NavigationAndSubmissionTest extends TestCase
             ->assertDontSee('Private board update');
     }
 
+    public function test_important_notifications_require_opening_and_are_private(): void
+    {
+        $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $other = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $important = Notification::create(['user_id' => $member->id, 'title' => 'Project decision', 'body' => 'Please review the outcome.', 'url' => '/projects', 'requires_open' => true]);
+        $routine = Notification::create(['user_id' => $member->id, 'title' => 'Calendar reminder', 'body' => 'Meeting tomorrow.', 'url' => '/calendar']);
+
+        $page = $this->actingAs($member)->get(route('notifications', ['filter' => 'important']))->assertOk()
+            ->assertSee('Project decision')->assertSee('Open to mark read')->getContent();
+        $this->assertSame(1, substr_count($page, '<tr class="is-unread"'));
+        $this->assertStringContainsString('notification-important-table', $page);
+        $this->post(route('notifications.read'))->assertRedirect();
+        $this->assertNotNull($routine->fresh()->read_at);
+        $this->assertNull($important->fresh()->read_at);
+        $this->actingAs($other)->post(route('notifications.open', $important))->assertForbidden();
+        $this->assertNull($important->fresh()->read_at);
+        $this->actingAs($member)->post(route('notifications.open', $important))->assertRedirect('/projects');
+        $this->assertNotNull($important->fresh()->read_at);
+    }
+
     public function test_admin_can_review_own_submission_and_it_appears_in_the_review_queue(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
@@ -69,6 +89,7 @@ class NavigationAndSubmissionTest extends TestCase
 
         $this->actingAs($admin)->post('/projects/'.$project->id.'/transition', ['action' => 'submit_concept'])
             ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('notifications', ['user_id' => $admin->id, 'title' => $project->title, 'requires_open' => true]);
         $this->get('/dashboard')->assertOk()->assertSee('Admin community project');
         $this->get('/projects?filter=review')->assertOk()->assertSee('Admin community project')->assertSee('Review project');
         $this->get('/projects/'.$project->id)->assertOk()->assertSee('Pass to Treasurer Review')->assertSee('both project owner and Admin reviewer');
@@ -130,6 +151,28 @@ class NavigationAndSubmissionTest extends TestCase
         $this->assertSame('workshop.mp4', $video->original_name);
         Storage::disk('local')->assertExists($video->path);
         $this->get(route('projects.show', $project))->assertOk()->assertSee('data-preview-type="MP4"', false);
+    }
+
+    public function test_spreadsheets_and_slides_use_private_browser_preview(): void
+    {
+        Storage::fake('local');
+        $owner = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $outsider = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $project = Project::create(['created_by' => $owner->id, 'title' => 'Office file project', 'area' => 'Community Impact', 'status' => 'Admin Review']);
+
+        foreach (['budget.xlsx', 'presentation.pptx'] as $filename) {
+            $path = 'project-documents/'.$filename;
+            Storage::disk('local')->put($path, 'private office bytes');
+            $document = ProjectDocument::create(['project_id' => $project->id, 'uploaded_by' => $owner->id, 'title' => $filename, 'category' => 'Supporting document', 'path' => $path, 'original_name' => $filename]);
+
+            $this->assertTrue($document->canPreviewInline());
+            $this->actingAs($owner)->get(route('documents.original-preview', $document))->assertOk()
+                ->assertSee('private-office-viewer.js')
+                ->assertSee(route('documents.download', $document))
+                ->assertHeader('content-security-policy');
+            $this->get(route('documents.preview', $document))->assertRedirect(route('documents.original-preview', $document));
+            $this->actingAs($outsider)->get(route('documents.original-preview', $document))->assertForbidden();
+        }
     }
 
     public function test_online_project_documents_download_as_filled_official_word_files(): void
@@ -263,6 +306,12 @@ class NavigationAndSubmissionTest extends TestCase
         ])->assertSessionHasNoErrors();
         $project = $project->fresh();
         $this->assertSame('upload', $project->proposal_submission_method);
+        $project->update(['budget_items' => \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Uploaded proposal expenses', 'quantity' => 1, 'unit_cost' => 2500]])]);
+        $treasurer = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
+        Storage::disk('local')->put('signed-full.pdf', 'signed approval');
+        app(ProposalWorkflowService::class)->transition($project, $member, 'submit_full_proposal', null);
+        app(ProposalWorkflowService::class)->transition($project, $treasurer, 'review_full_budget', 'Verified full budget');
+        app(ProposalWorkflowService::class)->transition($project, $admin, 'approve_full_proposal', 'Approved full proposal', ['meeting_date' => '2026-11-01', 'resolution_number' => 'RES-UPLOAD-2', 'evidence_path' => 'signed-full.pdf']);
         app(ProposalWorkflowService::class)->transition($project, $member, 'lock_plan', null);
         $this->assertSame('Plan Locked', $project->fresh()->status);
     }
@@ -379,6 +428,12 @@ class NavigationAndSubmissionTest extends TestCase
         $this->actingAs($chair)->get('/projects/'.$project->id.'/proposal')->assertOk()
             ->assertSee('Estimated expenditures')
             ->assertSee('Approval and signatures');
+        $project->update(['budget_items' => \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Workshop materials', 'quantity' => 1, 'unit_cost' => 2500]])]);
+        $treasurer = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
+        Storage::fake('local');
+        $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
+        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/transition', ['action' => 'review_full_budget', 'comments' => 'Detailed budget verified'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/projects/'.$project->id.'/transition', ['action' => 'approve_full_proposal', 'comments' => 'Approved at meeting', 'meeting_date' => '2026-11-01', 'resolution_number' => 'RES-PPF-2', 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
         $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'lock_plan'])->assertSessionHasNoErrors();
         $this->assertSame('Plan Locked', $project->fresh()->status);
     }

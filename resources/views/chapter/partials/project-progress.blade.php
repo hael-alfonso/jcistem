@@ -1,10 +1,10 @@
 @php
     $workProgress = \App\Support\ProjectProgress::summarize($project, (int) $completedTasks, (int) $totalTasks);
 @endphp
-<div class="project-work-progress" aria-label="Project task progress and schedule">
-    <div class="project-work-progress-heading"><strong>Task progress</strong><span>{{ $completedTasks }} of {{ $totalTasks }} · {{ $workProgress['percent'] }}%</span></div>
+<div class="project-work-progress" aria-label="Project progress and schedule">
+    <div class="project-work-progress-heading"><strong>Project progress</strong><span>{{ $workProgress['percent'] }}%</span></div>
     <div class="project-work-progress-track">
-        <progress value="{{ $workProgress['percent'] }}" max="100" aria-label="{{ $project->title }}: {{ $completedTasks }} of {{ $totalTasks }} tasks complete"></progress>
+        <progress value="{{ $workProgress['percent'] }}" max="100" aria-label="{{ $project->title }}: {{ $workProgress['percent'] }} percent overall project progress"></progress>
         @if($workProgress['elapsed'] !== null && $workProgress['elapsed'] > 0)
             <span class="project-work-progress-marker" style="left: {{ $workProgress['elapsed'] }}%" aria-hidden="true"></span>
         @endif
