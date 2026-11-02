@@ -25,7 +25,7 @@ class ChapterChartsTest extends TestCase
 
     public function test_charts_count_visible_projects_and_only_posted_expenses_for_approved_projects(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $approved = Project::create([
             'created_by' => $owner->id,
             'title' => 'Approved project',
@@ -63,6 +63,9 @@ class ChapterChartsTest extends TestCase
         $this->assertCount(6, $finance['months']);
         $this->assertSame(250.0, $finance['months']->last()['amount']);
         $this->assertSame(100.0, $finance['months']->get(4)['amount']);
+        $this->actingAs($owner)->get(route('finance'))->assertOk()
+            ->assertViewHas('charts', fn ($charts) => $charts['allocated'] === 1000.0
+                && $charts['spent'] === 350.0 && $charts['rows']->count() === 1);
     }
     public function test_role_dashboards_render_only_their_essential_sections(): void
     {

@@ -69,13 +69,13 @@
             <div class="section-heading"><span>01</span><div><h2>Report details</h2><p>Save a draft, then submit the completed report for review.</p></div></div>
             <div class="form-grid">
                 <x-field name="title" label="Document title / subject" :value="$record->title" required/>
-                <x-field name="type" label="Report type" type="select" :options="$project ? ['Completion' => 'Project Completion Report (PCR)', 'Liquidation' => 'Liquidation Report'] : ['Overall Financial' => 'Overall Financial Report']" :value="$record->type" required/>
+                <div class="field"><span>Report type</span><strong class="report-type-value">{{ $record->type === 'Completion' ? 'Project Completion Report (PCR)' : ($record->type === 'Liquidation' ? 'Liquidation Report' : 'Overall Financial Report') }}</strong><input type="hidden" name="type" value="{{ $record->type }}">@if($project && !$record->exists)<small>Need the other format? <a class="text-link" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => $record->type === 'Completion' ? 'Liquidation' : 'Completion']) }}">Switch report type</a></small>@endif</div>
             </div>
         </section>
         @if($project)
             @if($record->type === 'Liquidation')
                 <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>02</span><div><h2>Cash and voucher details</h2><p>Expense rows and actual totals come from posted project ledger entries and their receipts.</p></div></div><div class="form-grid">
-                    @foreach(\App\Support\ChapterForms::LIQUIDATION as $key => $label)<div class="full"><x-field :name="'data['.$key.']'" :label="$label" :type="$key === 'report_date' ? 'date' : ($key === 'cash_received' ? 'number' : 'textarea')" :value="$record->data[$key] ?? ($key === 'report_date' ? now()->format('Y-m-d') : '')"/></div>@endforeach
+                    @foreach(\App\Support\ChapterForms::LIQUIDATION as $key => $label)<div class="{{ in_array($key, ['receipt_notes', 'reconciliation_notes']) ? 'full' : '' }}"><x-field :name="'data['.$key.']'" :label="$label" :type="$key === 'report_date' ? 'date' : ($key === 'cash_received' ? 'number' : (in_array($key, ['receipt_notes', 'reconciliation_notes']) ? 'textarea' : 'text'))" :value="$record->data[$key] ?? ($key === 'report_date' ? now()->format('Y-m-d') : '')"/></div>@endforeach
                 </div></section>
             @else
             @foreach(\App\Support\ChapterForms::REPORT_SECTIONS as $heading => $keys)

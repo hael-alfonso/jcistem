@@ -4,6 +4,7 @@ namespace App\Support;
 class ChapterForms
 {
     public const AREAS = ['Community Impact', 'Individual Development', 'Business & Entrepreneurship', 'International Cooperation'];
+    public const MEMBERSHIP_INTERESTS = ['Debate', 'Public speaking', 'Training as participant', 'Training as facilitator', 'Charity', 'Starting a business', 'Growing a business', 'Business networking', 'Project management', 'International events'];
     public const CONCEPT = [
         'letter_date' => 'Letter date',
         'president_name' => 'Local Organization President',

@@ -33,7 +33,7 @@
     $effectiveTheme = in_array($preferredTheme, ['jci', 'teal', 'navy'], true) ? $preferredTheme : (in_array($systemTheme, ['jci', 'teal', 'navy'], true) ? $systemTheme : 'jci');
     $activeGroup = collect($navigation)->search(fn ($items) => collect($items)->contains(fn ($item) => \App\Support\PmsNavigation::active($item)));
 @endphp
-<body class="workspace-density-{{ $workspacePreferences['interface_density'] ?? 'comfortable' }} workspace-theme-{{ $effectiveTheme }} {{ !empty($workspacePreferences['reduce_motion']) ? 'workspace-reduce-motion' : '' }}" data-navigation-mode="{{ $workspacePreferences['navigation_mode'] ?? 'accordion' }}">
+<body class="workspace-density-{{ $workspacePreferences['interface_density'] ?? 'comfortable' }} workspace-theme-{{ $effectiveTheme }} {{ !empty($workspacePreferences['reduce_motion']) ? 'workspace-reduce-motion' : '' }}" data-navigation-mode="{{ $workspacePreferences['navigation_mode'] ?? 'accordion' }}" data-chapter-theme="{{ in_array($systemTheme, ['jci', 'teal', 'navy'], true) ? $systemTheme : 'jci' }}">
 <a class="skip-link" href="#content">Skip to content</a>
 <div class="app-shell">
     <aside class="app-sidebar" id="navigation" aria-label="Workspace navigation">

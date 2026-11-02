@@ -36,7 +36,8 @@ final class PmsNavigation
                 ] : [['members', 'Chapter Directory', 'users', []]]),
             ],
             'REPORTS & DOCUMENTS' => [
-                ['reports.generate', 'Report Generator', 'report', []],
+                ['records', 'Reports', 'report', ['kind' => 'reports']],
+                ['reports.generate', 'Budget Summary', 'chart', []],
                 ['templates', 'Forms & Templates', 'folder', []],
                 ...($user->role === 'admin' ? [['records', 'PCR Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']]] : []),
                 ...($user->role === 'treasurer' ? [['records', 'Liquidation Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']]] : []),

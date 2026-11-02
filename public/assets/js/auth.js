@@ -1,4 +1,7 @@
 (() => {
+    document.querySelector('[data-dismiss-auth-feedback]')?.addEventListener('click', (event) => {
+        event.currentTarget.closest('.auth-feedback')?.remove();
+    });
     document.querySelectorAll('[data-password-toggle]').forEach((button) => {
         const input = document.getElementById(button.getAttribute('aria-controls'));
         if (!input) return;

@@ -14,13 +14,15 @@ class ExpenseClaimController extends Controller
     public function index(Request $request)
     {
         $treasurer = $request->user()->role === 'treasurer';
+        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])]]);
+        $filter = $request->query('status', $treasurer ? 'pending' : 'all');
         $claims = ExpenseClaim::with(['project', 'submitter', 'reviewer', 'ledgerEntry'])
             ->when(!$treasurer, fn ($query) => $query->where('submitted_by', $request->user()->id))
-            ->when($request->query('status', 'pending') === 'pending', fn ($query) => $query->where('status', 'Pending'))
+            ->when($filter === 'pending', fn ($query) => $query->where('status', 'Pending'))
             ->orderByRaw("CASE WHEN status = 'Pending' THEN 0 ELSE 1 END")
             ->latest()->paginate(15)->withQueryString();
 
-        return view('chapter.expense-claims', compact('claims', 'treasurer'));
+        return view('chapter.expense-claims', compact('claims', 'treasurer', 'filter'));
     }
 
     public function store(Request $request, Project $project)
@@ -60,6 +62,56 @@ class ExpenseClaimController extends Controller
         }
 
         return back()->with('success', 'Expense claim sent to the Treasurer for verification.');
+    }
+
+    public function update(Request $request, ExpenseClaim $claim)
+    {
+        abort_unless($claim->submitted_by === $request->user()->id && $claim->status === 'Returned'
+            && $claim->project->canManage($request->user()), 403);
+        $data = $request->validate([
+            'budget_item_id' => 'required|uuid',
+            'spent_on' => 'required|date|before_or_equal:today',
+            'payee' => 'required|string|max:200',
+            'receipt_reference' => 'nullable|string|max:100',
+            'description' => 'required|string|max:5000',
+            'amount' => 'required|numeric|decimal:0,2|min:0.01|max:999999999.99',
+            'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
+        unset($data['receipt']);
+        $path = $request->hasFile('receipt') ? $request->file('receipt')->store('expense-claims', 'local') : null;
+        try {
+            DB::transaction(function () use ($claim, $request, $data, $path) {
+                $project = Project::lockForUpdate()->findOrFail($claim->project_id);
+                $claim = ExpenseClaim::lockForUpdate()->findOrFail($claim->id);
+                abort_unless($claim->submitted_by === $request->user()->id && $claim->status === 'Returned'
+                    && $project->canManage($request->user()), 403);
+                if (!$path && (!$claim->receipt_path || !Storage::disk('local')->exists($claim->receipt_path))) {
+                    throw ValidationException::withMessages(['receipt' => 'Upload the receipt again before resubmitting.']);
+                }
+                ProjectFinanceGuard::expenseLine($project, $data['budget_item_id'], $data['amount']);
+                $before = $claim->toArray();
+                $claim->fill($data);
+                if ($path) {
+                    $claim->receipt_path = $path;
+                    $claim->receipt_name = $request->file('receipt')->getClientOriginalName();
+                }
+                $claim->status = 'Pending';
+                $claim->reviewed_by = null;
+                $claim->reviewed_at = null;
+                $claim->review_note = null;
+                $claim->save();
+                ChapterService::audit('expense_claim_resubmitted', $claim, $before);
+                ChapterService::notify(User::where('status', 'active')->where('role', 'treasurer')
+                    ->where('id', '!=', $request->user()->id)->pluck('id')->all(),
+                    'Expense claim resubmitted', $project->title.' · PHP '.number_format((float) $claim->amount, 2),
+                    route('expense-claims.index', [], false), true);
+            });
+        } catch (\Throwable $error) {
+            if ($path) Storage::disk('local')->delete($path);
+            throw $error;
+        }
+
+        return redirect()->route('expense-claims.index')->with('success', 'Corrected claim sent back to the Treasurer.');
     }
 
     public function review(Request $request, ExpenseClaim $claim)

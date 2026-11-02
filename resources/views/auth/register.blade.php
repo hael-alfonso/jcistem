@@ -5,17 +5,20 @@
     <h1>Apply for membership.</h1>
     <p class="auth-description">Tell us a little about yourself and set up your member portal sign-in. A chapter administrator reviews your application before your account is activated.</p>
 
-    <form class="auth-registration-form" method="POST" action="{{ route('register.store') }}" data-auth-form>
+    <form class="auth-registration-form" method="POST" action="{{ route('register.store') }}" enctype="multipart/form-data" data-auth-form>
         @csrf
         <section class="auth-registration-section" aria-labelledby="application-contact">
             <div class="auth-registration-section-heading"><span>01</span><div><h2 id="application-contact">Your details</h2><p>How the chapter can identify and contact you.</p></div></div>
             <div class="auth-registration-grid">
                 <div class="auth-field"><label for="auth-title">Title (optional)</label><div class="auth-input-wrap"><select id="auth-title" name="title"><option value="">Select if applicable</option>@foreach(['Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Other'] as $option)<option value="{{ $option }}" @selected(old('title') === $option)>{{ $option }}</option>@endforeach</select></div>@error('title')<p class="field-error">{{ $message }}</p>@enderror</div>
-                <x-auth-field name="name" label="Full name" required autocomplete="name" maxlength="200" />
+                <x-auth-field name="given_name" label="First / given name" required autocomplete="given-name" maxlength="100" />
+                <x-auth-field name="family_name" label="Surname / family name" required autocomplete="family-name" maxlength="100" />
                 <x-auth-field name="date_of_birth" label="Date of birth (optional)" type="date" max="{{ now()->subDay()->toDateString() }}" />
-                <x-auth-field name="phone" label="Mobile number (optional)" type="tel" autocomplete="tel" maxlength="40" />
+                <x-auth-field name="phone" label="Mobile number" type="tel" autocomplete="tel" maxlength="40" required />
                 <x-auth-field name="email" label="Email address" type="email" required autocomplete="email" autocapitalize="none" spellcheck="false" maxlength="200" />
-                <x-auth-field name="address" label="City / address (optional)" autocomplete="street-address" maxlength="500" />
+                <x-auth-field name="address" label="Home address (optional)" autocomplete="street-address" maxlength="500" />
+                <x-auth-field name="city" label="City / town (optional)" autocomplete="address-level2" maxlength="100" />
+                <x-auth-field name="home_phone" label="Home phone (optional)" type="tel" maxlength="40" />
             </div>
         </section>
 
@@ -28,7 +31,9 @@
                 <x-auth-field name="business_sector" label="Business sector (optional)" maxlength="160" />
                 <x-auth-field name="university_major" label="University / course or major (optional)" maxlength="160" />
                 <fieldset class="auth-interests"><legend>Areas of interest</legend><div>@foreach(\App\Support\ChapterForms::AREAS as $interest)<label><input type="checkbox" name="interests[]" value="{{ $interest }}" @checked(in_array($interest, old('interests', []), true))><span>{{ $interest }}</span></label>@endforeach</div>@error('interests')<p class="field-error">{{ $message }}</p>@enderror</fieldset>
+                <fieldset class="auth-interests"><legend>Activities you would enjoy (optional)</legend><div>@foreach(\App\Support\ChapterForms::MEMBERSHIP_INTERESTS as $interest)<label><input type="checkbox" name="interest_topics[]" value="{{ $interest }}" @checked(in_array($interest, old('interest_topics', []), true))><span>{{ $interest }}</span></label>@endforeach</div>@error('interest_topics')<p class="field-error">{{ $message }}</p>@enderror</fieldset>
                 <div class="auth-field auth-field-wide"><label for="auth-motivation">Why would you like to join JCI Carmona? (optional)</label><textarea id="auth-motivation" name="motivation" maxlength="1000" rows="3">{{ old('motivation') }}</textarea>@error('motivation')<p class="field-error">{{ $message }}</p>@enderror</div>
+                <x-auth-field name="photo" label="Applicant photo (optional, JPG, PNG, or WebP)" type="file" accept="image/jpeg,image/png,image/webp" />
             </div>
         </section>
 

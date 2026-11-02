@@ -8,7 +8,7 @@ use App\Support\Permissions;
 use App\Support\ChapterForms;
 use App\Support\MemberId;
 use Illuminate\Http\{RedirectResponse, Request};
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -24,12 +24,19 @@ class RegistrationController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if ($request->filled('given_name') || $request->filled('family_name')) {
+            $request->merge(['name' => trim($request->string('given_name').' '.$request->string('family_name'))]);
+        }
         $data = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:200'],
+            'given_name' => ['nullable', 'required_with:family_name', 'string', 'max:100'],
+            'family_name' => ['nullable', 'required_with:given_name', 'string', 'max:100'],
             'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/'],
             'email' => ['required', 'email:rfc', 'max:200'],
             'phone' => ['nullable', 'string', 'max:40'],
             'address' => ['nullable', 'string', 'max:500'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'home_phone' => ['nullable', 'string', 'max:40'],
             'title' => ['nullable', 'string', 'max:30'],
             'date_of_birth' => ['nullable', 'date', 'before:today'],
             'position' => ['nullable', 'string', 'max:160'],
@@ -39,7 +46,10 @@ class RegistrationController extends Controller
             'organization' => ['nullable', 'string', 'max:200'],
             'interests' => ['nullable', 'array', 'max:4'],
             'interests.*' => [Rule::in(ChapterForms::AREAS)],
+            'interest_topics' => ['nullable', 'array', 'max:10'],
+            'interest_topics.*' => [Rule::in(ChapterForms::MEMBERSHIP_INTERESTS)],
             'motivation' => ['nullable', 'string', 'max:1000'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'password' => ['required', 'confirmed', Password::min(10)],
             'consent' => ['accepted'],
             'website' => ['nullable', 'max:0'],
@@ -52,7 +62,12 @@ class RegistrationController extends Controller
             throw ValidationException::withMessages(['email' => 'This email or username is already in use or awaiting approval. Please sign in or contact the chapter administrator.']);
         }
 
-        $registration = DB::transaction(function () use ($data, $email, $username) {
+        $photoPath = $request->hasFile('photo') ? $request->file('photo')->store('registration-photos', 'local') : null;
+        if ($request->hasFile('photo') && !$photoPath) {
+            throw ValidationException::withMessages(['photo' => 'The application photo could not be saved. Please try again.']);
+        }
+        try {
+        $registration = DB::transaction(function () use ($data, $email, $username, $photoPath) {
             do {
                 $reference = 'JCI-REG-'.now()->format('Y').'-'.Str::upper(Str::random(6));
             } while (RegistrationRequest::where('reference', $reference)->exists());
@@ -66,6 +81,10 @@ class RegistrationController extends Controller
                 'reason' => trim($data['motivation'] ?? '') ?: 'Membership application and member portal registration',
                 'application_details' => [
                     'address' => trim($data['address'] ?? ''),
+                    'city' => trim($data['city'] ?? ''),
+                    'home_phone' => trim($data['home_phone'] ?? ''),
+                    'given_name' => trim($data['given_name'] ?? ''),
+                    'family_name' => trim($data['family_name'] ?? ''),
                     'title' => trim($data['title'] ?? ''),
                     'date_of_birth' => $data['date_of_birth'] ?? null,
                     'position' => trim($data['position'] ?? ''),
@@ -74,6 +93,8 @@ class RegistrationController extends Controller
                     'occupation' => $data['occupation'] ?? null,
                     'organization' => trim($data['organization'] ?? ''),
                     'interests' => array_values(array_unique($data['interests'] ?? [])),
+                    'interest_topics' => array_values(array_unique($data['interest_topics'] ?? [])),
+                    'photo_path' => $photoPath,
                 ],
                 'password' => $data['password'],
                 'consent_at' => now(),
@@ -82,6 +103,10 @@ class RegistrationController extends Controller
             ChapterService::audit('registration_requested', $registration);
             return $registration;
         });
+        } catch (\Throwable $exception) {
+            if ($photoPath) Storage::disk('local')->delete($photoPath);
+            throw $exception;
+        }
 
         $admins = User::where('role', 'admin')->where('status', 'active')->pluck('id');
         ChapterService::notify($admins, 'New member registration', $registration->name.' registered for a JCISTEM account. Review it before activation.', route('registrations.show', $registration), true);
@@ -110,6 +135,14 @@ class RegistrationController extends Controller
     {
         $this->authorizeMemberManager($request);
         return view('chapter.registration', compact('registration'));
+    }
+
+    public function photo(Request $request, RegistrationRequest $registration)
+    {
+        $this->authorizeMemberManager($request);
+        $path = $registration->application_details['photo_path'] ?? null;
+        abort_unless($path && str_starts_with($path, 'registration-photos/') && Storage::disk('local')->exists($path), 404);
+        return Storage::disk('local')->response($path, null, ['Cache-Control' => 'private, max-age=300', 'X-Content-Type-Options' => 'nosniff']);
     }
 
     public function review(Request $request, RegistrationRequest $registration): RedirectResponse
@@ -143,6 +176,10 @@ class RegistrationController extends Controller
                     'profile' => [
                         'phone' => $registration->phone,
                         'address' => $registration->application_details['address'] ?? '',
+                        'city' => $registration->application_details['city'] ?? '',
+                        'home_phone' => $registration->application_details['home_phone'] ?? '',
+                        'given_name' => $registration->application_details['given_name'] ?? '',
+                        'family_name' => $registration->application_details['family_name'] ?? '',
                         'title' => $registration->application_details['title'] ?? '',
                         'date_of_birth' => $registration->application_details['date_of_birth'] ?? null,
                         'position' => $registration->application_details['position'] ?? '',
@@ -151,8 +188,21 @@ class RegistrationController extends Controller
                         'occupation' => $registration->application_details['occupation'] ?? null,
                         'organization' => $registration->application_details['organization'] ?? '',
                         'interests' => $registration->application_details['interests'] ?? [],
+                        'interest_topics' => $registration->application_details['interest_topics'] ?? [],
                     ],
                 ]);
+                $photoPath = $registration->application_details['photo_path'] ?? null;
+                if ($photoPath && str_starts_with($photoPath, 'registration-photos/') && Storage::disk('local')->exists($photoPath)) {
+                    $destination = 'profile-photos/'.$member->id.'/'.basename($photoPath);
+                    Storage::disk('local')->makeDirectory('profile-photos/'.$member->id);
+                    if (!Storage::disk('local')->copy($photoPath, $destination)) {
+                        throw ValidationException::withMessages(['decision' => 'The applicant photo could not be saved to the member record. Please retry approval.']);
+                    }
+                    $profile = $member->profile;
+                    $profile['photo_path'] = $destination;
+                    $member->profile = $profile;
+                    $member->save();
+                }
                 MemberId::assign($member);
                 $registration->user_id = $member->id;
                 $registration->status = 'approved';

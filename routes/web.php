@@ -90,6 +90,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/finance', [FinanceController::class, 'index'])->name('finance');
     Route::get('/expense-claims', [ExpenseClaimController::class, 'index'])->name('expense-claims.index');
     Route::post('/projects/{project}/expense-claims', [ExpenseClaimController::class, 'store'])->name('expense-claims.store');
+    Route::put('/expense-claims/{claim}', [ExpenseClaimController::class, 'update'])->name('expense-claims.update');
     Route::post('/expense-claims/{claim}/decision', [ExpenseClaimController::class, 'review'])->name('expense-claims.review');
     Route::get('/expense-claims/{claim}/receipt', [ExpenseClaimController::class, 'receipt'])->name('expense-claims.receipt');
     Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->middleware('permission:finance.manage')->name('budget.store');
@@ -115,10 +116,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/records/{kind}/{id}/transition', [RecordController::class, 'transition'])->name('records.transition');
     Route::get('/records/{kind}/{id}/attachment', [RecordController::class, 'attachment'])->name('records.attachment');
     Route::get('/members', [RecordController::class, 'members'])->name('members');
+    Route::get('/members/{member}/photo', [RecordController::class, 'memberPhoto'])->name('members.photo');
     Route::get('/members/manage', [RecordController::class, 'members'])->middleware('permission:members.manage')->name('members.manage');
     Route::get('/admin/accounts', [RecordController::class, 'members'])->middleware('permission:accounts.manage')->name('accounts');
     Route::get('/registrations', [RegistrationController::class, 'index'])->middleware('permission:members.manage')->name('registrations');
     Route::get('/registrations/{registration}', [RegistrationController::class, 'show'])->middleware('permission:members.manage')->name('registrations.show');
+    Route::get('/registrations/{registration}/photo', [RegistrationController::class, 'photo'])->middleware('permission:members.manage')->name('registrations.photo');
     Route::post('/registrations/{registration}/review', [RegistrationController::class, 'review'])->middleware('permission:accounts.manage')->name('registrations.review');
     Route::get('/members/create', [RecordController::class, 'memberForm'])->middleware('permission:accounts.manage')->name('members.create');
     Route::post('/members', [RecordController::class, 'memberSave'])->middleware('permission:accounts.manage')->name('members.store');

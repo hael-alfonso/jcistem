@@ -204,7 +204,7 @@
     </div>
 </section>
 <section class="panel form-panel partnership-documents" id="partnerships">
-    <div class="panel-heading flush"><div><h2>External partnership letters</h2><p>Keep sponsor and partner correspondence with this project, separate from the internal concept letter.</p></div><a class="btn secondary no-print" href="{{ route('templates.reference.download', 'external-partnership-letter') }}"><x-icon name="download" /> Official partnership template</a></div>
+    <div class="panel-heading flush"><div><h2>External partnership letters</h2><p>Keep sponsor and partner correspondence with this project, separate from the internal concept letter.</p></div><div class="button-row no-print">@if($manages || $project->canReport($u))<a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}"><x-icon name="filePlus" /> Prepare partner LOI</a>@endif<a class="btn secondary" href="{{ route('templates.reference.download', 'external-partnership-letter') }}"><x-icon name="download" /> Official partnership template</a></div></div>
     @forelse($partnershipDocuments as $document)
         @include('chapter.partials.project-document-row', ['document' => $document, 'label' => $document->title.' · Version '.$document->version, 'meta' => $document->original_name.' · Uploaded '.($document->submitted_at?->format('d M Y, g:i A') ?? $document->created_at?->format('d M Y, g:i A'))])
     @empty
@@ -226,14 +226,15 @@
     <div class="completion-workflow"><div><span>1</span><strong>Complete project tasks</strong><small>Finish assigned work and upload implementation evidence.</small></div><div><span>2</span><strong>Submit completion report</strong><small>Admin reviews results, beneficiaries, and project evidence.</small></div><div><span>3</span><strong>Submit liquidation</strong><small>Treasurer verifies posted expenses and receipts independently.</small></div></div>
     <div class="button-row no-print">
         @if($manages || $project->canReport($u))
-            <a class="btn secondary" href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}"><x-icon name="filePlus" /> Prepare partner LOI</a>
             @if($project->canReport($u))<a class="btn primary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']) }}"><x-icon name="checklist" /> Project Completion Report</a><a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Liquidation']) }}"><x-icon name="receipt" /> Liquidation Report</a>@endif
         @endif
         @if($u->role === 'treasurer')<a class="btn secondary" href="{{ route('projects.liquidation', $project) }}"><x-icon name="wallet" /> Live ledger liquidation</a>@endif
     </div>
     @foreach(['letters' => $project->letters, 'reports' => $project->reports] as $kind => $records)
         @foreach($records as $record)
-            @if($project->chair_id === $u->id || in_array($u->role, ['admin', 'bod']) || in_array($record->status, ['Reviewed', 'Approved for Sending', 'Sent', 'Archived']))
+            @if($kind === 'reports' && $record->type === 'Liquidation'
+                ? ($project->chair_id === $u->id || $u->role === 'treasurer')
+                : ($project->chair_id === $u->id || in_array($u->role, ['admin', 'bod'], true) || in_array($record->status, ['Reviewed', 'Approved for Sending', 'Sent', 'Archived'], true)))
                 <a class="list-row" href="{{ route('records.show', [$kind, $record->id]) }}">
                     <strong>{{ $record->title }}</strong>
                     <span>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : $record->type }} · v{{ $record->version }} · {{ $record->status }}</span>

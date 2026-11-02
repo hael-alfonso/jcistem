@@ -6,7 +6,7 @@
     $projectedIncome = is_numeric($projectedIncome) ? (float) $projectedIncome : null;
     $actualIncome = (float) $income->sum('amount');
     $actualExpenses = (float) $expenses->sum('amount');
-    $allocatedByCategory = $project->allocations->pluck('amount', 'category');
+    $allocatedByCategory = $project->allocations->groupBy('category')->map(fn ($lines) => $lines->sum('amount'));
     $categories = $allocatedByCategory->keys()->merge($spentByCategory->keys())->unique()->sort()->values();
     $pending = $expenses->where('liquidation_status', '!=', 'Liquidated')->count();
     $missingEvidence = $expenses->filter(fn ($entry) => !$entry->document_path)->count();

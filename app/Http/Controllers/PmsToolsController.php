@@ -11,24 +11,31 @@ class PmsToolsController extends Controller
 {
     public function reports(Request $request)
     {
-        $projects = ChapterService::visibleProjects($request->user())->whereIn('status', Project::APPROVED)->orderBy('title')->get();
-        return view('chapter.report-generator', compact('projects'));
+        $data = $request->validate(['project_id' => 'nullable|integer|exists:projects,id']);
+        $projects = ChapterService::visibleProjects($request->user())
+            ->whereIn('status', Project::APPROVED)
+            ->with('chair')->withSum('allocations as allocated_total', 'amount')
+            ->withSum(['transactions as spent_total' => fn ($query) => $query->where('status', 'Posted')->where('direction', 'debit')], 'amount')
+            ->orderBy('title')->get();
+        $selectedId = $data['project_id'] ?? null;
+        $shownProjects = $selectedId ? $projects->where('id', (int) $selectedId) : $projects;
+        abort_if($selectedId && $shownProjects->isEmpty(), 403);
+        return view('chapter.report-generator', compact('projects', 'shownProjects', 'selectedId'));
     }
 
     public function export(Request $request, ExportService $exports)
     {
-        $data = $request->validate(['format' => 'required|in:pdf,docx', 'project_id' => 'nullable|integer|exists:projects,id', 'type' => 'required|in:progress,budgets']);
+        $data = $request->validate(['format' => 'required|in:pdf,docx', 'project_id' => 'nullable|integer|exists:projects,id', 'type' => 'required|in:budgets']);
         $query = ChapterService::visibleProjects($request->user())->whereIn('status', Project::APPROVED);
         if (!empty($data['project_id'])) $query->whereKey($data['project_id']);
         $projects = $query->with('chair')->orderBy('title')->get();
         abort_if(!empty($data['project_id']) && $projects->isEmpty(), 403);
         $sections = [];
         foreach ($projects as $project) {
-            $body = 'Status: '.$project->status."\nChair: ".($project->chair?->name ?? 'Unassigned')."\nSchedule: ".($project->starts_on?->format('d M Y') ?? 'Unscheduled')."\nCompleted tasks: ".$project->progress.'%';
-            if ($data['type'] === 'budgets') $body .= "\nAllocated: PHP ".number_format($project->allocated, 2)."\nPosted expenses: PHP ".number_format($project->spent, 2)."\nBalance: PHP ".number_format($project->remaining, 2);
+            $body = 'Status: '.$project->status."\nChair: ".($project->chair?->name ?? 'Unassigned')."\nAllocated: PHP ".number_format($project->allocated, 2)."\nPosted expenses: PHP ".number_format($project->spent, 2)."\nBalance: PHP ".number_format($project->remaining, 2);
             $sections[($project->reference ?? '#'.$project->id).' — '.$project->title] = $body;
         }
-        return $exports->download($request->user(), $data['type'] === 'budgets' ? 'Chapter Budget Summary' : 'Chapter Project Progress', $sections ?: ['Projects' => 'No approved projects match this report.'], $data['format']);
+        return $exports->download($request->user(), 'Chapter Budget Summary', $sections ?: ['Projects' => 'No approved projects match this summary.'], $data['format']);
     }
 
     public function templates()

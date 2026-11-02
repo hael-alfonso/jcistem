@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport, LedgerEntry};
 use Carbon\CarbonImmutable;
 use App\Services\{ChapterService, OfficePreviewService, ProjectWordDocumentService};
-use App\Support\{ChapterCharts, ChapterForms, Permissions, ProjectBudget};
+use App\Support\{ChapterCharts, ChapterFunds, ChapterForms, Permissions, ProjectBudget};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
@@ -33,10 +33,11 @@ class ChapterController extends Controller
         $charts = ChapterCharts::projectMix($dashboardProjects);
         $taskStatuses = $assignedTasks->countBy('status');
         $financeCharts = ChapterCharts::finances($projects->whereIn('status', Project::APPROVED));
+        $chapterFunds = ChapterFunds::postedBalance();
         $recentProjects = $dashboardProjects->sortByDesc('updated_at')->take(4);
         $recentTransactions = LedgerEntry::with('project')->whereIn('project_id', $dashboardProjects->whereIn('status', Project::APPROVED)->pluck('id'))
             ->where('status', 'Posted')->orderByDesc('transaction_date')->orderByDesc('id')->limit(4)->get();
-        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'reviewStatuses', 'myDuesBalance', 'tasks', 'charts', 'taskStatuses', 'financeCharts', 'recentProjects', 'recentTransactions'));
+        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'reviewStatuses', 'myDuesBalance', 'tasks', 'charts', 'taskStatuses', 'financeCharts', 'chapterFunds', 'recentProjects', 'recentTransactions'));
     }
 
     public function projects(Request $request)
@@ -107,12 +108,17 @@ class ChapterController extends Controller
             foreach (array_keys(ChapterForms::PROPOSAL_EXPENSE_LINES) as $key) $rules['proposal.expense_lines.'.$key] = 'nullable|numeric|decimal:0,2|min:0|max:999999999.99';
         }
         $data = $request->validate($rules);
+        $submittedBudgetItems = array_key_exists('budget_items', $data);
         $budgetItems = ProjectBudget::normalize($data['budget_items'] ?? []);
         if ($budgetItems) {
             $data['budget_items'] = $budgetItems;
             $data['proposed_budget'] = ProjectBudget::total($budgetItems);
+        } elseif ($submittedBudgetItems) {
+            $data['budget_items'] = [];
+            $data['proposed_budget'] = '0.00';
         } elseif ($project?->budget_items) {
             $data['budget_items'] = $project->budget_items;
+            $data['proposed_budget'] = ProjectBudget::total($project->budget_items);
         } else {
             unset($data['budget_items']);
         }
@@ -366,10 +372,19 @@ class ChapterController extends Controller
         $month = CarbonImmutable::createFromFormat('!Y-m', $query['month'] ?? now()->format('Y-m'))->startOfMonth();
         $gridStart = $month->startOfWeek(\Carbon\CarbonInterface::SUNDAY);
         $gridEnd = $month->endOfMonth()->endOfWeek(\Carbon\CarbonInterface::SATURDAY);
-        $projects = ChapterService::visibleProjects($request->user())->get();
-        $events = CalendarEvent::with('project')->where(fn ($q) => $q->whereIn('project_id', $projects->pluck('id'))->orWhereNull('project_id'))->get();
-        $tasks = Task::with('project')->whereIn('project_id', $projects->pluck('id'))->get();
-        $dues = MemberDue::with('payments')->where('member_id', $request->user()->id)->get();
+        $start = $gridStart->toDateString();
+        $end = $gridEnd->toDateString();
+        $visibleProjects = ChapterService::visibleProjects($request->user());
+        $projectIds = (clone $visibleProjects)->pluck('id');
+        $projects = $visibleProjects->where(fn ($q) => $q->whereBetween('starts_on', [$start, $end])->orWhereBetween('ends_on', [$start, $end]))->get();
+        $events = CalendarEvent::with('project')
+            ->where(fn ($q) => $q->whereIn('project_id', $projectIds)->orWhereNull('project_id'))
+            ->where('starts_on', '<=', $end)
+            ->where(fn ($q) => $q->where('ends_on', '>=', $start)
+                ->orWhere(fn ($q) => $q->whereNull('ends_on')->where('starts_on', '>=', $start)))
+            ->get();
+        $tasks = Task::with('project')->whereIn('project_id', $projectIds)->whereBetween('deadline', [$start, $end])->get();
+        $dues = MemberDue::with('payments')->where('member_id', $request->user()->id)->whereBetween('due_date', [$start, $end])->get();
         $calendarItems = [];
         $add = function ($date, string $title, string $type, ?string $context, ?string $url) use (&$calendarItems, $gridStart, $gridEnd): void {
             if (!$date) return;
@@ -595,7 +610,8 @@ class ChapterController extends Controller
             ->with('project')
             ->whereHas('project', fn ($query) => $query->when($request->user()->role === 'member', fn ($query) => $query->where(fn ($query) => $query
                 ->whereIn('status', Project::APPROVED)
-                ->orWhere('created_by', $request->user()->id))))
+                ->orWhere('created_by', $request->user()->id)
+                ->orWhere('chair_id', $request->user()->id))))
             ->when($request->query('type') === 'evidence', fn ($query) => $query->whereIn('submission_stage', ['attendance', 'evaluation']))
             ->when(in_array($request->query('type'), ['attendance', 'evaluation'], true), fn ($query) => $query->where('submission_stage', $request->query('type')))
             ->when($request->query('type') === 'documents', fn ($query) => $query->where(fn ($query) => $query->whereNull('submission_stage')->orWhereNotIn('submission_stage', ['attendance', 'evaluation'])))
@@ -644,11 +660,14 @@ class ChapterController extends Controller
     public function audit(Request $request)
     {
         abort_unless(Permissions::allows($request->user(), Permissions::AUDIT_VIEW), 403);
-        $action = $request->validate(['action' => 'nullable|string|max:100'])['action'] ?? null;
+        $filters = $request->validate(['action' => 'nullable|string|max:100', 'q' => 'nullable|string|max:100']);
+        $action = $filters['action'] ?? null;
+        $search = trim($filters['q'] ?? '');
         $actions = AuditLog::query()->distinct()->orderBy('action')->pluck('action');
         $records = AuditLog::with('actor')->when($action, fn ($q) => $q->where('action', $action))
+            ->when($search !== '', fn ($q) => $q->where(fn ($match) => $match->where('action', 'like', '%'.$search.'%')->orWhere('object_type', 'like', '%'.$search.'%')->orWhere('remarks', 'like', '%'.$search.'%')->orWhereHas('actor', fn ($actor) => $actor->where('name', 'like', '%'.$search.'%'))))
             ->latest()->paginate(25)->withQueryString();
-        return view('chapter.activity-log', compact('records', 'actions', 'action'));
+        return view('chapter.activity-log', compact('records', 'actions', 'action', 'search'));
     }
 
 }

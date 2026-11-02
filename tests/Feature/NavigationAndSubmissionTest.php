@@ -471,6 +471,46 @@ class NavigationAndSubmissionTest extends TestCase
         $this->assertSame('1000.00', $project->budget_items[0]['amount']);
         $this->actingAs($member)->get(route('projects.show', $project))->assertOk()
             ->assertSee('Itemized proposed expenses')->assertSee('Learning kits')->assertSee('1,250.00');
+
+        $this->put(route('projects.update', $project), [
+            'title' => $project->title, 'area' => $project->area,
+            'proposed_budget' => '9999.00', 'concept_submission_method' => 'online',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('1250.00', $project->fresh()->proposed_budget);
+        $this->assertCount(2, $project->fresh()->budget_items);
+
+        $this->put(route('projects.update', $project), [
+            'title' => $project->title, 'area' => $project->area,
+            'proposed_budget' => '1250.00', 'budget_items' => [], 'concept_submission_method' => 'online',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('0.00', $project->fresh()->proposed_budget);
+        $this->assertSame([], $project->fresh()->budget_items);
+    }
+
+    public function test_full_proposal_under_review_is_visible_to_reviewers_but_not_unrelated_members(): void
+    {
+        $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $chair = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $other = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $project = Project::create([
+            'created_by' => $owner->id, 'title' => 'Proposal awaiting board review',
+            'chair_id' => $chair->id, 'area' => 'Community Impact',
+            'status' => 'Submitted for Formal Approval',
+        ]);
+        ProjectDocument::create([
+            'project_id' => $project->id, 'uploaded_by' => $chair->id,
+            'title' => 'Review proposal file', 'category' => 'Project proposal',
+            'path' => 'project-submissions/review.docx', 'original_name' => 'review.docx',
+        ]);
+
+        $this->actingAs($other)->get(route('projects.show', $project))->assertForbidden();
+        $this->get(route('projects'))->assertOk()->assertDontSee($project->title);
+        $this->get(route('documents'))->assertOk()->assertDontSee('Review proposal file');
+        $this->actingAs($chair)->get(route('projects.show', $project))->assertOk()->assertSee($project->title);
+        $this->get(route('projects', ['filter' => 'mine']))->assertOk()->assertSee($project->title);
+        $this->get(route('documents'))->assertOk()->assertSee('Review proposal file');
+        $this->actingAs($admin)->get(route('projects.show', $project))->assertOk()->assertSee($project->title);
     }
 
     public function test_project_pages_keep_one_progress_indicator_and_the_project_menu_active(): void

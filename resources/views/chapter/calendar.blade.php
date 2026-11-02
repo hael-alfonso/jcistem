@@ -30,7 +30,8 @@
                     @foreach($week as $day)
                         @php $date = $day->toDateString(); $dayItems = $calendarItems[$date] ?? []; @endphp
                         <div class="calendar-cell {{ $day->month !== $month->month ? 'is-outside' : '' }} {{ $date === $selectedDay ? 'is-selected' : '' }} {{ $date === now()->toDateString() ? 'is-today' : '' }}">
-                            <a class="calendar-date" href="{{ route('calendar', array_filter(['month' => $day->format('Y-m'), 'day' => $date, 'type' => $calendarFilter])) }}" aria-label="Show {{ $day->format('F j, Y') }} agenda">{{ $day->day }}</a>
+                            <a class="calendar-date" href="{{ route('calendar', array_filter(['month' => $day->format('Y-m'), 'day' => $date, 'type' => $calendarFilter])) }}" aria-label="Show {{ $day->format('F j, Y') }} agenda, {{ count($dayItems) }} items">{{ $day->day }}</a>
+                            @if(count($dayItems))<span class="calendar-mobile-count" aria-hidden="true">{{ count($dayItems) }}</span>@endif
                             <div class="calendar-cell-events">
                                 @foreach(array_slice($dayItems, 0, 3) as $item)
                                     @if($item['url'])<a class="calendar-event kind-{{ \Illuminate\Support\Str::slug($item['type']) }}" href="{{ $item['url'] }}" title="{{ $item['context'] }}"><span>{{ $item['title'] }}</span></a>

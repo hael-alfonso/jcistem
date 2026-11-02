@@ -24,14 +24,14 @@ Password recovery uses email reset links. The default `MAIL_MAILER=log` writes m
 
 ## Local demo accounts
 
-The database seeder creates one account for each workspace. Each seeded account uses the local demo password `password`:
+The database seeder creates one account for each workspace. New seeded accounts use `password123` unless `JCI_BOOTSTRAP_PASSWORD` is set before seeding. Rerunning the seeder keeps passwords already stored for existing accounts.
 
 | Workspace | Email |
 | --- | --- |
-| Admin | `admin@jcicarmona.org` |
-| Treasurer | `treasurer@jcicarmona.org` |
-| Board of Directors | `bod@jcicarmona.org` |
-| Member | `member@jcicarmona.org` |
+| Admin | `jci.admin@gmail.com` |
+| Treasurer | `jci.treasurer@gmail.com` |
+| Board of Directors | `jci.bod@gmail.com` |
+| Member | `jci.member@gmail.com` |
 
 These credentials are for local development only. Change or remove seeded accounts before deploying anywhere accessible to other people.
 

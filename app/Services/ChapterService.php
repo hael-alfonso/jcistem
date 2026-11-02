@@ -37,13 +37,14 @@ class ChapterService
     {
         return in_array($project->status, Project::APPROVED, true)
             || $project->created_by === $user->id
+            || $project->chair_id === $user->id
             || in_array($user->role, ['admin', 'bod', 'treasurer'], true);
     }
 
     public static function visibleProjects(User $user)
     {
         return Project::query()->when($user->role === 'member', fn ($q) => $q->where(fn ($q) =>
-            $q->whereIn('status', Project::APPROVED)->orWhere('created_by', $user->id)));
+            $q->whereIn('status', Project::APPROVED)->orWhere('created_by', $user->id)->orWhere('chair_id', $user->id)));
     }
 
     public static function requireFields(array $data, array $labels, string $prefix): void

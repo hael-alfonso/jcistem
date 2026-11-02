@@ -8,17 +8,17 @@
     <meta name="description" content="Sign in to JCISTEM, the JCI Carmona member portal for chapter projects, tasks, schedules, and records.">
     <title>@yield('title', 'Member sign in') | JCISTEM · JCI Carmona</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
-    <link rel="preload" as="image" href="{{ asset('assets/images/community/jci-scotland-banner.webp') }}">
+    @unless(request()->routeIs('register', 'scoped.register'))<link rel="preload" as="image" media="(min-width: 701px)" href="{{ asset('assets/images/community/jci-scotland-banner.webp') }}">@endunless
     @include('shared.public-fonts')
     <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/auth.css') }}?v={{ filemtime(public_path('assets/css/auth.css')) }}">
     <script defer src="{{ asset('assets/js/auth-transition.js') }}?v={{ filemtime(public_path('assets/js/auth-transition.js')) }}"></script>
     <script defer src="{{ asset('assets/js/auth.js') }}?v={{ filemtime(public_path('assets/js/auth.js')) }}"></script>
 </head>
-<body class="auth-page">
+<body class="auth-page {{ request()->routeIs('register', 'scoped.register') ? 'auth-page-registration' : '' }} {{ request()->routeIs('login', 'scoped.login', 'password.request') ? 'auth-page-compact' : '' }}">
     @php($landingUrl = url('/'))
     <a class="skip-link" href="#signin-main">Skip to form</a>
-    <header class="auth-header shell">
+    <div class="auth-frame"><header class="auth-header shell">
         @include('shared.public-brand', ['homeUrl' => $landingUrl])
         <a class="auth-home auth-icon-button" href="{{ $landingUrl }}" aria-label="Back to website" title="Back to website"><x-icon name="arrowLeft" /></a>
     </header>
@@ -30,18 +30,19 @@
             <div class="auth-intro-footer"><span>Lead. Connect. Contribute.</span><span>Carmona City, Cavite</span></div>
         </aside>
         <main class="auth-main" id="signin-main">
-            <div class="auth-form-wrap{{ request()->routeIs('register') ? ' auth-register-wrap' : '' }}"><div class="auth-form-panel" data-auth-panel>
+            @if($errors->any() || session('status'))
                 <div class="auth-feedback" aria-live="polite" aria-atomic="true">
-                    @if($errors->any())
-                        <div class="alert error" role="alert">{{ $errors->first('login') ?: ($errors->first('email') ?: ($errors->first('token') ?: $errors->first())) }}</div>
-                    @elseif(session('status'))
-                        <div class="alert success" role="status">{{ session('status') }}</div>
-                    @endif
+                    <div class="auth-feedback-message {{ $errors->any() ? 'is-error' : 'is-success' }}" role="{{ $errors->any() ? 'alert' : 'status' }}">
+                        <span>{{ $errors->any() ? ($errors->first('login') ?: ($errors->first('email') ?: ($errors->first('token') ?: $errors->first()))) : session('status') }}</span>
+                        <button type="button" class="auth-feedback-close" data-dismiss-auth-feedback aria-label="Dismiss message">&times;</button>
+                    </div>
                 </div>
+            @endif
+            <div class="auth-form-wrap{{ request()->routeIs('register') ? ' auth-register-wrap' : '' }}"><div class="auth-form-panel" data-auth-panel>
                 @yield('auth-content')
             </div></div>
         </main>
-    </div>
+    </div></div>
     <footer class="auth-footer shell"><span>&copy; {{ now()->year }} {{ config('chapter.name') }} · JCISTEM</span><div><a href="{{ $landingUrl }}#questions">Help &amp; account access</a><a href="{{ $landingUrl }}#about">About JCI Carmona</a></div></footer>
 </body>
 </html>

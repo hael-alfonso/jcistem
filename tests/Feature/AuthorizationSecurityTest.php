@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Models\{AuditLog, User};
 use App\Support\Permissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
@@ -44,6 +44,21 @@ class AuthorizationSecurityTest extends TestCase
             $this->get('/audit')->assertForbidden();
             $this->get('/members/create')->assertForbidden();
         }
+    }
+
+    public function test_activity_log_explains_changes_and_can_find_an_actor(): void
+    {
+        $admin = $this->user('admin');
+        AuditLog::create([
+            'user_id' => $admin->id, 'action' => 'project_saved', 'object_type' => 'Project', 'object_id' => 7,
+            'before' => ['title' => 'Original title'], 'after' => ['title' => 'Updated title'],
+            'remarks' => 'Clarified the project name.',
+        ]);
+
+        $this->actingAs($admin)->get('/activity-log?q='.urlencode($admin->name))
+            ->assertOk()->assertSee('Project Saved')->assertSee('Original title')->assertSee('Updated title')
+            ->assertSee('Clarified the project name.');
+        $this->get('/activity-log?q=not-a-real-record')->assertOk()->assertDontSee('Updated title');
     }
 
     public function test_review_permissions_follow_the_four_permanent_roles(): void

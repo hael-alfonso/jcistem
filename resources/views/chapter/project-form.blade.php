@@ -50,14 +50,14 @@
         <a class="back-link" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="arrowLeft" /> Projects</a>
         <div class="eyebrow">{{ $proposal ? 'STAGE 02 · DETAILED PLANNING' : 'STAGE 01 · PROJECT IDEA' }}</div>
         <h1>{{ $proposal ? 'Project proposal form' : 'Internal project proposal letter' }}</h1>
-        <p>{{ $proposal ? 'Complete the official form, save your draft, then lock the plan from the project workspace.' : 'Start with the essential details, then complete the internal project letter online or upload the official template.' }}</p>
+        <p>{{ $proposal ? 'Complete the official form, save your draft, then submit it for Treasurer and Board review before locking the plan.' : 'Start with the essential details, then complete the internal project letter online or upload the official template.' }}</p>
     </div>
     @if($proposal && $project->exists && $project->proposal)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View &amp; print proposal</a>@endif
 </div>
 <div class="project-entry-steps" aria-label="Form progress">
     <span data-project-step-label="0"><b>1</b> Project details</span><span data-project-step-label="1"><b>2</b> Choose a method</span><span data-project-step-label="2"><b>3</b> Complete the {{ $proposal ? 'proposal' : 'letter' }}</span><span data-project-step-label="3"><b>4</b> Review &amp; confirm</span>
 </div>
-<div class="notice project-entry-notice">{{ $proposal ? 'The BOD-approved budget is locked. Review the printable packet before locking the plan. Paper signatures do not replace system approvals.' : 'Saving creates a draft for Admin, Treasurer, and BOD review. Implementation and spending still require a recorded BOD resolution and locked project plan.' }}</div>
+<div class="notice project-entry-notice">{{ $proposal ? 'The BOD-approved budget is locked. Review the printable packet, then submit the full proposal for formal review. Paper signatures do not replace system approvals.' : 'Saving creates a draft for Admin, Treasurer, and BOD review. Implementation and spending still require a recorded BOD resolution and locked project plan.' }}</div>
 <form class="project-entry-form" method="POST" enctype="multipart/form-data" action="{{ $project->exists ? route('projects.update', $project) : route('projects.store') }}" data-project-submission-form>
     @csrf
     @if($project->exists) @method('PUT') @endif

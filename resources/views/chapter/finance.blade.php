@@ -17,7 +17,8 @@
     $spent = $charts['spent'];
     $rows = $charts['rows'];
 @endphp
-<div class="stats-grid three" aria-label="Project financial summary">
+<div class="stats-grid" aria-label="Project financial summary">
+    <x-dashboard-stat label="Chapter funds available" :value="'PHP '.number_format((float) $chapterFunds, 2)" note="Posted income minus posted expenses" icon="wallet" :tone="(float) $chapterFunds < 0 ? 'expenses' : 'balance'" :money="true"/>
     <x-dashboard-stat label="Allocated budget" :value="'PHP '.number_format($allocated, 2)" note="Recorded allocations · all visible projects" icon="wallet" tone="budget" :money="true"/>
     <x-dashboard-stat label="Posted expenses" :value="'PHP '.number_format($spent, 2)" note="Posted debit entries · all time" icon="receipt" tone="expenses" :money="true"/>
     <x-dashboard-stat label="Allocation balance" :value="'PHP '.number_format($allocated - $spent, 2)" note="Budget minus expenses · not cash on hand" icon="wallet" :tone="$spent > $allocated ? 'expenses' : 'balance'" :money="true"/>

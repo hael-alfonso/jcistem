@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Feature;
 
-use App\Models\{User, Project, Task, Loi, ProjectReport, LedgerEntry, MemberDue, AuditLog};
+use App\Models\{User, Project, Task, Loi, ProjectReport, LedgerEntry, MemberDue, AuditLog, CalendarEvent};
 use App\Support\ChapterForms;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -63,6 +63,39 @@ class ChapterSystemTest extends TestCase
         }
     }
 
+    public function test_calendar_shows_overlapping_events_without_loading_other_months(): void
+    {
+        $member = $this->user();
+        $project = $this->project($member, ['status' => 'Ongoing']);
+        CalendarEvent::create(['project_id' => $project->id, 'created_by' => $member->id,
+            'title' => 'Community workshop', 'type' => 'Activity', 'starts_on' => '2026-10-31', 'ends_on' => '2026-11-02']);
+        CalendarEvent::create(['project_id' => $project->id, 'created_by' => $member->id,
+            'title' => 'December workshop', 'type' => 'Activity', 'starts_on' => '2026-12-10']);
+
+        $this->actingAs($member)->get(route('calendar', ['month' => '2026-11']))->assertOk()
+            ->assertSee('Community workshop')->assertSee('Community literacy project')
+            ->assertDontSee('December workshop');
+    }
+
+    public function test_project_report_links_match_liquidation_review_access(): void
+    {
+        $chair = $this->user();
+        $admin = $this->user('admin');
+        $treasurer = $this->user('treasurer');
+        $project = $this->project($chair, ['status' => 'Ongoing', 'chair_id' => $chair->id]);
+        $report = ProjectReport::create([
+            'project_id' => $project->id, 'created_by' => $chair->id,
+            'title' => 'Project liquidation for review', 'type' => 'Liquidation',
+            'status' => 'Submitted', 'data' => [],
+        ]);
+        $link = 'href="'.route('records.show', ['reports', $report->id]).'"';
+
+        $this->actingAs($treasurer)->get(route('projects.show', $project))->assertOk()->assertSee($link, false);
+        $this->get(route('records.show', ['reports', $report->id]))->assertOk();
+        $this->actingAs($admin)->get(route('projects.show', $project))->assertOk()->assertDontSee($link, false);
+        $this->get(route('records.show', ['reports', $report->id]))->assertForbidden();
+    }
+
     public function test_complete_concept_to_archive_flow_enforces_approvals_and_financial_boundaries(): void
     {
         Storage::fake('local');
@@ -121,6 +154,7 @@ class ChapterSystemTest extends TestCase
         $this->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'approve', 'comments' => 'Receipts verified'])->assertSessionHasNoErrors();
         $this->assertSame('Archived', $p->fresh()->status);
+        $this->actingAs($member)->get('/records/reports/'.$liquidation->id)->assertOk()->assertSee('Print / save PDF');
         $this->assertGreaterThan(15, AuditLog::count());
         $this->actingAs($member)->get('/projects/'.$p->id)->assertOk();
     }
@@ -177,6 +211,8 @@ class ChapterSystemTest extends TestCase
             ->assertOk()->assertSee('Internal Chapter Project Proposal Transmittal Letter');
         $this->get('/records/letters/create?project_id='.$project->id)->assertOk()->assertSee('External partnership LOI');
         $this->get('/records/reports/create?project_id='.$project->id)->assertOk()->assertSee('Purpose and results');
+        $this->get('/records/reports/create?project_id='.$project->id.'&type=Liquidation')
+            ->assertOk()->assertSee('Cash and voucher details')->assertDontSee('Purpose and results');
         $this->get('/projects/'.$project->id.'/liquidation')->assertForbidden();
 
         LedgerEntry::create([
@@ -186,7 +222,7 @@ class ChapterSystemTest extends TestCase
             'counterparty' => 'Supplier', 'description' => 'Materials',
         ]);
         $this->actingAs($treasurer)->get('/projects/'.$project->id.'/liquidation')
-            ->assertOk()->assertSee('PROJ-EXP-001')->assertSee('1 pending liquidation');
+            ->assertOk()->assertSee('PROJ-EXP-001')->assertSee('1 pending liquidation')->assertSee('Print / save PDF');
 
         $project->update(['status' => 'Completion Review']);
         $this->actingAs($chair)->post('/records/reports', [
@@ -196,7 +232,10 @@ class ChapterSystemTest extends TestCase
         $report = ProjectReport::firstOrFail();
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->assertEquals(1200, $report->fresh()->data['financial_snapshot']['actual_expenses']);
-        $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Proposed')->assertSee('Actual posted');
+        $this->assertSame('Community literacy project', $report->fresh()->data['project_snapshot']['title']);
+        $project->update(['title' => 'Renamed after submission']);
+        $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Proposed')->assertSee('Actual posted')->assertSee('Print / save PDF');
+        $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Community literacy project');
     }
 
     public function test_members_cannot_access_private_concepts_financial_records_or_admin_controls(): void
@@ -237,10 +276,26 @@ class ChapterSystemTest extends TestCase
         $this->actingAs($treasurer)->post('/records/reports', ['title' => 'October financial report', 'type' => 'Overall Financial', 'data' => $data])->assertSessionHasNoErrors();
         $report = ProjectReport::firstOrFail();
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
+        $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Print / save PDF');
         LedgerEntry::create(['reference' => 'INC-002', 'direction' => 'credit', 'status' => 'Posted', 'amount' => 5000, 'transaction_date' => '2026-10-10']);
         $this->assertEquals(2000, $report->fresh()->data['financial_snapshot']['income']);
         $this->actingAs($admin)->get('/records/reports/'.$report->id)->assertForbidden();
         $this->actingAs($member)->get('/records/reports/'.$report->id)->assertForbidden();
+    }
+
+    public function test_all_roles_can_monitor_posted_chapter_funds_without_ledger_access(): void
+    {
+        LedgerEntry::create(['reference' => 'CHAPTER-IN', 'type' => 'Income', 'direction' => 'credit', 'status' => 'Posted', 'amount' => '5000.00']);
+        LedgerEntry::create(['reference' => 'CHAPTER-OUT', 'type' => 'Expense', 'direction' => 'debit', 'status' => 'Posted', 'amount' => '1250.00']);
+        LedgerEntry::create(['reference' => 'VOID-OUT', 'type' => 'Expense', 'direction' => 'debit', 'status' => 'Void', 'amount' => '900.00']);
+
+        foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
+            $this->actingAs($this->user($role));
+            $this->get('/dashboard')->assertOk()->assertSee('Chapter funds available')->assertSee('PHP 3,750.00');
+            $this->get('/finance')->assertOk()->assertSee('Chapter funds available')->assertSee('PHP 3,750.00');
+        }
+
+        $this->get('/ledger')->assertForbidden();
     }
 
     public function test_inactive_accounts_are_blocked_and_last_admin_cannot_be_deactivated(): void

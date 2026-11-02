@@ -26,7 +26,7 @@
     @if($role === 'treasurer')
         <x-dashboard-stat label="Allocated funds" :value="'PHP '.number_format($financeCharts['allocated'], 2)" note="Approved project allocations · all time" icon="wallet" tone="budget" :money="true" :href="route('finance')"/>
         <x-dashboard-stat label="Posted expenses" :value="'PHP '.number_format($financeCharts['spent'], 2)" note="Approved projects · posted debits" icon="receipt" tone="expenses" :money="true" :href="route('ledger')"/>
-        <x-dashboard-stat label="Allocation balance" :value="'PHP '.number_format($balance, 2)" note="Budget minus expenses · not cash on hand" icon="wallet" :tone="$balance < 0 ? 'expenses' : 'balance'" :money="true" :href="route('finance')"/>
+        <x-dashboard-stat label="Chapter funds available" :value="'PHP '.number_format((float) $chapterFunds, 2)" note="Posted income minus posted expenses" icon="wallet" :tone="(float) $chapterFunds < 0 ? 'expenses' : 'balance'" :money="true" :href="route('finance')"/>
         <x-dashboard-stat label="Projects over budget" :value="$overBudget" note="Posted expenses exceed allocations" icon="info" tone="reviews" :href="route('finance')"/>
     @else
         <x-dashboard-stat :label="$role === 'member' ? 'My active projects' : 'Active projects'" :value="$active->count()" note="Approved, ongoing, or in completion review" icon="briefcase" tone="projects" :href="route('projects', $role === 'member' ? ['filter' => 'mine'] : [])"/>
@@ -35,10 +35,11 @@
         @else
             <x-dashboard-stat :label="$role === 'bod' ? 'My review queue' : 'Awaiting review'" :value="$pending->count()" note="Requests matching your review role" icon="fileSignature" tone="reviews" href="#dashboard-reviews"/>
         @endif
-        <x-dashboard-stat label="Completed projects" :value="$dashboardProjects->whereIn('status', ['Completed', 'Archived'])->count()" note="Completed and archived projects" icon="check" tone="balance" :href="route('projects', $role === 'member' ? ['filter' => 'mine'] : [])"/>
         @if($role === 'admin')
-            <x-dashboard-stat label="Allocation balance" :value="'PHP '.number_format($balance, 2)" note="Approved budgets minus posted expenses" icon="wallet" :tone="$balance < 0 ? 'expenses' : 'budget'" :money="true" :href="route('finance')"/>
+            <x-dashboard-stat label="Completed projects" :value="$dashboardProjects->whereIn('status', ['Completed', 'Archived'])->count()" note="Completed and archived projects" icon="check" tone="balance" :href="route('projects')"/>
+            <x-dashboard-stat label="Chapter funds available" :value="'PHP '.number_format((float) $chapterFunds, 2)" note="Posted income minus posted expenses" icon="wallet" :tone="(float) $chapterFunds < 0 ? 'expenses' : 'balance'" :money="true" :href="route('finance')"/>
         @else
+            <x-dashboard-stat label="Chapter funds available" :value="'PHP '.number_format((float) $chapterFunds, 2)" note="Posted income minus posted expenses" icon="wallet" :tone="(float) $chapterFunds < 0 ? 'expenses' : 'balance'" :money="true" :href="route('finance')"/>
             <x-dashboard-stat label="My open tasks" :value="$tasks->count()" :note="$overdue.' overdue · excludes completed tasks'" icon="checklist" :tone="$overdue ? 'reviews' : 'tasks'" :href="route('tasks', ['mine' => 1])"/>
         @endif
     @endif

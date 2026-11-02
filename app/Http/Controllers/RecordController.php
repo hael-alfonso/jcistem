@@ -1,8 +1,9 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Project, Loi, ProjectReport, LedgerEntry, Partner, User};
+use App\Models\{Project, Loi, ProjectReport, LedgerEntry, Partner, User, ProjectDocument};
 use App\Services\ChapterService;
+use App\Services\OfficePreviewService;
 use App\Support\ChapterForms;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
@@ -11,6 +12,16 @@ use Illuminate\Validation\{Rule, Rules\Password, ValidationException};
 
 class RecordController extends Controller
 {
+    private function projectSnapshot(Project $project): array
+    {
+        return [
+            'reference' => $project->reference, 'title' => $project->title, 'area' => $project->area,
+            'description' => $project->proposal['description'] ?? '',
+            'date' => $project->starts_on?->format('Y-m-d'), 'end_date' => $project->ends_on?->format('Y-m-d'),
+            'venue' => $project->venue, 'chair_name' => $project->chair?->name,
+            'allocated' => $project->allocated, 'expenses' => $project->spent, 'remaining' => $project->remaining,
+        ];
+    }
     private function model(string $kind): string { abort_unless(in_array($kind, ['letters', 'reports']), 404); return $kind === 'letters' ? Loi::class : ProjectReport::class; }
 
     private function editable($record, Request $request): bool
@@ -35,7 +46,7 @@ class RecordController extends Controller
             else $q->whereNotNull('project_id');
         })->where(function ($q) use ($user) {
             $q->whereNull('project_id')->orWhereHas('project', function ($p) use ($user) {
-                if ($user->role === 'member') $p->where(fn ($v) => $v->whereIn('status', Project::APPROVED)->orWhere('created_by', $user->id));
+                if ($user->role === 'member') $p->where(fn ($v) => $v->whereIn('status', Project::APPROVED)->orWhere('created_by', $user->id)->orWhere('chair_id', $user->id));
             });
         })->where(function ($q) use ($user, $kind) {
             if (in_array($user->role, ['admin', 'bod'])) {
@@ -137,7 +148,7 @@ class RecordController extends Controller
                     $record->partner_id = $partner->id;
                     $body['organization'] = $partner->name;
                 }
-                if ($project) $body['project_snapshot'] = ['reference' => $project->reference, 'title' => $project->title, 'area' => $project->area, 'description' => $project->proposal['description'] ?? '', 'date' => $project->starts_on?->format('Y-m-d'), 'end_date' => $project->ends_on?->format('Y-m-d'), 'venue' => $project->venue, 'allocated' => $project->allocated, 'expenses' => $project->spent, 'remaining' => $project->remaining];
+                if ($project) $body['project_snapshot'] = $this->projectSnapshot($project);
                 if ($path) { $body['attachment_path'] = $path; $body['attachment_name'] = $request->file('attachment')->getClientOriginalName(); }
                 elseif (isset($record->data['attachment_path'])) { $body['attachment_path'] = $record->data['attachment_path']; $body['attachment_name'] = $record->data['attachment_name']; }
                 $record->fill(['title' => $data['title'], 'type' => $data['type'], 'data' => $body, 'versions' => $versions, 'version' => $record->version + 1])->save();
@@ -189,6 +200,7 @@ class RecordController extends Controller
                 } elseif ($kind === 'reports') {
                     $body = $record->data;
                     $project = $record->project;
+                    $body['project_snapshot'] = $this->projectSnapshot($project);
                     $posted = $project->transactions()->where('status', 'Posted')->get();
                     $debits = $posted->where('direction', 'debit');
                     $body['financial_snapshot'] = [
@@ -227,6 +239,11 @@ class RecordController extends Controller
                 $versions = $record->versions ?? [];
                 $versions[] = ['version' => $record->version, 'saved_at' => now()->toIso8601String(), 'title' => $record->title, 'status' => $record->status, 'data' => $record->data];
                 $record->versions = $versions; $record->version++; $record->status = 'Draft';
+                if ($kind === 'reports') {
+                    $body = $record->data ?? [];
+                    unset($body['financial_snapshot']);
+                    $record->data = $body;
+                }
             } else {
                 abort_unless($kind === 'letters' && ($manager || Permissions::allows($request->user(), Permissions::RECORDS_REVIEW)) && $record->status === 'Sent', 403);
                 $record->status = 'Archived';
@@ -239,23 +256,51 @@ class RecordController extends Controller
         return back()->with('success', 'Document status updated.');
     }
 
-    public function attachment(Request $request, string $kind, int $id)
+    public function attachment(Request $request, string $kind, int $id, OfficePreviewService $previews)
     {
         $class = $this->model($kind); $record = $class::findOrFail($id);
         abort_unless($this->visible($record, $request), 403);
         $path = $record->data['attachment_path'] ?? null;
         abort_unless($path && Storage::disk('local')->exists($path), 404);
-        return Storage::disk('local')->download($path, $record->data['attachment_name'], ['X-Content-Type-Options' => 'nosniff']);
+        $name = $record->data['attachment_name'] ?? basename($path);
+        if ($request->boolean('preview')) {
+            $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            $mime = match ($extension) {
+                'pdf' => 'application/pdf', 'jpg', 'jpeg' => 'image/jpeg', 'png' => 'image/png',
+                default => null,
+            };
+            if ($mime) return response()->file(Storage::disk('local')->path($path), ['Content-Type' => $mime, 'Content-Disposition' => 'inline', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
+            if ($extension === 'docx') {
+                try {
+                    $preview = $previews->render(new ProjectDocument(['path' => $path, 'original_name' => $name]));
+                    return response()->file($preview, ['Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
+                } catch (\Throwable $e) {
+                    report($e);
+                    abort(422, 'This Word file could not be previewed. Download the original file instead.');
+                }
+            }
+            abort(422, 'This file type cannot be previewed in the browser. Download the original file instead.');
+        }
+        return Storage::disk('local')->download($path, $name, ['X-Content-Type-Options' => 'nosniff']);
     }
 
     public function members(Request $request)
     {
         $request->validate(['q' => 'nullable|string|max:200', 'role' => ['nullable', Rule::in(['admin', 'bod', 'treasurer', 'member'])]]);
         $members = User::query()
+            ->when(!Permissions::allows($request->user(), Permissions::MEMBERS_MANAGE), fn ($q) => $q->where('status', 'active'))
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%')->orWhere('member_no', 'like', '%'.$request->string('q').'%')))
             ->when($request->filled('role'), fn ($q) => $q->where('role', $request->role))
             ->orderBy('name')->paginate(30)->withQueryString();
         return view('chapter.members', compact('members'));
+    }
+
+    public function memberPhoto(Request $request, User $member)
+    {
+        abort_unless($member->status === 'active' || Permissions::allows($request->user(), Permissions::MEMBERS_MANAGE), 403);
+        $path = $member->profile['photo_path'] ?? null;
+        abort_unless($path && str_starts_with($path, 'profile-photos/'.$member->id.'/') && Storage::disk('local')->exists($path), 404);
+        return Storage::disk('local')->response($path, null, ['Cache-Control' => 'private, max-age=300', 'X-Content-Type-Options' => 'nosniff']);
     }
 
     public function memberForm(Request $request, ?User $member = null)
@@ -268,13 +313,34 @@ class RecordController extends Controller
     public function memberSave(Request $request, ?User $member = null)
     {
         abort_unless(Permissions::allows($request->user(), Permissions::MEMBERS_MANAGE), 403);
+        if ($request->filled('profile.given_name') || $request->filled('profile.family_name')) {
+            $request->merge(['name' => trim(($request->input('profile.given_name') ?? '').' '.($request->input('profile.family_name') ?? ''))]);
+        }
+        $membershipRules = [
+            'profile.title' => 'nullable|string|max:30',
+            'profile.given_name' => 'nullable|required_with:profile.family_name|string|max:100',
+            'profile.family_name' => 'nullable|required_with:profile.given_name|string|max:100',
+            'profile.date_of_birth' => 'nullable|date|before:today',
+            'profile.city' => 'nullable|string|max:100',
+            'profile.home_phone' => 'nullable|string|max:40',
+            'profile.occupation' => ['nullable', Rule::in(['Student', 'Employed', 'Self-employed', 'Other'])],
+            'profile.organization' => 'nullable|string|max:200',
+            'profile.position' => 'nullable|string|max:160',
+            'profile.business_sector' => 'nullable|string|max:160',
+            'profile.university_major' => 'nullable|string|max:160',
+            'profile.interests' => 'nullable|array|max:4',
+            'profile.interests.*' => [Rule::in(ChapterForms::AREAS)],
+            'profile.interest_topics' => 'nullable|array|max:10',
+            'profile.interest_topics.*' => [Rule::in(ChapterForms::MEMBERSHIP_INTERESTS)],
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ];
         if (!Permissions::allows($request->user(), Permissions::ACCOUNTS_MANAGE)) {
             abort_unless($member, 403);
             // Profile management never grants access to credentials or account activation.
             foreach (['role', 'status', 'username', 'email', 'password', 'password_confirmation', 'concept_reviewer', 'proposal_reviewer'] as $field) {
                 abort_if($request->exists($field), 403);
             }
-            $profileData = $request->validate([
+            $profileData = $request->validate(array_merge([
                 'name' => 'required|string|max:200',
                 'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member->id)],
                 'profile.nickname' => 'nullable|string|max:100',
@@ -282,32 +348,73 @@ class RecordController extends Controller
                 'profile.address' => 'nullable|string|max:500',
                 'profile.joined_on' => 'nullable|date',
                 'profile.emergency_contact' => 'nullable|string|max:500',
-            ]);
-            DB::transaction(function () use ($member, $profileData) {
+            ], $membershipRules));
+            $photoFile = $profileData['photo'] ?? null;
+            unset($profileData['photo']);
+            if ($request->boolean('membership_interests_present')) {
+                $profileData['profile']['interests'] ??= [];
+                $profileData['profile']['interest_topics'] ??= [];
+            }
+            $newPhoto = null;
+            $oldPhoto = $member->profile['photo_path'] ?? null;
+            try {
+            DB::transaction(function () use ($member, $profileData, $photoFile, &$newPhoto) {
                 $member = User::lockForUpdate()->findOrFail($member->id);
                 $before = $member->toArray();
                 $profileData['profile'] = array_merge($member->profile ?? [], $profileData['profile'] ?? []);
+                if ($photoFile) {
+                    $newPhoto = $photoFile->store('profile-photos/'.$member->id, 'local');
+                    if (!$newPhoto) throw ValidationException::withMessages(['photo' => 'The photo could not be saved.']);
+                    $profileData['profile']['photo_path'] = $newPhoto;
+                }
                 $member->fill($profileData)->save();
                 \App\Support\MemberId::assign($member);
                 ChapterService::audit('member_profile_saved', $member, $before);
             });
+            } catch (\Throwable $exception) {
+                if ($newPhoto) Storage::disk('local')->delete($newPhoto);
+                throw $exception;
+            }
+            if ($newPhoto && $oldPhoto && str_starts_with($oldPhoto, 'profile-photos/'.$member->id.'/')) Storage::disk('local')->delete($oldPhoto);
             return redirect()->route('members')->with('success', 'Member details saved.');
         }
-        $data = $request->validate(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($member?->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($member?->id)], 'password' => [$member ? 'nullable' : 'required', 'confirmed', Password::min(10)], 'role' => ['required', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'status' => ['required', Rule::in(['active', 'inactive'])], 'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member?->id)], 'concept_reviewer' => 'sometimes|boolean', 'proposal_reviewer' => 'sometimes|boolean', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.joined_on' => 'nullable|date', 'profile.emergency_contact' => 'nullable|string|max:500']);
+        $data = $request->validate(array_merge(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($member?->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($member?->id)], 'password' => [$member ? 'nullable' : 'required', 'confirmed', Password::min(10)], 'role' => ['required', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'status' => ['required', Rule::in(['active', 'inactive'])], 'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member?->id)], 'concept_reviewer' => 'sometimes|boolean', 'proposal_reviewer' => 'sometimes|boolean', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.joined_on' => 'nullable|date', 'profile.emergency_contact' => 'nullable|string|max:500'], $membershipRules));
+        $photoFile = $data['photo'] ?? null;
+        unset($data['photo']);
+        if ($request->boolean('membership_interests_present')) {
+            $data['profile']['interests'] ??= [];
+            $data['profile']['interest_topics'] ??= [];
+        }
+        $newPhoto = null;
+        $oldPhoto = $member?->profile['photo_path'] ?? null;
         $data['username'] = strtolower($data['username']);
         $data['concept_reviewer'] = in_array($data['role'], ['admin', 'bod']) && $request->boolean('concept_reviewer');
         $data['proposal_reviewer'] = in_array($data['role'], ['admin', 'bod']) && $request->boolean('proposal_reviewer');
         if (empty($data['password'])) unset($data['password']);
-        DB::transaction(function () use ($member, $data) {
+        try {
+        DB::transaction(function () use ($member, $data, $photoFile, &$newPhoto) {
             $admins = User::where('role', 'admin')->where('status', 'active')->lockForUpdate()->get();
             if ($member && $member->role === 'admin' && ($data['role'] !== 'admin' || $data['status'] !== 'active') && $admins->count() <= 1) throw \Illuminate\Validation\ValidationException::withMessages(['role' => 'Keep at least one active administrator.']);
             $before = $member?->toArray() ?? [];
             $member ??= new User;
             if ($member->exists) $data['profile'] = array_merge($member->profile ?? [], $data['profile'] ?? []);
             $member->fill($data)->save();
+            if ($photoFile) {
+                $newPhoto = $photoFile->store('profile-photos/'.$member->id, 'local');
+                if (!$newPhoto) throw ValidationException::withMessages(['photo' => 'The photo could not be saved.']);
+                $profile = $member->profile ?? [];
+                $profile['photo_path'] = $newPhoto;
+                $member->profile = $profile;
+                $member->save();
+            }
             \App\Support\MemberId::assign($member);
             ChapterService::audit('member_account_saved', $member, $before);
         });
+        } catch (\Throwable $exception) {
+            if ($newPhoto) Storage::disk('local')->delete($newPhoto);
+            throw $exception;
+        }
+        if ($newPhoto && $oldPhoto && $member && str_starts_with($oldPhoto, 'profile-photos/'.$member->id.'/')) Storage::disk('local')->delete($oldPhoto);
         return redirect()->route('members')->with('success', 'Member account saved.');
     }
 

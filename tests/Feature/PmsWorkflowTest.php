@@ -176,6 +176,45 @@ class PmsWorkflowTest extends TestCase
         $this->get('/projects/'.$project->id)->assertOk()->assertSee('Learning kits')->assertSee('PHP 80.00');
     }
 
+    public function test_returned_claim_can_be_corrected_by_its_chair_and_verified_by_treasurer(): void
+    {
+        Storage::fake('local');
+        $chair = $this->actor(); $other = $this->actor(); $treasurer = $this->actor('treasurer');
+        $project = $this->approved($chair);
+        $item = (string) \Illuminate\Support\Str::uuid();
+        $project->update(['budget_items' => [[
+            'id' => $item, 'category' => 'materials_supplies', 'description' => 'Project materials',
+            'quantity' => '1.00', 'unit_cost' => '200.00', 'amount' => '200.00',
+        ]]]);
+        $project->allocations()->create(['category' => 'Materials', 'budget_item_id' => $item, 'amount' => '200.00']);
+        $this->actingAs($chair)->post(route('expense-claims.store', $project), [
+            'budget_item_id' => $item, 'spent_on' => today()->toDateString(),
+            'payee' => 'Local supplier', 'description' => 'Original claim', 'amount' => '80.00',
+            'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf'),
+        ])->assertSessionHasNoErrors();
+        $claim = ExpenseClaim::firstOrFail();
+        $this->actingAs($treasurer)->post(route('expense-claims.review', $claim), [
+            'action' => 'return', 'review_note' => 'Correct the quantity and amount.',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($chair)->get(route('expense-claims.index'))->assertOk()
+            ->assertSee('Correct and resubmit')->assertSee('Correct the quantity and amount.');
+        $correction = [
+            'budget_item_id' => $item, 'spent_on' => today()->toDateString(),
+            'payee' => 'Local supplier', 'description' => 'Corrected quantity', 'amount' => '90.00',
+        ];
+        $this->actingAs($other)->put(route('expense-claims.update', $claim), $correction)->assertForbidden();
+        $this->actingAs($chair)->put(route('expense-claims.update', $claim), $correction)->assertSessionHasNoErrors();
+        $this->assertSame('Pending', $claim->fresh()->status);
+        $this->assertSame('90.00', $claim->fresh()->amount);
+        $this->assertNull($claim->fresh()->review_note);
+        $this->actingAs($treasurer)->post(route('expense-claims.review', $claim), [
+            'action' => 'approve', 'review_note' => 'Receipt verified',
+            'account' => 'Project fund', 'payment_method' => 'Cash',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('Posted', $claim->fresh()->status);
+        $this->assertSame('90.00', LedgerEntry::firstOrFail()->amount);
+    }
+
     public function test_legacy_allocation_and_expense_can_be_reconciled_without_changing_totals(): void
     {
         Storage::fake('local');
@@ -208,6 +247,9 @@ class PmsWorkflowTest extends TestCase
     {
         Storage::fake('local'); $chair = $this->actor(); $member = $this->actor(); $project = $this->approved($chair);
         LedgerEntry::create(['project_id' => $project->id, 'reference' => 'SECRET-REF', 'description' => 'Private receipt information', 'amount' => '15.25', 'status' => 'Posted', 'direction' => 'debit']);
+        $this->actingAs($member)->get('/reports?project_id='.$project->id)
+            ->assertOk()->assertSee('Print / save PDF')->assertSee('PHP 15.25')
+            ->assertDontSee('SECRET-REF')->assertDontSee('Private receipt information');
         foreach (['pdf', 'docx'] as $format) {
             $response = $this->actingAs($member)->post('/reports/export', ['format' => $format, 'type' => 'budgets', 'project_id' => $project->id])->assertOk();
             $record = \App\Models\GeneratedReport::latest('id')->firstOrFail();

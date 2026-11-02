@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\{RegistrationRequest, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class RegistrationApprovalTest extends TestCase
@@ -114,5 +116,33 @@ class RegistrationApprovalTest extends TestCase
         $this->post('/register', $this->application())->assertRedirect();
         $this->post('/register', $this->application())->assertSessionHasErrors('email');
         $this->assertSame(1, RegistrationRequest::count());
+    }
+
+    public function test_application_photo_and_names_follow_the_member_after_approval(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $details = $this->application();
+        unset($details['name']);
+        $details['given_name'] = 'Carmona';
+        $details['family_name'] = 'Applicant';
+        $details['city'] = 'Carmona';
+        $details['interest_topics'] = ['Public speaking', 'Project management'];
+        $details['photo'] = UploadedFile::fake()->image('applicant.jpg');
+
+        $this->post('/register', $details)->assertRedirect('/register/thanks');
+        $registration = RegistrationRequest::firstOrFail();
+        $this->assertSame('Carmona Applicant', $registration->name);
+        $this->assertSame('Carmona', $registration->application_details['city']);
+        $this->assertSame(['Public speaking', 'Project management'], $registration->application_details['interest_topics']);
+        Storage::disk('local')->assertExists($registration->application_details['photo_path']);
+
+        $this->actingAs($admin)->get('/registrations/'.$registration->id.'/photo')->assertOk();
+        $this->post('/registrations/'.$registration->id.'/review', ['decision' => 'approve', 'verified_identity' => '1'])->assertRedirect();
+        $member = User::where('email', 'applicant@example.test')->firstOrFail();
+        $this->assertSame('Carmona', $member->profile['given_name']);
+        $this->assertSame('Applicant', $member->profile['family_name']);
+        Storage::disk('local')->assertExists($member->profile['photo_path']);
+        $this->get('/members/'.$member->id.'/photo')->assertOk();
     }
 }

@@ -47,4 +47,17 @@ class MemberManagementTest extends TestCase
             $this->assertContains($response->status(), [302, 403]);
         }
     }
+
+    public function test_public_member_directory_hides_inactive_accounts_while_managers_can_find_them(): void
+    {
+        $active = User::factory()->create(['name' => 'Active Volunteer', 'role' => 'member', 'status' => 'active']);
+        $inactive = User::factory()->create(['name' => 'Former Volunteer', 'role' => 'member', 'status' => 'inactive']);
+        $viewer = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $bod = User::factory()->create(['role' => 'bod', 'status' => 'active']);
+
+        $this->actingAs($viewer)->get(route('members'))->assertOk()
+            ->assertSee($active->name)->assertDontSee($inactive->name);
+        $this->actingAs($bod)->get(route('members.manage', ['q' => 'Former']))->assertOk()
+            ->assertSee($inactive->name)->assertSee(route('members.manage'), false);
+    }
 }

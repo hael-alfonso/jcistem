@@ -12,7 +12,10 @@
             <summary class="btn primary"><x-icon name="filePlus" /> {{ $kind === 'letters' ? 'Prepare JCI LOI' : 'Prepare report' }}</summary>
             <div class="record-create-panel">
                 @if($kind === 'reports' && auth()->user()->role === 'treasurer')<a href="{{ route('records.create', ['kind' => 'reports']) }}"><strong>Financial report</strong><small>Chapter-wide income and spending</small></a>@endif
-                @foreach($projects as $project)<a href="{{ route('records.create', ['kind' => $kind, 'project_id' => $project->id]) }}"><strong>{{ $project->title }}</strong><small>{{ $kind === 'letters' ? 'JCI LOI' : 'Project report' }}</small></a>@endforeach
+                @foreach($projects as $project)
+                    @if($kind === 'letters')<a href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}"><strong>{{ $project->title }}</strong><small>External partnership LOI</small></a>
+                    @else<a href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']) }}"><strong>{{ $project->title }} · PCR</strong><small>Project completion report</small></a><a href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Liquidation']) }}"><strong>{{ $project->title }} · Liquidation</strong><small>Receipts and cash reconciliation</small></a>@endif
+                @endforeach
             </div>
         </details>
     @endif
@@ -28,7 +31,7 @@
     @if(request()->boolean('mine'))<input type="hidden" name="mine" value="1">@endif
     @if(request()->filled('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
     <label><span>Search documents</span><input name="q" value="{{ request('q') }}" placeholder="Title or project"></label>
-    <label><span>Status</span><select name="status"><option value="">All statuses</option>@foreach(['Draft','For Review','Submitted','Returned','Reviewed','Approved for Sending','Sent','Archived'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $status }}</option>@endforeach</select></label>
+    <label><span>Status</span><select name="status"><option value="">All statuses</option>@foreach($kind === 'reports' ? ['Draft','Submitted','Returned','Reviewed'] : ['Draft','For Review','Returned','Approved for Sending','Sent','Archived'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $status }}</option>@endforeach</select></label>
     <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
     @if(request()->filled('q') || request()->filled('status'))<a class="text-link" href="{{ route('records', array_filter(['kind' => $kind, 'type' => request('type')])) }}"><x-icon name="close" /> Clear</a>@endif
 </form>
@@ -36,7 +39,7 @@
     <thead><tr><th>Document</th><th>Project</th><th>Prepared by</th><th>Status</th><th>Version</th><th></th></tr></thead>
     <tbody>
         @forelse($records as $record)
-            <tr><td><strong>{{ $record->title }}</strong><small>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : $record->type }}</small></td><td>{{ $record->project?->title ?? 'Chapter finances' }}</td><td>{{ $record->author?->name }}</td><td><span class="badge">{{ $record->status }}</span></td><td>v{{ $record->version }}</td><td><a class="text-link" href="{{ route('records.show', [$kind, $record->id]) }}"><x-icon name="eye" /> Open</a></td></tr>
+            <tr><td><strong>{{ $record->title }}</strong><small>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : ($record->type === 'Completion' ? 'PCR' : $record->type) }}</small></td><td>{{ $record->project?->title ?? 'Chapter finances' }}</td><td>{{ $record->author?->name }}</td><td><x-status-badge :status="$record->status" /></td><td>v{{ $record->version }}</td><td><a class="text-link" href="{{ route('records.show', [$kind, $record->id]) }}"><x-icon name="eye" /> Open</a></td></tr>
         @empty
             <tr><td colspan="6"><div class="empty-state"><h3>No matching {{ $kind === 'letters' ? 'LOIs' : 'reports' }}.</h3><p>Try another filter. New documents appear here after they are saved.</p><a class="btn secondary" href="{{ route('records', $kind) }}"><x-icon name="close" /> Show all</a></div></td></tr>
         @endforelse

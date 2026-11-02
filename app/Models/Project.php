@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Project extends ChapterRecord
 {
     protected $casts = ['concept' => 'array', 'proposal' => 'array', 'budget_items' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'plan_locked_at' => 'datetime', 'budget_reviewed_at' => 'datetime', 'proposal_budget_reviewed_at' => 'datetime', 'proposal_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
-    public const APPROVED = ['Approved', 'Submitted for Formal Approval', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed', 'Archived'];
+    public const APPROVED = ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed', 'Archived'];
     public static function toneForStatus(string $status): string
     {
         return match ($status) {

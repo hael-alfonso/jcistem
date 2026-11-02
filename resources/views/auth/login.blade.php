@@ -11,6 +11,5 @@
         <div class="auth-options"><a href="{{ route('password.request') }}" data-auth-nav="forward">Forgot password?</a></div>
         <x-auth-action label="Sign in" />
     </form>
-    <div class="auth-account-help"><strong>Don't have an account?</strong><p>Register now. A chapter administrator will approve your account before sign in.</p><a href="{{ route('register') }}" data-auth-nav="forward">Register <span aria-hidden="true">→</span></a></div>
-    <p class="auth-join">New to JCI Carmona? <a href="{{ url('/') }}#join">Learn how to get involved <span aria-hidden="true">↗</span></a></p>
+    <p class="auth-register-link">New to JCISTEM? <a href="{{ route('register') }}" data-auth-nav="forward">Register an account <span aria-hidden="true">→</span></a></p>
 @endsection

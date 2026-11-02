@@ -22,13 +22,20 @@
         <label class="settings-toggle"><input type="hidden" name="profile[preferences][reduce_motion]" value="0"><input type="checkbox" name="profile[preferences][reduce_motion]" value="1" @checked((bool) ($preferences['reduce_motion'] ?? false))><span><strong>Reduce interface motion</strong><small>Minimize panel, dialog, and toast animations in the PMS.</small></span></label>
     </section>
     <section class="panel form-panel settings-card">
-        <div class="section-heading"><span><x-icon name="palette"/></span><div><h2>Color theme</h2><p>Choose a chapter palette for your workspace. Follow system uses the Admin default.</p></div></div>
+        <div class="section-heading"><span><x-icon name="palette"/></span><div><h2>Color theme</h2><p>Choose the accent you see across navigation and actions. Selecting a theme previews it here; save to keep it.</p></div></div>
         <div class="settings-theme-options">
-            @foreach(['system' => ['Follow system', 'Uses the chapter default', 'system'], 'jci' => ['JCI Blue', 'The original JCISTEM palette', 'jci'], 'teal' => ['Carmona Teal', 'Calm teal accents', 'teal'], 'navy' => ['Deep Navy', 'A focused dark blue accent', 'navy']] as $value => [$label, $description, $swatch])
-                <label class="settings-theme-choice"><input type="radio" name="profile[preferences][color_theme]" value="{{ $value }}" @checked(($preferences['color_theme'] ?? 'system') === $value)><span class="theme-swatch theme-swatch-{{ $swatch }}" aria-hidden="true"></span><span><strong>{{ $label }}</strong><small>{{ $description }}</small></span></label>
+            @foreach(['system' => ['Chapter default', 'Follows the chapter setting', 'system'], 'jci' => ['JCI Blue', 'Classic blue and navy', 'jci'], 'teal' => ['Carmona Teal', 'Teal and deep green', 'teal'], 'navy' => ['Deep Navy', 'Dark blue with cool accents', 'navy']] as $value => [$label, $description, $swatch])
+                <label class="settings-theme-choice"><input type="radio" name="profile[preferences][color_theme]" value="{{ $value }}" @checked(($preferences['color_theme'] ?? 'system') === $value)><span class="theme-swatch theme-swatch-{{ $swatch }}" aria-hidden="true"><i></i><b></b><em></em></span><span><strong>{{ $label }}</strong><small>{{ $description }}</small></span></label>
             @endforeach
         </div>
     </section>
     <div class="settings-save-bar"><p>These options affect only your workspace.</p><div class="button-row"><button class="btn secondary" type="submit" name="reset_preferences" value="1" formnovalidate data-confirm="Restore your workspace layout, navigation, motion, and color theme to the defaults?"><x-icon name="refresh" /> Reset to default</button><button class="btn primary" type="submit"><x-icon name="save" /> Save workspace settings</button></div></div>
 </form>
+<script>
+document.querySelectorAll('input[name="profile[preferences][color_theme]"]').forEach((input) => input.addEventListener('change', () => {
+    const theme = input.value === 'system' ? document.body.dataset.chapterTheme : input.value;
+    document.body.classList.remove('workspace-theme-jci', 'workspace-theme-teal', 'workspace-theme-navy');
+    document.body.classList.add('workspace-theme-' + theme);
+}));
+</script>
 @endsection
