@@ -14,20 +14,20 @@ final class PmsNavigation
 
         $menus = [
             'PROJECTS' => [
-                ['projects', 'My Project Work', 'user', ['filter' => 'mine']],
-                ['projects.create', 'Submit New Project', 'filePlus', []],
-                ['projects', 'All Chapter Projects', 'briefcase', []],
-                ...($canReviewProposals ? [['projects', 'Review Queue', 'checklist', ['filter' => 'review']]] : []),
+                ['projects', 'My Projects', 'user', ['filter' => 'mine']],
+                ['projects', 'All Projects', 'briefcase', []],
+                ['projects.create', 'Create Project', 'filePlus', []],
+                ...($canReviewProposals ? [['projects', 'Project Reviews', 'checklist', ['filter' => 'review']]] : []),
             ],
             'TASKS' => [
-                ['tasks', 'My Assigned Tasks', 'checklist', ['mine' => 1]],
-                ['tasks', 'Chapter Task Monitor', 'users', ['mine' => 0]],
+                ['tasks', 'My Tasks', 'checklist', ['mine' => 1]],
+                ['tasks', 'Task Monitoring', 'users', ['mine' => 0]],
             ],
-            'FINANCIAL' => [
-                ['finance', 'Project Budget Overview', 'chart', []],
-                ['expense-claims.index', $user->role === 'treasurer' ? 'Expense Claims to Review' : 'My Expense Claims', 'receipt', []],
-                [$user->role === 'treasurer' ? 'dues.manage' : 'dues', $user->role === 'treasurer' ? 'Manage Member Dues' : 'My Member Dues', 'receipt', []],
-                ...($user->role === 'treasurer' ? [['ledger', 'Master Ledger', 'wallet', []]] : []),
+            'FINANCE' => [
+                ['finance', 'Project Finances', 'chart', []],
+                ['expense-claims.index', $user->role === 'treasurer' ? 'Claims to Review' : 'My Expense Claims', 'receipt', []],
+                [$user->role === 'treasurer' ? 'dues.manage' : 'dues', $user->role === 'treasurer' ? 'Member Dues' : 'My Dues', 'receipt', []],
+                ...($user->role === 'treasurer' ? [['ledger', 'Treasurer Ledger', 'wallet', []]] : []),
             ],
             'MEMBERS' => [
                 ...($canManageMembers ? [
@@ -36,14 +36,12 @@ final class PmsNavigation
                 ] : [['members', 'Chapter Directory', 'users', []]]),
             ],
             'REPORTS & DOCUMENTS' => [
-                ['records', 'Reports', 'report', ['kind' => 'reports']],
+                ['records', 'Project Reports', 'report', ['kind' => 'reports']],
                 ['reports.generate', 'Budget Summary', 'chart', []],
-                ['templates', 'Forms & Templates', 'folder', []],
-                ...($user->role === 'admin' ? [['records', 'PCR Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']]] : []),
-                ...($user->role === 'treasurer' ? [['records', 'Liquidation Reviews', 'checklist', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']]] : []),
-            ],
-            'FILES' => [
                 ['documents', 'File Library', 'folder', []],
+                ['templates', 'Forms & Templates', 'folder', []],
+                ...($user->role === 'admin' ? [['records', 'Completion Report Review', 'checklist', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']]] : []),
+                ...($user->role === 'treasurer' ? [['records', 'Liquidation Report Review', 'checklist', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']]] : []),
             ],
             'PARTNERSHIPS' => [
                 ['partners.index', 'Partner Directory', 'users', []],
@@ -79,10 +77,9 @@ final class PmsNavigation
         return match ($menu) {
             'PROJECTS' => 'briefcase',
             'TASKS' => 'checklist',
-            'FINANCIAL' => 'wallet',
+            'FINANCE' => 'wallet',
             'MEMBERS' => 'users',
             'REPORTS & DOCUMENTS' => 'report',
-            'FILES' => 'folder',
             'CALENDAR' => 'calendar',
             'NOTIFICATIONS' => 'bell',
             'PARTNERSHIPS' => 'users',
@@ -93,7 +90,7 @@ final class PmsNavigation
 
     public static function direct(string $menu): bool
     {
-        return in_array($menu, ['CALENDAR', 'FILES', 'NOTIFICATIONS'], true);
+        return in_array($menu, ['CALENDAR', 'NOTIFICATIONS'], true);
     }
 
     public static function url(array $item): string
@@ -109,8 +106,13 @@ final class PmsNavigation
     {
         [$route, , , $params] = $item;
         if (!$route) return false;
-        // Keep project detail, edit, and document pages under the project collection.
-        if ($route === 'projects' && !$params && request()->routeIs('projects.*') && !request()->routeIs('projects.create')) return true;
+        // Keep project folders and individual project pages under All Projects.
+        if ($route === 'projects' && !$params && request()->routeIs('projects.*')
+            && !request()->routeIs('projects.create')) return true;
+        if ($route === 'tasks' && request()->routeIs('tasks') && request()->query('mine') === null) {
+            // The task page defaults to personal work for members and monitoring for other roles.
+            return (int) ($params['mine'] ?? -1) === (request()->user()?->role === 'member' ? 1 : 0);
+        }
         if ($route === 'partners.index' && request()->routeIs('partners.*')) return true;
         if ($route === 'agreements.index' && request()->routeIs('agreements.*')) return true;
         if (!request()->routeIs($route)) return false;

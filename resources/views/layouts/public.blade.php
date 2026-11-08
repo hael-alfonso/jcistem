@@ -10,6 +10,7 @@
     @foreach(['public', 'landing', 'chapter-public'] as $style)
         <link rel="stylesheet" href="{{ asset('assets/css/'.$style.'.css') }}?v={{ filemtime(public_path('assets/css/'.$style.'.css')) }}">
     @endforeach
+    <link rel="stylesheet" href="{{ asset('assets/css/overlay-ui.css') }}?v={{ filemtime(public_path('assets/css/overlay-ui.css')) }}">
     <script defer src="{{ asset('assets/js/landing.js') }}?v={{ filemtime(public_path('assets/js/landing.js')) }}"></script>
 </head>
 <body id="top">

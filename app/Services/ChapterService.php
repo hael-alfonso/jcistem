@@ -25,9 +25,9 @@ class ChapterService
         return $data;
     }
 
-    public static function notify(iterable $users, string $title, string $body, string $url, bool $important = false): void
+    public static function notify(iterable $users, string $title, string $body, ?string $url, bool $important = false): void
     {
-        $url = preg_replace('#^/workspaces/[a-f0-9-]{36}(?=/|$)#', '', $url);
+        $url = $url === null ? null : preg_replace('#^/workspaces/[a-f0-9-]{36}(?=/|$)#', '', $url);
         foreach (collect($users)->filter()->unique()->values() as $id) {
             Notification::create(['user_id' => $id, 'title' => $title, 'body' => $body, 'url' => $url, 'requires_open' => $important]);
         }
@@ -36,6 +36,7 @@ class ChapterService
     public static function canView(Project $project, User $user): bool
     {
         return in_array($project->status, Project::APPROVED, true)
+            || ($project->status === 'Cancelled' && $project->decisions()->where('decision', 'approved')->exists())
             || $project->created_by === $user->id
             || $project->chair_id === $user->id
             || in_array($user->role, ['admin', 'bod', 'treasurer'], true);
@@ -44,7 +45,9 @@ class ChapterService
     public static function visibleProjects(User $user)
     {
         return Project::query()->when($user->role === 'member', fn ($q) => $q->where(fn ($q) =>
-            $q->whereIn('status', Project::APPROVED)->orWhere('created_by', $user->id)->orWhere('chair_id', $user->id)));
+            $q->whereIn('status', Project::APPROVED)
+                ->orWhere(fn ($cancelled) => $cancelled->where('status', 'Cancelled')->whereHas('decisions', fn ($decision) => $decision->where('decision', 'approved')))
+                ->orWhere('created_by', $user->id)->orWhere('chair_id', $user->id)));
     }
 
     public static function requireFields(array $data, array $labels, string $prefix): void

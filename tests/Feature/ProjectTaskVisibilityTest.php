@@ -47,10 +47,14 @@ class ProjectTaskVisibilityTest extends TestCase
             ->assertSee('value="ongoing"', false);
 
         $this->get('/tasks')->assertOk()
-            ->assertSee('Prepare volunteer roster')->assertSee('data-label="Assigned to"', false)
-            ->assertSee('data-label="Deadline"', false)->assertSee('priority-urgent')
+            ->assertSee('Prepare volunteer roster')->assertSee('task-list-table', false)
+            ->assertSee('task-assignee-avatar', false)
+            ->assertSee('Assigned to')->assertSee('<th scope="col">Due</th>', false)->assertSee('priority-urgent')
             ->assertSee('Overdue')->assertSee('href="'.route('projects.show', $project).'#task-'.$task->id.'"', false)
             ->assertSee('id="task-preview-dialog"', false)
+            ->assertSee('aria-label="Preview task: Prepare volunteer roster"', false)
+            ->assertSee('aria-controls="task-preview-dialog"', false)
+            ->assertDontSee('Quick view')
             ->assertSee('id="task-create-'.$project->id.'"', false)
             ->assertSee('data-task-preview-title', false);
 
@@ -61,8 +65,42 @@ class ProjectTaskVisibilityTest extends TestCase
             ->assertSee('Roster review document is on file.')
             ->assertSee('Update task')
             ->assertSee('id="task-detail-'.$task->id.'"', false)
+            ->assertSee('aria-label="View task details: Prepare volunteer roster"', false)
             ->assertSee('data-task-dialog-open="task-create-'.$project->id.'"', false);
 
         $this->travelBack();
+    }
+
+    public function test_task_table_paginates_without_losing_filters(): void
+    {
+        $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $project = Project::create([
+            'created_by' => $member->id,
+            'chair_id' => $member->id,
+            'title' => 'Paged task workspace',
+            'area' => 'Community Impact',
+            'status' => 'Plan Locked',
+            'plan_locked_at' => now(),
+        ]);
+
+        foreach (range(1, 20) as $number) {
+            Task::create([
+                'project_id' => $project->id,
+                'title' => sprintf('Paged task %02d', $number),
+                'assignees' => [$member->id],
+                'status' => 'To Do',
+                'priority' => 'Medium',
+                'deadline' => today()->addDays($number),
+            ]);
+        }
+
+        $firstPage = $this->actingAs($member)->get('/tasks?mine=1&q=Paged');
+        $firstPage->assertOk()->assertSee('Showing 1')->assertSee('of 20')
+            ->assertSee('aria-label="Page 2"', false)
+            ->assertSee('q=Paged', false)
+            ->assertSee('Paged task 18')->assertDontSee('Paged task 19');
+
+        $this->get('/tasks?mine=1&q=Paged&page=2')->assertOk()
+            ->assertSee('Showing 19')->assertSee('Paged task 19')->assertSee('Paged task 20');
     }
 }

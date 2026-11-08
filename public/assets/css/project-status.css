@@ -1,0 +1,26 @@
+/* Project status badges share one restrained treatment across the list and workspace. */
+.project-status,
+.modern-project-card .project-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--status-color) 28%, transparent);
+  background: color-mix(in srgb, var(--status-color) 11%, transparent);
+  color: var(--project-status-ink, #344d60);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.project-status.status-draft { --project-status-ink: #5748a5; }
+.project-status.status-review { --project-status-ink: #80540d; }
+.project-status.status-revision { --project-status-ink: #a44b1e; }
+.project-status.status-approved { --project-status-ink: #095c99; }
+.project-status.status-ongoing { --project-status-ink: #096572; }
+.project-status.status-completed { --project-status-ink: #176443; }
+.project-status.status-declined { --project-status-ink: #a52d45; }
+.project-status.status-archived { --project-status-ink: #465d70; }
+
+.modern-project-card .project-status::before {
+  margin-top: 0;
+}

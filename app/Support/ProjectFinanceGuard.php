@@ -7,7 +7,7 @@ use Illuminate\Validation\ValidationException;
 
 final class ProjectFinanceGuard
 {
-    public static function expenseLine(Project $project, string $budgetItemId, float|string $amount, ?int $excludeClaimId = null): array
+    public static function expenseLine(Project $project, string $budgetItemId, float|string $amount, ?int $excludeClaimId = null, ?int $excludeFundReleaseId = null): array
     {
         $item = collect($project->budget_items ?? [])->firstWhere('id', $budgetItemId);
         if (!$item) self::fail('budget_item_id', 'Choose a specific expense from the approved project budget.');
@@ -18,9 +18,10 @@ final class ProjectFinanceGuard
         $allocation = $project->allocations()->where('budget_item_id', $budgetItemId)->first();
         if (!$allocation) self::fail('budget_item_id', 'The Treasurer must allocate this exact expense line first.');
         $spent = Money::cents($project->transactions()->where('budget_item_id', $budgetItemId)->where('status', 'Posted')->where('direction', 'debit')->sum('amount'));
-        $pending = Money::cents($project->expenseClaims()->where('budget_item_id', $budgetItemId)->where('status', 'Pending')->when($excludeClaimId, fn ($query) => $query->where('id', '!=', $excludeClaimId))->sum('amount'));
-        if ($spent + $pending + Money::cents($amount) > Money::cents($allocation->amount)) {
-            self::fail('amount', 'This expense exceeds the available allocation after posted and pending claims.');
+        $pendingClaims = Money::cents($project->expenseClaims()->where('budget_item_id', $budgetItemId)->where('status', 'Pending')->when($excludeClaimId, fn ($query) => $query->where('id', '!=', $excludeClaimId))->sum('amount'));
+        $pendingReleases = Money::cents($project->fundReleases()->where('budget_item_id', $budgetItemId)->where('status', 'Pending')->when($excludeFundReleaseId, fn ($query) => $query->where('id', '!=', $excludeFundReleaseId))->sum('amount'));
+        if ($spent + $pendingClaims + $pendingReleases + Money::cents($amount) > Money::cents($allocation->amount)) {
+            self::fail('amount', 'This amount exceeds the available allocation after posted spending, pending claims, and fund releases awaiting confirmation.');
         }
         return $item;
     }

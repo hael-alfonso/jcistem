@@ -32,17 +32,17 @@ class ChapterSystemTest extends TestCase
         $member = $this->user();
         $project = $this->project($member, ['status' => 'Ongoing', 'chair_id' => $member->id]);
         $dashboard = $this->actingAs($member)->get('/dashboard')->assertOk()
-            ->assertSee('All Chapter Projects')->assertSee('Project Budget Overview')->assertSee('My Profile')
-            ->assertDontSee('Master Ledger');
+            ->assertSee('All Projects')->assertSee('Project Finances')->assertSee('My Profile')
+            ->assertDontSee('Treasurer Ledger');
         $markup = $dashboard->getContent();
         $this->assertGreaterThan(strpos($markup, '</nav>'), strpos($markup, 'class="sidebar-account"'));
         $this->assertLessThan(strpos($markup, '</aside>'), strpos($markup, 'class="sidebar-account"'));
         $this->get('/projects')->assertOk()->assertSee('Quick view')->assertSee('project-preview-dialog');
-        $this->get('/finance')->assertOk()->assertSee('Financial monitoring');
+        $this->get('/finance')->assertOk()->assertSee('Project Finances');
 
         $treasurer = $this->user('treasurer');
         $this->actingAs($treasurer)->get('/dashboard')->assertOk()
-            ->assertSee('Master Ledger')->assertSee('Liquidation Reviews');
+            ->assertSee('Treasurer Ledger')->assertSee('Liquidation Report Review');
         $this->actingAs($treasurer)->get('/projects/'.$project->id.'/liquidation')->assertOk();
 
         $admin = $this->user('admin');
@@ -206,7 +206,7 @@ class ChapterSystemTest extends TestCase
 
         $draft = $this->project($chair, ['status' => 'Approved', 'chair_id' => $chair->id]);
         $draft->update(['plan_locked_at' => null]);
-        $this->actingAs($chair)->get('/projects/'.$draft->id.'/edit')->assertOk()->assertSee('Project proposal form');
+        $this->actingAs($chair)->get('/projects/'.$draft->id.'/edit')->assertOk()->assertSee('Project Proposal Form (PPF)');
         $this->actingAs($chair)->get('/projects/'.$project->id.'/proposal')
             ->assertOk()->assertSee('Internal Chapter Project Proposal Transmittal Letter');
         $this->get('/records/letters/create?project_id='.$project->id)->assertOk()->assertSee('External partnership LOI');

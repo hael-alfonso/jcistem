@@ -3,12 +3,19 @@ import { boundedProgress } from './pms-helpers.js';
 (() => {
   const toggle = document.querySelector('.menu-button');
   const overlay = document.querySelector('.nav-overlay');
+  const sidebarClose = document.querySelector('[data-nav-close]');
   const topbarMenus = [...document.querySelectorAll('.topbar-settings-menu')];
   const sidebarNav = document.querySelector('.app-sidebar nav');
   const sidebarScrollKey = `jcistem.sidebarScroll.${document.querySelector('meta[name="workspace-id"]')?.content || 'default'}`;
   const createMenu = document.querySelector('.record-create-dropdown');
   const calendarDialog = document.querySelector('#calendar-event-dialog');
   const projectPreview = document.querySelector('#project-preview-dialog');
+  const projectRemove = document.querySelector('#project-remove-dialog');
+  document.querySelectorAll('.project-chair-avatar img').forEach((image) => {
+    const showInitial = () => image.remove();
+    image.addEventListener('error', showInitial, { once: true });
+    if (image.complete && image.naturalWidth === 0) showInitial();
+  });
   const groups = [...document.querySelectorAll('.nav-section')];
   const currentGroup = groups.find((group) => group.querySelector('[aria-current="page"]'));
   const primaryCurrent = document.querySelector('.sidebar-primary [aria-current="page"], .nav-direct-link[aria-current="page"]');
@@ -35,6 +42,7 @@ import { boundedProgress } from './pms-helpers.js';
   };
   if (sidebarNav) {
     let savedScroll = 0;
+    let scrollCueTimer;
     try { savedScroll = Number(sessionStorage.getItem(sidebarScrollKey)) || 0; } catch {}
     requestAnimationFrame(() => requestAnimationFrame(() => {
       sidebarNav.scrollTop = savedScroll;
@@ -42,6 +50,9 @@ import { boundedProgress } from './pms-helpers.js';
     }));
     sidebarNav.addEventListener('scroll', () => {
       try { sessionStorage.setItem(sidebarScrollKey, String(sidebarNav.scrollTop)); } catch {}
+      sidebarNav.classList.add('is-scrolling');
+      clearTimeout(scrollCueTimer);
+      scrollCueTimer = setTimeout(() => sidebarNav.classList.remove('is-scrolling'), 1100);
     }, { passive: true });
     sidebarNav.addEventListener('click', (event) => {
       if (!event.target.closest('a[href]')) return;
@@ -55,7 +66,7 @@ import { boundedProgress } from './pms-helpers.js';
     const mobile = window.matchMedia('(max-width: 760px)').matches;
     document.querySelector('.app-sidebar')?.toggleAttribute('inert', mobile && !open);
     document.querySelector('.app-main')?.toggleAttribute('inert', mobile && open);
-    if (mobile && open) (activeSideLink || document.querySelector('.app-sidebar a'))?.focus({ preventScroll: true });
+    if (mobile && open) sidebarClose?.focus({ preventScroll: true });
   };
   setNavigation(false);
   topbarMenus.forEach((menu) => {
@@ -73,12 +84,13 @@ import { boundedProgress } from './pms-helpers.js';
     if (createMenu && !createMenu.contains(event.target)) createMenu.open = false;
   });
   overlay?.addEventListener('click', () => { setNavigation(false); toggle?.focus(); });
+  sidebarClose?.addEventListener('click', () => { setNavigation(false); toggle?.focus(); });
   window.matchMedia('(max-width: 760px)').addEventListener('change', () => setNavigation(false));
   document.addEventListener('keydown', (event) => {
     if (!document.body.classList.contains('nav-open')) return;
-    if (event.key === 'Escape') { setNavigation(false); toggle?.focus(); }
+    if (event.key === 'Escape') { setNavigation(false); toggle?.focus(); return; }
     if (event.key !== 'Tab') return;
-    const navigationItems = [...document.querySelectorAll('.app-sidebar a, .app-sidebar button, .app-sidebar summary, .nav-overlay')].filter((item) => item.getClientRects().length);
+    const navigationItems = [...document.querySelectorAll('.app-sidebar a, .app-sidebar button, .app-sidebar summary')].filter((item) => item.getClientRects().length);
     const first = navigationItems[0];
     const last = navigationItems.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -121,6 +133,23 @@ import { boundedProgress } from './pms-helpers.js';
   projectPreview?.querySelectorAll('[data-preview-close]').forEach((button) => button.addEventListener('click', () => projectPreview.close()));
   projectPreview?.addEventListener('click', (event) => { if (event.target === projectPreview) projectPreview.close(); });
   projectPreview?.addEventListener('close', () => { previewTrigger?.focus(); previewTrigger = null; });
+  let projectRemoveTrigger = null;
+  document.querySelectorAll('[data-project-remove]').forEach((link) => link.addEventListener('click', (event) => {
+    if (!projectRemove?.showModal) return;
+    const form = projectRemove.querySelector('[data-remove-form]');
+    const name = projectRemove.querySelector('[data-remove-name]');
+    if (!form || !name || !link.dataset.removeUrl) return;
+    event.preventDefault();
+    projectRemoveTrigger = link;
+    form.action = link.dataset.removeUrl;
+    form.reset();
+    name.textContent = link.dataset.removeTitle || 'This project';
+    projectRemove.showModal();
+    form.querySelector('textarea[name="reason"]')?.focus();
+  }));
+  projectRemove?.querySelectorAll('[data-remove-close]').forEach((button) => button.addEventListener('click', () => projectRemove.close()));
+  projectRemove?.addEventListener('click', (event) => { if (event.target === projectRemove) projectRemove.close(); });
+  projectRemove?.addEventListener('close', () => { projectRemoveTrigger?.focus(); projectRemoveTrigger = null; });
   const taskPreview = document.querySelector('#task-preview-dialog');
   let taskPreviewTrigger = null;
   document.querySelectorAll('[data-task-preview]').forEach((link) => link.addEventListener('click', (event) => {
@@ -129,7 +158,10 @@ import { boundedProgress } from './pms-helpers.js';
     taskPreviewTrigger = link;
     const data = link.dataset;
     const write = (key, value) => { const target = taskPreview.querySelector(`[data-task-preview-${key}]`); if (target) target.textContent = value || 'Not set'; };
-    for (const key of ['title', 'project', 'status', 'priority', 'deadline', 'milestone', 'assignees', 'description', 'notes', 'evidence']) write(key, data[`task${key[0].toUpperCase()}${key.slice(1)}`]);
+    for (const key of ['title', 'project', 'chair', 'status', 'priority', 'deadline', 'milestone', 'assignees', 'description', 'notes', 'evidence']) write(key, data[`task${key[0].toUpperCase()}${key.slice(1)}`]);
+    const avatars = taskPreview.querySelector('[data-task-preview-avatars]');
+    const rowAvatars = link.closest('tr')?.querySelector('.task-assignee-avatars');
+    if (avatars) avatars.replaceChildren(...(rowAvatars ? [rowAvatars.cloneNode(true)] : []));
     taskPreview.querySelector('[data-task-preview-status]').className = `badge task-status task-status-${data.taskTone}`;
     taskPreview.querySelector('[data-task-preview-priority]').className = `task-priority priority-${data.taskPriorityTone}`;
     taskPreview.querySelector('[data-task-preview-link]').href = link.href;
@@ -208,11 +240,20 @@ import { boundedProgress } from './pms-helpers.js';
     const links = [...projectPages.querySelectorAll('a[href^="#"]')];
     const sections = links.map((link) => document.getElementById(link.hash.slice(1)));
     const showPage = () => {
-      const selected = links.find((link) => link.hash === window.location.hash) || links[0];
+      const target = document.getElementById(window.location.hash.slice(1));
+      const selected = links.find((link, index) => link.hash === window.location.hash || (target && sections[index]?.contains(target))) || links[0];
       links.forEach((link, index) => {
-        sections[index].hidden = link !== selected;
+        if (sections[index]) sections[index].hidden = link !== selected;
         if (link === selected) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
       });
+      if (target?.matches('.project-task-card')) {
+        const dialog = target.querySelector('.task-detail-modal');
+        if (dialog?.showModal && !dialog.open) {
+          document.querySelectorAll('.task-modal[open]').forEach((openDialog) => openDialog.close());
+          taskDialogTriggers.set(dialog, target.querySelector('[data-task-dialog-open]'));
+          dialog.showModal();
+        }
+      }
     };
     links.forEach((link) => link.addEventListener('click', (event) => {
       event.preventDefault();
@@ -220,7 +261,13 @@ import { boundedProgress } from './pms-helpers.js';
       showPage();
       projectPages.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }));
+    document.querySelectorAll('a[href^="#task-"]').forEach((link) => link.addEventListener('click', (event) => {
+      event.preventDefault();
+      history.pushState(null, '', link.hash);
+      showPage();
+    }));
     window.addEventListener('popstate', showPage);
+    window.addEventListener('hashchange', showPage);
     showPage();
   }
   document.querySelectorAll('[data-project-submission-form]').forEach((form) => {
@@ -280,6 +327,12 @@ import { boundedProgress } from './pms-helpers.js';
         detail.textContent = value; row.append(term, detail); list.append(row);
       }));
       reviewSummary.append(list);
+      const budgetNote = document.createElement('p');
+      budgetNote.className = 'hint';
+      budgetNote.textContent = form.querySelector('[data-no-budget]')?.checked
+        ? 'Project budget: no expenses planned.'
+        : `Project budget: ${form.querySelector('[data-budget-total]')?.textContent?.trim() || 'PHP 0.00'}.`;
+      reviewSummary.append(budgetNote);
       const method = document.createElement('p'); method.className = 'hint'; method.textContent = `Submission method: ${choices.find((choice) => choice.checked)?.value === 'upload' ? 'Completed official template upload' : 'Online form'}.`; reviewSummary.append(method);
     };
     next?.addEventListener('click', () => {
@@ -302,10 +355,13 @@ import { boundedProgress } from './pms-helpers.js';
       const totalInput = budget.querySelector('[data-budget-total-input]');
       const totalOutput = budget.querySelector('[data-budget-total]');
       const lockMessage = budget.querySelector('[data-budget-lock-message]');
+      const noBudget = budget.querySelector('[data-no-budget]');
+      const budgetFields = budget.querySelector('[data-budget-fields]');
+      const addBudget = budget.querySelector('[data-budget-add]');
       let nextBudgetIndex = Date.now();
       const currency = (cents) => `PHP ${(cents / 100).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       const updateBudget = () => {
-        const rows = [...list.querySelectorAll('[data-budget-row]')];
+        const rows = noBudget?.checked ? [] : [...list.querySelectorAll('[data-budget-row]')];
         const totalCents = rows.reduce((sum, row) => {
           const quantity = Number(row.querySelector('[data-budget-quantity]')?.value) || 0;
           const unitCents = Math.round((Number(row.querySelector('[data-budget-unit-cost]')?.value) || 0) * 100);
@@ -327,6 +383,16 @@ import { boundedProgress } from './pms-helpers.js';
         }
       };
       budget.addEventListener('input', updateBudget);
+      const toggleBudgetFields = () => {
+        const empty = !!noBudget?.checked;
+        if (budgetFields) {
+          budgetFields.hidden = empty;
+          budgetFields.querySelectorAll('input, select, textarea').forEach((field) => { field.disabled = empty; });
+        }
+        if (addBudget) addBudget.hidden = empty;
+        updateBudget();
+      };
+      noBudget?.addEventListener('change', toggleBudgetFields);
       budget.addEventListener('click', (event) => {
         const add = event.target.closest('[data-budget-add]');
         const remove = event.target.closest('[data-budget-remove]');
@@ -343,7 +409,7 @@ import { boundedProgress } from './pms-helpers.js';
           updateBudget();
         }
       });
-      updateBudget();
+      toggleBudgetFields();
     }
     for (const [group, output] of [['income_lines', '[data-proposal-income-total]'], ['expense_lines', '[data-proposal-expense-total]']]) {
       const amountFields = [...form.querySelectorAll(`input[name^="proposal[${group}]"]`)];
@@ -359,6 +425,8 @@ import { boundedProgress } from './pms-helpers.js';
   });
   const confirmDialog = document.querySelector('#confirm-dialog');
   const confirmMessage = confirmDialog?.querySelector('#confirm-dialog-message');
+  const confirmTitle = confirmDialog?.querySelector('#confirm-dialog-title');
+  const confirmSubmit = confirmDialog?.querySelector('[data-dialog-confirm]');
   let pendingAction = null;
   document.querySelectorAll('[data-confirm]').forEach((button) => button.addEventListener('click', (event) => {
     const form = button.form;
@@ -371,30 +439,42 @@ import { boundedProgress } from './pms-helpers.js';
     }
     pendingAction = button;
     confirmMessage.textContent = button.dataset.confirm;
+    const isWarning = button.matches('.danger, .caution') || /cancel|delete|void|reject|archive/i.test(button.value || '');
+    confirmDialog.classList.toggle('is-warning', isWarning);
+    confirmTitle.textContent = isWarning ? 'Review this action' : 'Confirm this change';
+    confirmSubmit.classList.toggle('danger', isWarning);
+    confirmSubmit.classList.toggle('primary', !isWarning);
+      confirmSubmit.querySelector('[data-confirm-label]').textContent = isWarning ? 'Confirm action' : 'Continue';
     confirmDialog.showModal();
+    if (isWarning) confirmDialog.querySelector('[data-dialog-cancel]')?.focus();
   }));
   confirmDialog?.querySelector('[data-dialog-cancel]')?.addEventListener('click', () => confirmDialog.close());
+  confirmDialog?.addEventListener('click', (event) => { if (event.target === confirmDialog) confirmDialog.close(); });
   confirmDialog?.querySelector('[data-dialog-confirm]')?.addEventListener('click', () => {
     const button = pendingAction;
     confirmDialog.close();
     if (button?.form) button.form.requestSubmit(button);
   });
   confirmDialog?.addEventListener('close', () => { pendingAction?.focus(); pendingAction = null; });
+  const feedbackDialog = document.querySelector('[data-feedback-dialog]');
+  feedbackDialog?.querySelector('[data-feedback-close]')?.addEventListener('click', () => feedbackDialog.close());
+  feedbackDialog?.addEventListener('click', (event) => { if (event.target === feedbackDialog) feedbackDialog.close(); });
+  if (feedbackDialog?.showModal) feedbackDialog.showModal();
   const toast = document.querySelector('[data-toast]');
   if (toast) {
-    let toastTimer;
-    const dismissToast = () => {
-      window.clearTimeout(toastTimer);
+    let timer;
+    const dismiss = () => {
+      window.clearTimeout(timer);
       toast.classList.add('is-leaving');
       window.setTimeout(() => toast.parentElement?.remove(), window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220);
     };
-    const scheduleToast = () => { window.clearTimeout(toastTimer); toastTimer = window.setTimeout(dismissToast, 8000); };
-    toast.querySelector('[data-toast-dismiss]')?.addEventListener('click', dismissToast);
-    toast.addEventListener('mouseenter', () => window.clearTimeout(toastTimer));
-    toast.addEventListener('mouseleave', scheduleToast);
-    toast.addEventListener('focusin', () => window.clearTimeout(toastTimer));
-    toast.addEventListener('focusout', (event) => { if (!toast.contains(event.relatedTarget)) scheduleToast(); });
-    scheduleToast();
+    const schedule = () => { window.clearTimeout(timer); timer = window.setTimeout(dismiss, 6500); };
+    toast.querySelector('[data-toast-dismiss]')?.addEventListener('click', dismiss);
+    toast.addEventListener('mouseenter', () => window.clearTimeout(timer));
+    toast.addEventListener('mouseleave', schedule);
+    toast.addEventListener('focusin', () => window.clearTimeout(timer));
+    toast.addEventListener('focusout', (event) => { if (!toast.contains(event.relatedTarget)) schedule(); });
+    schedule();
   }
   document.querySelectorAll('form').forEach((form) => form.addEventListener('submit', () => {
     if (!form.checkValidity()) return;

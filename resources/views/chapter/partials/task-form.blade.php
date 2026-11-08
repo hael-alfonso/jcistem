@@ -1,6 +1,7 @@
 @php
     $manages = $project->canManage(auth()->user());
     $creating = !$task->exists;
+    $taskStatuses = $project->status === 'Plan Locked' ? ['To Do'] : ['To Do', 'In Progress', 'Blocked', 'Completed'];
     $selectedAssignees = collect(old('assignees', $task->assignees ?? []))->map(fn ($id) => (string) $id)->all();
 @endphp
 <form method="POST" action="{{ $task->exists?route('tasks.update',[$project,$task]):route('tasks.store',$project) }}" class="form-grid task-work-form">@csrf @if($task->exists) @method('PUT') @endif
@@ -31,7 +32,7 @@
 <input type="hidden" name="status" value="To Do">
 @else
 <div class="full task-form-section-heading"><span>{{ $manages ? '04' : '01' }}</span><div><h3>Progress and proof of work</h3><p>Update progress, explain blockers, and record evidence when the task is completed.</p></div></div>
-<x-field name="status" label="Task status" type="select" :options="array_combine(['To Do','In Progress','Blocked','Completed'],['To Do','In Progress','Blocked','Completed'])" :value="$task->status??'To Do'" required/>
+<x-field name="status" label="Task status" type="select" :options="array_combine($taskStatuses, $taskStatuses)" :value="$task->status??'To Do'" required/>
 <x-field name="notes" label="Progress update or blocker" type="textarea" :value="$task->notes"/>
 <x-field name="evidence" label="Completion evidence or project document reference" type="textarea" :value="$task->evidence"/>
 @endif

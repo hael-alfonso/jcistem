@@ -1,0 +1,53 @@
+/* Responsive workspace navigation drawer. */
+.sidebar-mobile-header { flex: 0 0 auto; min-width: 0; }
+.sidebar-mobile-close { display: none; }
+
+body.workspace-theme-teal .app-sidebar .brand-name,
+body.workspace-theme-navy .app-sidebar .brand-name { color: #f4fbfc; }
+body.workspace-theme-teal .app-sidebar .brand-name small,
+body.workspace-theme-navy .app-sidebar .brand-name small { color: #bfd4da; }
+body.workspace-theme-teal .app-sidebar .workspace-label,
+body.workspace-theme-navy .app-sidebar .workspace-label { background: rgba(255, 255, 255, .1); color: #e4f1f3; }
+body.workspace-theme-teal .app-sidebar .workspace-label > span:last-child,
+body.workspace-theme-navy .app-sidebar .workspace-label > span:last-child { background: rgba(255, 255, 255, .15); color: #f4fbfc; }
+body.workspace-theme-teal .app-sidebar .side-link:not(.is-active),
+body.workspace-theme-navy .app-sidebar .side-link:not(.is-active),
+body.workspace-theme-teal .app-sidebar .nav-section > summary,
+body.workspace-theme-navy .app-sidebar .nav-section > summary { color: #e0eef1; }
+body.workspace-theme-teal .app-sidebar .side-link:not(.is-active) .ico,
+body.workspace-theme-navy .app-sidebar .side-link:not(.is-active) .ico,
+body.workspace-theme-teal .app-sidebar .nav-section > summary > .ico,
+body.workspace-theme-navy .app-sidebar .nav-section > summary > .ico { color: #a8d6df; }
+body.workspace-theme-teal .app-sidebar .side-link:not(.is-active):hover,
+body.workspace-theme-navy .app-sidebar .side-link:not(.is-active):hover,
+body.workspace-theme-teal .app-sidebar .nav-section > summary:hover,
+body.workspace-theme-navy .app-sidebar .nav-section > summary:hover,
+body.workspace-theme-teal .app-sidebar .nav-section[open] > summary,
+body.workspace-theme-navy .app-sidebar .nav-section[open] > summary { background: rgba(255, 255, 255, .14); color: #fff; }
+body.workspace-theme-teal .app-sidebar .nav-section:has(.side-link.is-active) > summary,
+body.workspace-theme-navy .app-sidebar .nav-section:has(.side-link.is-active) > summary { background: rgba(255, 255, 255, .2); color: #fff; }
+body.workspace-theme-teal .app-sidebar .nav-section > summary::after,
+body.workspace-theme-navy .app-sidebar .nav-section > summary::after { border-color: #bedde5; }
+
+@media (max-width: 760px) {
+  .app-sidebar { width: min(320px, 88vw); height: 100dvh; padding: 14px 14px 0; box-shadow: 12px 0 36px rgba(25, 32, 39, .24); }
+  .sidebar-mobile-header { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid rgba(71, 109, 127, .22); }
+  .app-sidebar .sidebar-mobile-header .chapter-brand { flex: 1 1 auto; min-width: 0; margin: 0; padding: 2px 0; gap: 8px; }
+  .sidebar-mobile-header .brand-logo { max-width: 44px; height: 44px; }
+  .sidebar-mobile-header .brand-name { min-width: 0; font-size: 13px; line-height: 1.2; letter-spacing: .04em; }
+  .sidebar-mobile-header .brand-name small { font-size: 7px; line-height: 1.3; letter-spacing: .06em; }
+  .sidebar-mobile-close { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid #c8e1ea; border-radius: 11px; background: rgba(255, 255, 255, .72); color: #17566f; }
+  .sidebar-mobile-close:hover { background: #fff; color: #064869; }
+  .sidebar-mobile-close .ico, .sidebar-mobile-close svg { width: 19px; height: 19px; }
+  .app-sidebar .workspace-label { margin: 12px 3px 9px; }
+  .app-sidebar nav { padding: 2px 2px 12px; }
+  .app-sidebar .sidebar-primary-link, .app-sidebar .nav-direct-link, .app-sidebar .nav-section > summary { min-height: 46px; }
+  .app-sidebar .nav-section .side-link { min-height: 43px; }
+  .topbar-context .menu-button { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 1px solid #b8dbe8; border-radius: 11px; background: rgba(255, 255, 255, .68); }
+  .topbar-context .menu-button:hover, .topbar-context .menu-button:focus-visible { background: #fff; }
+  body.workspace-theme-teal .sidebar-mobile-header, body.workspace-theme-navy .sidebar-mobile-header { border-bottom-color: rgba(255, 255, 255, .24); }
+  body.workspace-theme-teal .sidebar-mobile-close, body.workspace-theme-navy .sidebar-mobile-close { border-color: rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .1); color: #fff; }
+  body.workspace-theme-teal .sidebar-mobile-close:hover, body.workspace-theme-navy .sidebar-mobile-close:hover { background: rgba(255, 255, 255, .2); }
+}
+
+@media (max-width: 380px) { .app-sidebar { width: min(300px, 90vw); padding-inline: 11px; } .sidebar-mobile-header .brand-name { font-size: 12px; } }

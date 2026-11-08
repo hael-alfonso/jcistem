@@ -87,22 +87,22 @@ class ChapterChartsTest extends TestCase
             foreach (['More dashboard details', 'dashboard-more', 'Projects by focus area'] as $absent) {
                 $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
             }
-            foreach (['stat-content', '<svg class="pie-svg"'] as $present) {
+            foreach (['stat-content', 'Projects at a glance', 'Project funds at a glance', 'dashboard-stage-chart', 'pie-disc', 'dashboard-project-bars', 'dashboard-bar-row', 'Approved allocation', 'Posted expenses', 'Budget project '.$role] as $present) {
                 $this->assertTrue(str_contains($markup, $present), "$role dashboard is missing $present");
             }
+            $this->assertStringContainsString('class="dashboard-bar-column is-allocation" style="height: 100%"', $markup);
+            $this->assertStringContainsString('class="dashboard-bar-column is-spent" style="height: 35%"', $markup);
             $dashboard->assertViewHas('taskStatuses', fn ($statuses) => $statuses->sum() === 1 && $statuses['Completed'] === 1);
+            $dashboard->assertViewHas('monitorStages', fn ($stages) => collect($stages)->sum('count') >= 1);
             if ($role === 'treasurer') {
-                foreach (['Budget utilization', 'Expenses over time', 'Projects over budget'] as $present) $this->assertTrue(str_contains($markup, $present), "$role dashboard is missing $present");
                 foreach (['My task status', 'Projects by status'] as $absent) $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
             } elseif ($role === 'member') {
                 foreach (['My next steps', 'My task status'] as $present) $this->assertTrue(str_contains($markup, $present), "$role dashboard is missing $present");
                 foreach (['Budget utilization', 'Budget vs. expenses', 'Projects by status'] as $absent) $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
             } else {
-                $this->assertTrue(str_contains($markup, 'Projects by status'), "$role dashboard is missing Projects by status");
                 $this->assertFalse(str_contains($markup, 'My task status'), "$role dashboard unexpectedly shows My task status");
-                if ($role === 'admin') $this->assertTrue(str_contains($markup, 'Budget vs. expenses'), 'Admin dashboard is missing Budget vs. expenses');
-                else {
-                    $this->assertTrue(str_contains($markup, 'My review queue'), 'BOD dashboard is missing My review queue');
+                if ($role === 'bod') {
+                    $this->assertTrue(str_contains($markup, 'Board agenda'), 'Board dashboard is missing its agenda');
                     $this->assertFalse(str_contains($markup, 'Budget vs. expenses'), 'BOD dashboard unexpectedly shows Budget vs. expenses');
                 }
             }
@@ -110,7 +110,7 @@ class ChapterChartsTest extends TestCase
             foreach (['modern-project-card', 'Budget project '.$role] as $present) $this->assertTrue(str_contains($projectsMarkup, $present), "$role projects page is missing $present");
             $this->assertFalse(str_contains($projectsMarkup, 'Status colors'), "$role projects page unexpectedly shows Status colors");
             $tasksMarkup = $this->get('/tasks')->assertOk()->getContent();
-            foreach (['Task summary', 'aria-label="View My chart task"'] as $present) $this->assertTrue(str_contains($tasksMarkup, $present), "$role tasks page is missing $present");
+            foreach (['aria-label="Task progress"', 'aria-label="Preview task: My chart task"'] as $present) $this->assertTrue(str_contains($tasksMarkup, $present), "$role tasks page is missing $present");
             $this->assertFalse(str_contains($tasksMarkup, 'tasks-card-grid'), "$role tasks page unexpectedly shows tasks-card-grid");
             $financeMarkup = $this->get('/finance')->assertOk()->getContent();
             foreach (['Budget vs. expenses', 'Expenses over time', 'Budget project '.$role, 'Budget project '.$role.' allocated budget: PHP 1,000.00', 'Budget project '.$role.' posted expenses: PHP 350.00'] as $present) {
@@ -130,7 +130,7 @@ class ChapterChartsTest extends TestCase
 
         $this->actingAs($member)->get('/dashboard')->assertOk()
             ->assertDontSee('Private draft project')
-            ->assertViewHas('charts', fn ($charts) => $charts['total'] === 0)
+            ->assertViewHas('monitorStages', fn ($stages) => collect($stages)->sum('count') === 1)
             ->assertViewHas('financeCharts', fn ($charts) => $charts['allocated'] === 1000.0);
         $this->get('/finance')->assertOk()->assertSee('Shared approved project')->assertDontSee('Private draft project')
             ->assertViewHas('charts', fn ($charts) => $charts['allocated'] === 1000.0);
@@ -148,7 +148,13 @@ class ChapterChartsTest extends TestCase
             ->assertSee('Over budget by PHP 50.00')
             ->assertSee('Over budget project posted expenses: PHP 150.00')
             ->assertViewHas('charts', fn ($charts) => $charts['maxProjectAmount'] === 150.0 && $charts['spent'] === 150.0);
-        $this->get('/dashboard')->assertOk()->assertSee('Over budget by PHP 50.00');
+        $this->get('/dashboard')->assertOk()
+            ->assertSee('Across approved projects, posted expenses exceed allocation by PHP 50.00')
+            ->assertSee('PHP 100.00')
+            ->assertSee('PHP 150.00')
+            ->assertSee('dashboard-bar-row is-over', false)
+            ->assertSee('class="dashboard-bar-column is-allocation" style="height: 66.67%"', false)
+            ->assertSee('class="dashboard-bar-column is-spent" style="height: 100%"', false);
     }
 
     public function test_financial_sections_render_without_records_for_every_role(): void
@@ -156,18 +162,17 @@ class ChapterChartsTest extends TestCase
         foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
             $user = User::factory()->create(['role' => $role, 'status' => 'active']);
             $dashboard = $this->actingAs($user)->get('/dashboard')->assertOk()
-                ->assertDontSee('More dashboard details')->assertDontSee('Projects by focus area');
+                ->assertDontSee('More dashboard details')->assertDontSee('Projects by focus area')
+                ->assertSee('No project data yet')->assertSee('No project budgets yet');
             if ($role === 'treasurer') {
-                $dashboard->assertSee('No project budgets yet')->assertSee('No posted expenses in this period');
+                $dashboard->assertSee('Projects at a glance')->assertSee('Project funds at a glance');
             } elseif ($role === 'member') {
                 $dashboard->assertSee('My next steps')->assertSee('No assigned tasks yet')
                     ->assertSee("You're all caught up.", false)->assertDontSee('Budget vs. expenses');
             } else {
-                $dashboard->assertSee('No project data yet')->assertSee('No projects awaiting review');
-                if ($role === 'admin') $dashboard->assertSee('No project budgets yet');
-                else $dashboard->assertDontSee('Budget vs. expenses');
+                $dashboard->assertSee('No projects awaiting review');
             }
-            $this->get('/projects')->assertOk()->assertSee('No projects yet');
+            $this->get('/projects')->assertOk()->assertSee('No current projects yet');
             $this->get('/tasks')->assertOk()->assertSee($role === 'member' ? 'No tasks assigned to you' : 'No chapter tasks yet')->assertDontSee('tasks-card-grid');
             $this->get('/finance')->assertOk()->assertSee('Budget vs. expenses')
                 ->assertSee('No project budgets yet')->assertSee('Expenses over time');
@@ -224,6 +229,8 @@ class ChapterChartsTest extends TestCase
             ->assertDontSee('0.0%')->assertDontSee('PHP 123.00');
         $this->get('/dashboard')->assertOk()
             ->assertSee('PHP -123.45')->assertSee('PHP 123.45')
+            ->assertSee('Approved allocation')->assertSee('Posted expenses')
+            ->assertSee('dashboard-project-bars', false)
             ->assertSee('stat-expenses')->assertSee('stat-icon');
     }
 }

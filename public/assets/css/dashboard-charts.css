@@ -1,0 +1,100 @@
+/* The shared dashboard monitor uses a project donut and per-project budget bars. */
+.dashboard-page .dashboard-monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    align-items: stretch;
+}
+.dashboard-page .dashboard-monitor-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.dashboard-page .dashboard-monitor-panel .panel-heading {
+    align-items: flex-start;
+    gap: 12px;
+}
+.dashboard-page .dashboard-monitor-panel .panel-heading .text-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+.dashboard-page .dashboard-stage-chart {
+    display: block;
+    min-width: 0;
+    padding: 4px 18px 12px;
+}
+.dashboard-page .dashboard-monitor-panel .pie-layout {
+    display: grid;
+    grid-template-columns: minmax(120px, 150px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: center;
+    padding: 8px 0 4px;
+}
+.dashboard-page .dashboard-monitor-panel .pie-disc {
+    width: 150px;
+    height: 150px;
+    max-width: 100%;
+    justify-self: center;
+}
+.dashboard-page .dashboard-monitor-panel .pie-legend {
+    max-height: none;
+    overflow: visible;
+}
+.dashboard-page .dashboard-monitor-panel .pie-legend li {
+    grid-template-columns: 10px minmax(0, 1fr) auto auto;
+    gap: 7px;
+    padding: 7px 2px;
+}
+.dashboard-page .dashboard-monitor-panel > .chart-note {
+    margin-top: auto;
+}
+.dashboard-page .dashboard-project-bars { min-width: 0; padding: 2px 20px 0; }
+.dashboard-bar-legend { display: flex; justify-content: flex-end; gap: 16px; margin-bottom: 12px; color: #526f7e; font-size: 10px; font-weight: 700; }
+.dashboard-bar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dashboard-bar-legend span::before { content: ''; width: 9px; height: 9px; border-radius: 3px; background: currentColor; }
+.dashboard-bar-legend .is-allocation { color: var(--blue); }
+.dashboard-bar-legend .is-spent { color: #bd6048; }
+.dashboard-bar-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; gap: 12px; }
+.dashboard-bar-row { display: flex; flex-direction: column; align-items: stretch; min-width: 0; }
+.dashboard-bar-plot { display: flex; align-items: flex-end; justify-content: center; gap: 8px; height: 136px; padding: 0 6px; border-bottom: 2px solid #d7e4e9; }
+.dashboard-bar-column { display: block; width: min(34px, 38%); border-radius: 6px 6px 0 0; }
+.dashboard-bar-column.is-allocation { background: var(--blue); }
+.dashboard-bar-column.is-spent { background: #bd6048; }
+.dashboard-bar-row > a { display: -webkit-box; min-height: 30px; margin-top: 8px; overflow: hidden; color: #284b5e; font-size: 11px; font-weight: 800; line-height: 1.3; text-align: center; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.dashboard-bar-row > a:hover { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.dashboard-bar-values { display: grid; gap: 2px; margin-top: 4px; }
+.dashboard-bar-values span { min-width: 0; color: #526f7e; font-size: 9px; font-variant-numeric: tabular-nums; text-align: center; overflow-wrap: anywhere; }
+.dashboard-bar-values .is-allocation { color: var(--blue); }
+.dashboard-bar-values .is-spent { color: #a8513e; }
+.dashboard-bar-row.is-over .dashboard-bar-values .is-spent { font-weight: 800; }
+.dashboard-page .dashboard-fund-warning {
+    margin-top: 9px;
+    line-height: 1.45;
+}
+@media (max-width: 1050px) {
+    .dashboard-page .dashboard-monitor-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+    .dashboard-page .dashboard-monitor-panel .panel-heading { flex-wrap: wrap; }
+    .dashboard-page .dashboard-monitor-panel .pie-layout {
+        grid-template-columns: 1fr;
+        gap: 11px;
+        justify-items: center;
+    }
+    .dashboard-page .dashboard-monitor-panel .pie-disc {
+        width: 148px;
+        height: 148px;
+    }
+    .dashboard-page .dashboard-monitor-panel .pie-legend { width: 100%; }
+    .dashboard-page .dashboard-project-bars { padding-inline: 15px; }
+    .dashboard-bar-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
+    .dashboard-bar-plot { height: 118px; }
+}
+@media (max-width: 380px) {
+    .dashboard-bar-legend { justify-content: flex-start; flex-wrap: wrap; }
+    .dashboard-bar-plot { gap: 5px; }
+}
+@media print {
+    .dashboard-bar-column { print-color-adjust: exact; }
+    .dashboard-page .dashboard-monitor-panel .pie-legend { max-height: none; overflow: visible; }
+}

@@ -39,7 +39,7 @@ class RecordController extends Controller
     public function index(Request $request, string $kind)
     {
         $class = $this->model($kind);
-        $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Completion', 'Liquidation', 'Overall Financial'])]]);
+        $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Completion', 'Liquidation', 'Overall Financial'])], 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $user = $request->user();
         $query = $class::with(['project', 'author'])->where(function ($q) use ($user, $kind) {
             if ($user->role === 'treasurer') $q->whereNull('project_id')->orWhereNotNull('project_id');
@@ -64,7 +64,9 @@ class RecordController extends Controller
         });
         $records = $query->when($request->boolean('mine'), fn ($q) => $q->whereHas('project', fn ($p) => $p->where('chair_id', $user->id)))
             ->when($kind === 'reports', fn ($q) => $q->where('type', '!=', 'Progress'))
-            ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%')->orWhereHas('project', fn ($p) => $p->where('title', 'like', '%'.$request->string('q').'%'))))
+            ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%')->orWhereHas('project', fn ($p) => $p->where('title', 'like', '%'.$request->string('q').'%'))->orWhereHas('author', fn ($author) => $author->where('name', 'like', '%'.$request->string('q').'%'))))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($kind === 'reports' && $request->filled('type'), fn ($q) => $q->where('type', $request->type))
             ->latest()->paginate(25)->withQueryString();
@@ -175,7 +177,7 @@ class RecordController extends Controller
             $initial = $class::findOrFail($id);
             if ($initial->project_id) Project::lockForUpdate()->findOrFail($initial->project_id);
             $record = $class::lockForUpdate()->findOrFail($id);
-            abort_if($record->project?->status === 'Archived', 403);
+            abort_if($record->project?->trashed() || in_array($record->project?->status, ['Archived', 'Completed', 'Cancelled'], true), 403);
             $before = $record->toArray();
             $manager = $record->project_id ? ($record->project->canManage($request->user()) || $record->project->canReport($request->user())) : Permissions::allows($request->user(), Permissions::FINANCE_MANAGE);
             $action = $data['action'];
@@ -286,13 +288,58 @@ class RecordController extends Controller
 
     public function members(Request $request)
     {
-        $request->validate(['q' => 'nullable|string|max:200', 'role' => ['nullable', Rule::in(['admin', 'bod', 'treasurer', 'member'])]]);
-        $members = User::query()
+        $request->validate(['q' => 'nullable|string|max:200', 'role' => ['nullable', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'state' => 'nullable|in:active,inactive,archived', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $admin = Permissions::allows($request->user(), Permissions::ACCOUNTS_MANAGE);
+        abort_if($request->query('state') === 'archived' && !$admin, 403);
+        $members = User::query()->when($request->query('state') === 'archived', fn ($q) => $q->onlyTrashed())
             ->when(!Permissions::allows($request->user(), Permissions::MEMBERS_MANAGE), fn ($q) => $q->where('status', 'active'))
-            ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%')->orWhere('member_no', 'like', '%'.$request->string('q').'%')))
+            ->when(in_array($request->query('state'), ['active', 'inactive'], true), fn ($q) => $q->where('status', $request->query('state')))
+            ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%')->orWhere('member_no', 'like', '%'.$request->string('q').'%')->when($admin, fn ($search) => $search->orWhere('email', 'like', '%'.$request->string('q').'%'))))
             ->when($request->filled('role'), fn ($q) => $q->where('role', $request->role))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
             ->orderBy('name')->paginate(30)->withQueryString();
         return view('chapter.members', compact('members'));
+    }
+
+    public function memberDelete(Request $request, User $member)
+    {
+        abort_unless(Permissions::allows($request->user(), Permissions::ACCOUNTS_MANAGE), 403);
+        $data = $request->validate(['reason' => 'required|string|max:2000']);
+        abort_if($member->id === $request->user()->id, 403, 'You cannot remove your own account.');
+        DB::transaction(function () use ($request, $member, $data) {
+            $member = User::lockForUpdate()->findOrFail($member->id);
+            if ($member->role === 'admin' && $member->status === 'active'
+                && User::where('role', 'admin')->where('status', 'active')->count() <= 1) {
+                throw ValidationException::withMessages(['reason' => 'Keep at least one active administrator.']);
+            }
+            if (Project::where('chair_id', $member->id)->whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review'])->exists()) {
+                throw ValidationException::withMessages(['reason' => 'This person chairs an active project. Reassign or close that project before removing the account.']);
+            }
+            $before = $member->toArray();
+            $member->status = 'inactive';
+            $member->active_login_token = null;
+            $member->active_login_seen_at = null;
+            $member->save();
+            $member->delete();
+            ChapterService::audit('member_account_deleted', $member, $before, $data['reason']);
+        });
+        return redirect()->route('accounts')->with('success', 'Account removed from active use. Its chapter history is preserved.');
+    }
+
+    public function memberRestore(Request $request, int $memberId)
+    {
+        abort_unless(Permissions::allows($request->user(), Permissions::ACCOUNTS_MANAGE), 403);
+        DB::transaction(function () use ($memberId) {
+            $member = User::onlyTrashed()->lockForUpdate()->findOrFail($memberId);
+            $before = $member->toArray();
+            $member->restore();
+            $member->status = 'inactive';
+            $member->inactive_since = now();
+            $member->save();
+            ChapterService::audit('member_account_restored', $member, $before);
+        });
+        return redirect()->route('accounts', ['state' => 'inactive'])->with('success', 'Account restored as inactive. Review access before activating it.');
     }
 
     public function memberPhoto(Request $request, User $member)
@@ -337,12 +384,11 @@ class RecordController extends Controller
         if (!Permissions::allows($request->user(), Permissions::ACCOUNTS_MANAGE)) {
             abort_unless($member, 403);
             // Profile management never grants access to credentials or account activation.
-            foreach (['role', 'status', 'username', 'email', 'password', 'password_confirmation', 'concept_reviewer', 'proposal_reviewer'] as $field) {
+            foreach (['role', 'status', 'username', 'email', 'password', 'password_confirmation', 'concept_reviewer', 'proposal_reviewer', 'member_no'] as $field) {
                 abort_if($request->exists($field), 403);
             }
             $profileData = $request->validate(array_merge([
                 'name' => 'required|string|max:200',
-                'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member->id)],
                 'profile.nickname' => 'nullable|string|max:100',
                 'profile.phone' => 'nullable|string|max:40',
                 'profile.address' => 'nullable|string|max:500',
@@ -378,7 +424,8 @@ class RecordController extends Controller
             if ($newPhoto && $oldPhoto && str_starts_with($oldPhoto, 'profile-photos/'.$member->id.'/')) Storage::disk('local')->delete($oldPhoto);
             return redirect()->route('members')->with('success', 'Member details saved.');
         }
-        $data = $request->validate(array_merge(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($member?->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($member?->id)], 'password' => [$member ? 'nullable' : 'required', 'confirmed', Password::min(10)], 'role' => ['required', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'status' => ['required', Rule::in(['active', 'inactive'])], 'member_no' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($member?->id)], 'concept_reviewer' => 'sometimes|boolean', 'proposal_reviewer' => 'sometimes|boolean', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.joined_on' => 'nullable|date', 'profile.emergency_contact' => 'nullable|string|max:500'], $membershipRules));
+        $data = $request->validate(array_merge(['name' => 'required|string|max:200', 'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique('users')->ignore($member?->id)], 'email' => ['required', 'email', 'max:200', Rule::unique('users')->ignore($member?->id)], 'password' => [$member ? 'nullable' : 'required', 'confirmed', Password::min(10)], 'role' => ['required', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'status' => ['required', Rule::in(['active', 'inactive'])], 'concept_reviewer' => 'sometimes|boolean', 'proposal_reviewer' => 'sometimes|boolean', 'profile.nickname' => 'nullable|string|max:100', 'profile.phone' => 'nullable|string|max:40', 'profile.address' => 'nullable|string|max:500', 'profile.joined_on' => 'nullable|date', 'profile.emergency_contact' => 'nullable|string|max:500'], $membershipRules));
+        abort_if($request->exists('member_no'), 403, 'Member IDs are assigned by the chapter system.');
         $photoFile = $data['photo'] ?? null;
         unset($data['photo']);
         if ($request->boolean('membership_interests_present')) {

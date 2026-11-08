@@ -45,6 +45,7 @@ $icons = [
     'edit' => '<path d="M12 20H4v-8l10.5-10.5a2.1 2.1 0 0 1 3 0l2 2a2.1 2.1 0 0 1 0 3L9 17l-5 1"/><path d="m13 3 8 8"/>',
     'upload' => '<path d="M12 17V4M8 8l4-4 4 4M5 20h14"/>',
     'archive' => '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M10 13h4"/>',
+    'trash' => '<path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/>',
     'search' => '<circle cx="10.5" cy="10.5" r="5.8"/><path d="m15 15 5 5"/>',
     'eye' => '<path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5z"/><circle cx="12" cy="12" r="2.5"/>',
     'refresh' => '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.5-3"/>',

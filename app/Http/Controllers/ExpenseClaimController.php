@@ -14,15 +14,26 @@ class ExpenseClaimController extends Controller
     public function index(Request $request)
     {
         $treasurer = $request->user()->role === 'treasurer';
-        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])]]);
+        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])], 'project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'state' => 'nullable|in:Pending,Posted,Returned,Rejected,Void', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $filter = $request->query('status', $treasurer ? 'pending' : 'all');
+        $selectedProject = $request->filled('project') ? Project::withTrashed()->findOrFail($request->integer('project')) : null;
+        if ($selectedProject) abort_unless($treasurer || ChapterService::canView($selectedProject, $request->user()), 403);
         $claims = ExpenseClaim::with(['project', 'submitter', 'reviewer', 'ledgerEntry'])
             ->when(!$treasurer, fn ($query) => $query->where('submitted_by', $request->user()->id))
+            ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
             ->when($filter === 'pending', fn ($query) => $query->where('status', 'Pending'))
+            ->when($filter === 'all' && $request->filled('state'), fn ($query) => $query->where('status', $request->query('state')))
+            ->when($request->filled('from'), fn ($query) => $query->whereDate('spent_on', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($query) => $query->whereDate('spent_on', '<=', $request->query('to')))
+            ->when($request->filled('q'), fn ($query) => $query->where(fn ($match) => $match->where('description', 'like', '%'.$request->string('q').'%')
+                ->orWhere('payee', 'like', '%'.$request->string('q').'%')
+                ->orWhere('receipt_reference', 'like', '%'.$request->string('q').'%')
+                ->orWhereHas('project', fn ($project) => $project->where('title', 'like', '%'.$request->string('q').'%'))))
             ->orderByRaw("CASE WHEN status = 'Pending' THEN 0 ELSE 1 END")
             ->latest()->paginate(15)->withQueryString();
 
-        return view('chapter.expense-claims', compact('claims', 'treasurer', 'filter'));
+        $claimProjects = Project::withTrashed()->whereIn('id', ExpenseClaim::query()->when(!$treasurer, fn ($query) => $query->where('submitted_by', $request->user()->id))->distinct()->pluck('project_id'))->orderBy('title')->get(['id', 'title']);
+        return view('chapter.expense-claims', compact('claims', 'claimProjects', 'treasurer', 'filter', 'selectedProject'));
     }
 
     public function store(Request $request, Project $project)
@@ -52,6 +63,7 @@ class ExpenseClaimController extends Controller
                     'receipt_name' => $name,
                     'status' => 'Pending',
                 ]);
+                $project->touch();
                 ChapterService::audit('expense_claim_submitted', $claim);
                 ChapterService::notify(User::where('status', 'active')->where('role', 'treasurer')->where('id', '!=', $request->user()->id)->pluck('id')->all(),
                     'Expense claim needs review', $project->title.' · PHP '.number_format((float) $claim->amount, 2), route('expense-claims.index', [], false), true);
@@ -158,6 +170,7 @@ class ExpenseClaimController extends Controller
                 ]);
                 $claim->ledger_entry_id = $entry->id;
                 $claim->status = 'Posted';
+                $project->touch();
                 ChapterService::audit('transaction_posted_from_claim', $entry);
             } else {
                 $claim->status = $data['action'] === 'return' ? 'Returned' : 'Rejected';

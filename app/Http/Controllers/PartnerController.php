@@ -11,9 +11,12 @@ class PartnerController extends Controller
 {
     public function index(Request $request)
     {
-        $request->validate(['q' => 'nullable|string|max:150']);
+        $request->validate(['q' => 'nullable|string|max:150', 'status' => 'nullable|in:Prospective,Active,Past', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $partners = Partner::query()->withCount('letters')
             ->when($request->filled('q'), fn ($query) => $query->where(fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%')->orWhere('contact_name', 'like', '%'.$request->string('q').'%')))
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
             ->orderBy('name')->paginate(20)->withQueryString();
         return view('chapter.partners', compact('partners'));
     }

@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\{AgreementController, AuthController, BudgetReconciliationController, ChapterController, ContactInquiryController, ExpenseClaimController, FinanceController, PartnerController, RecordController, RegistrationController};
+use App\Http\Controllers\{AgreementController, AuthController, BudgetReconciliationController, ChapterController, ContactInquiryController, ExpenseClaimController, FinanceController, FundReleaseController, PartnerController, RecordController, RegistrationController};
 use Illuminate\Support\Facades\Route;
 
 $workspaceRoutes = function () {
@@ -43,11 +43,19 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/admin/settings', [\App\Http\Controllers\PmsToolsController::class, 'saveSettings'])->middleware('permission:accounts.manage')->name('pms.settings.update');
     Route::get('/bod-decisions/{decision}/evidence', [\App\Http\Controllers\PmsToolsController::class, 'decisionEvidence'])->name('decisions.evidence');
     Route::get('/projects', [ChapterController::class, 'projects'])->name('projects');
+    Route::get('/projects/completed', [ChapterController::class, 'legacyCompletedProjects']);
+    Route::get('/projects/library', [ChapterController::class, 'completedProjects'])->name('projects.completed');
+    Route::get('/projects/archived', [ChapterController::class, 'archivedProjects'])->name('projects.archived');
+    Route::get('/projects/cancelled', [ChapterController::class, 'cancelledProjects'])->name('projects.cancelled');
+    Route::get('/projects/removed', [ChapterController::class, 'removedProjects'])->name('projects.removed');
     Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
+    Route::post('/projects/{project}/reuse', [ChapterController::class, 'projectReuse'])->whereNumber('project')->name('projects.reuse');
     Route::get('/projects/{project}/word/{stage}', [ChapterController::class, 'projectWordDocument'])->whereNumber('project')->whereIn('stage', ['concept', 'proposal'])->name('projects.word');
     Route::post('/projects/{project}/partnerships', [ChapterController::class, 'uploadPartnership'])->whereNumber('project')->name('projects.partnerships.store');
     Route::get('/projects/{project}', [ChapterController::class, 'show'])->name('projects.show')->whereNumber('project');
+    Route::delete('/projects/{project}', [ChapterController::class, 'projectDelete'])->name('projects.delete')->whereNumber('project');
+    Route::post('/projects/{projectId}/restore', [ChapterController::class, 'projectRestore'])->name('projects.restore')->whereNumber('projectId');
     Route::get('/projects/{project}/proposal', [ChapterController::class, 'proposalPacket'])->name('projects.proposal')->whereNumber('project');
     Route::get('/projects/{project}/people/{member}/photo', [ChapterController::class, 'projectMemberPhoto'])->name('projects.people.photo')->whereNumber(['project', 'member']);
     Route::get('/projects/{project}/edit', [ChapterController::class, 'edit'])->name('projects.edit');
@@ -55,6 +63,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/projects/{project}/transition', [ChapterController::class, 'transition'])->name('projects.transition');
     Route::post('/projects/{project}/tasks', [ChapterController::class, 'taskSave'])->name('tasks.store');
     Route::put('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskSave'])->name('tasks.update');
+    Route::post('/projects/{project}/tasks/{task}/complete', [ChapterController::class, 'taskComplete'])->name('tasks.complete');
     Route::post('/projects/{project}/tasks/{task}/respond', [ChapterController::class, 'taskRespond'])->name('tasks.respond');
     Route::get('/tasks', [ChapterController::class, 'tasks'])->name('tasks');
     Route::get('/calendar', [ChapterController::class, 'calendar'])->name('calendar');
@@ -82,6 +91,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/notifications', [ChapterController::class, 'notifications'])->name('notifications');
     Route::post('/notifications/read', [ChapterController::class, 'readNotifications'])->name('notifications.read');
     Route::post('/notifications/{notification}/open', [ChapterController::class, 'openNotification'])->name('notifications.open');
+    Route::delete('/notifications/{notification}', [ChapterController::class, 'deleteNotification'])->name('notifications.delete');
     Route::get('/activity-log', [ChapterController::class, 'audit'])->middleware('permission:audit.view')->name('activity-log');
     Route::get('/audit', [ChapterController::class, 'audit'])->middleware('permission:audit.view')->name('audit');
     Route::get('/inquiries', [ContactInquiryController::class, 'index'])->middleware('permission:inquiries.manage')->name('inquiries');
@@ -94,6 +104,9 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/expense-claims/{claim}/decision', [ExpenseClaimController::class, 'review'])->name('expense-claims.review');
     Route::get('/expense-claims/{claim}/receipt', [ExpenseClaimController::class, 'receipt'])->name('expense-claims.receipt');
     Route::post('/projects/{project}/budget', [FinanceController::class, 'budget'])->middleware('permission:finance.manage')->name('budget.store');
+    Route::post('/projects/{project}/fund-releases', [FundReleaseController::class, 'store'])->name('fund-releases.store');
+    Route::post('/fund-releases/{fundRelease}/response', [FundReleaseController::class, 'respond'])->name('fund-releases.respond');
+    Route::post('/fund-releases/{fundRelease}/cancel', [FundReleaseController::class, 'cancel'])->name('fund-releases.cancel');
     Route::post('/projects/{project}/budget/reconcile-plan', [BudgetReconciliationController::class, 'plan'])->middleware('permission:finance.manage')->name('budget.reconcile-plan');
     Route::post('/projects/{project}/budget/reconcile-allocation/{allocation}', [BudgetReconciliationController::class, 'allocation'])->middleware('permission:finance.manage')->name('budget.reconcile-allocation');
     Route::post('/projects/{project}/budget/reconcile-entry/{entry}', [BudgetReconciliationController::class, 'entry'])->middleware('permission:finance.manage')->name('budget.reconcile-entry');
@@ -127,6 +140,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/members', [RecordController::class, 'memberSave'])->middleware('permission:accounts.manage')->name('members.store');
     Route::get('/members/{member}/edit', [RecordController::class, 'memberForm'])->middleware('permission:members.manage')->name('members.edit');
     Route::put('/members/{member}', [RecordController::class, 'memberSave'])->middleware('permission:members.manage')->name('members.update');
+    Route::delete('/members/{member}', [RecordController::class, 'memberDelete'])->middleware('permission:accounts.manage')->name('members.delete');
+    Route::post('/members/{memberId}/restore', [RecordController::class, 'memberRestore'])->whereNumber('memberId')->middleware('permission:accounts.manage')->name('members.restore');
     Route::get('/account', [RecordController::class, 'account'])->name('account');
     Route::get('/account/photo', [RecordController::class, 'accountPhoto'])->name('account.photo');
     Route::put('/account', [RecordController::class, 'accountSave'])->name('account.update');

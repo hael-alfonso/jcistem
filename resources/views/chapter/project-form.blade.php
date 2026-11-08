@@ -1,5 +1,5 @@
 @extends('layouts.chapter')
-@section('title', $proposal ? 'Project proposal form' : 'Submit project proposal')
+@section('title', $proposal ? 'Project Proposal Form (PPF)' : 'Project Idea')
 @section('content')
 @php
     $sectionLabels = [
@@ -49,15 +49,15 @@
     <div>
         <a class="back-link" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="arrowLeft" /> Projects</a>
         <div class="eyebrow">{{ $proposal ? 'STAGE 02 · DETAILED PLANNING' : 'STAGE 01 · PROJECT IDEA' }}</div>
-        <h1>{{ $proposal ? 'Project proposal form' : 'Internal project proposal letter' }}</h1>
-        <p>{{ $proposal ? 'Complete the official form, save your draft, then submit it for Treasurer and Board review before locking the plan.' : 'Start with the essential details, then complete the internal project letter online or upload the official template.' }}</p>
+        <h1>{{ $proposal ? 'Project Proposal Form (PPF)' : 'Project Concept Letter' }}</h1>
+        <p>{{ $proposal ? 'Save the full proposal as you work. Submit it only when the plan and budget are ready for Treasurer and Board review.' : 'Save the project idea first, then complete the internal letter online or upload the official template before submitting it.' }}</p>
     </div>
     @if($proposal && $project->exists && $project->proposal)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View &amp; print proposal</a>@endif
 </div>
 <div class="project-entry-steps" aria-label="Form progress">
     <span data-project-step-label="0"><b>1</b> Project details</span><span data-project-step-label="1"><b>2</b> Choose a method</span><span data-project-step-label="2"><b>3</b> Complete the {{ $proposal ? 'proposal' : 'letter' }}</span><span data-project-step-label="3"><b>4</b> Review &amp; confirm</span>
 </div>
-<div class="notice project-entry-notice">{{ $proposal ? 'The BOD-approved budget is locked. Review the printable packet, then submit the full proposal for formal review. Paper signatures do not replace system approvals.' : 'Saving creates a draft for Admin, Treasurer, and BOD review. Implementation and spending still require a recorded BOD resolution and locked project plan.' }}</div>
+<div class="notice project-entry-notice">You can save an unfinished draft. Submission checks the required answers and uploaded form. {{ $proposal ? 'After submission, the Treasurer verifies the budget, Admin records the signed Board decision, then the Chair finalizes the plan.' : 'After submission, Admin and Treasurer review the concept before the Board decision; the full proposal and implementation follow.' }}</div>
 <form class="project-entry-form" method="POST" enctype="multipart/form-data" action="{{ $project->exists ? route('projects.update', $project) : route('projects.store') }}" data-project-submission-form>
     @csrf
     @if($project->exists) @method('PUT') @endif
@@ -77,7 +77,7 @@
         @include('chapter.partials.project-budget-builder')
     </section>
     <section class="panel form-panel chapter-form-section submission-method-section">
-        <div class="section-heading"><span>02</span><div><h2>How to complete this form</h2><p>{{ $proposal ? 'Use the online fields or upload the completed official proposal form.' : 'Both methods enter the same Admin, Treasurer, and BOD review workflow.' }}</p></div></div>
+        <div class="section-heading"><span>02</span><div><h2>How to complete this form</h2><p>{{ $proposal ? 'Use the online fields or upload the completed official proposal form.' : 'Both methods follow the same Admin, Treasurer, and Board review process.' }}</p></div></div>
         <div class="submission-method-options" role="radiogroup" aria-label="Submission method">
             <label><input type="radio" name="{{ $submissionField }}" value="online" @checked($submissionMethod === 'online')> <span><strong>Fill out online</strong><small>Complete and revise the structured form in the PMS.</small></span></label>
             <label><input type="radio" name="{{ $submissionField }}" value="upload" @checked($submissionMethod === 'upload')> <span><strong>Upload completed template</strong><small>Upload a completed DOCX or PDF while keeping the project details searchable.</small></span></label>
@@ -132,7 +132,7 @@
                             <div class="proposal-finance-total"><span>Total estimated expenditures</span><strong>PHP {{ number_format($displayedBudgetTotal, 2) }}</strong></div>
                         </div>
                     </div>
-                    <p class="hint">The expenditure estimate should match the BOD-approved budget of PHP {{ number_format((float) $project->proposed_budget, 2) }}. A budget amendment needs separate authorization.</p>
+                    <p class="hint">The expenditure estimate should match the Board-approved budget of PHP {{ number_format((float) $project->proposed_budget, 2) }}. A budget amendment needs separate authorization.</p>
                 @endif
             </section>
         @endforeach
@@ -154,9 +154,8 @@
                         @php
                             $conceptTextarea = in_array($key, ['objective', 'beneficiaries', 'resources', 'request'], true);
                             $conceptType = $key === 'letter_date' ? 'date' : ($conceptTextarea ? 'textarea' : 'text');
-                            $conceptRequired = array_key_exists($key, \App\Support\ChapterForms::CONCEPT_REQUIRED);
                         @endphp
-                        <div class="{{ $conceptTextarea ? 'full' : '' }}"><x-field :name="'concept['.$key.']'" :label="\App\Support\ChapterForms::CONCEPT[$key]" :type="$conceptType" :value="($project->concept ?? [])[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" :required="$conceptRequired" maxlength="15000"/></div>
+                        <div class="{{ $conceptTextarea ? 'full' : '' }}"><x-field :name="'concept['.$key.']'" :label="\App\Support\ChapterForms::CONCEPT[$key]" :type="$conceptType" :value="($project->concept ?? [])[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
                     @endforeach
                 </div>
             </section>
@@ -167,7 +166,7 @@
         <div class="section-heading"><span>03</span><div><h2>Completed template</h2><p>Use the official form from Form Templates. New uploads are retained as a version history.</p></div></div>
         <a class="btn secondary proposal-template-download" href="{{ route('templates.reference.download', $proposal ? 'project-proposal-form' : 'internal-project-letter') }}"><x-icon name="download" /> Download {{ $proposal ? 'Project Proposal Form' : 'Internal Project Letter' }}</a>
         <div class="form-grid">
-            <x-field name="submission_file" label="Completed DOCX or PDF (max 10 MB)" type="file" accept=".doc,.docx,.pdf" :required="$submissionVersions->isEmpty()"/>
+            <x-field name="submission_file" label="Completed DOC, DOCX, or PDF (max 10 MB)" type="file" accept=".doc,.docx,.pdf"/>
             <x-field name="revision_note" label="Version or revision note" type="textarea" maxlength="2000"/>
         </div>
         @if($submissionVersions->isNotEmpty())
@@ -178,7 +177,7 @@
                 @endforeach
             </div>
         @else
-            <p class="hint">A completed template is required before this draft can be submitted for review.</p>
+            <p class="hint">You can save this draft now. Upload the completed template before submitting it for review.</p>
         @endif
     </section>
     <section class="panel form-panel chapter-form-section" data-project-review hidden><div class="section-heading"><span>04</span><div><h2>Review your project details</h2><p>Check each answer, budget line, and uploaded file before saving. You can return to any step to make changes.</p></div></div><div data-project-review-summary></div><label class="field"><span><input type="checkbox" data-project-review-confirm> I reviewed the details above and confirm they are ready to save.</span></label></section>

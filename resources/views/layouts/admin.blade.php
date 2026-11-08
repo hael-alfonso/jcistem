@@ -12,6 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/admin-ui.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/overlay-ui.css') }}?v={{ filemtime(public_path('assets/css/overlay-ui.css')) }}">
 </head>
 <body>
 @php

@@ -2,7 +2,6 @@
 @section('title', 'System Controls')
 @section('content')
 <div class="page-heading"><div><div class="eyebrow">SETTINGS</div><h1>System Controls</h1><p>Chapter-wide options for reports, workspace notices, and project evidence.</p></div></div>
-<div class="stats-grid system-control-stats"><div class="stat-card"><span>Active members</span><strong>{{ number_format($activeUsers) }}</strong></div><div class="stat-card"><span>Active projects</span><strong>{{ number_format($activeProjects) }}</strong></div><div class="stat-card"><span>Stored project files</span><strong>{{ number_format($projectFiles) }}</strong></div></div>
 <form class="panel form-panel form-grid" method="POST" action="{{ route('pms.settings.update') }}">@csrf @method('PUT')
 <div class="full"><h2>Chapter configuration</h2><p class="hint">Changes here affect all members and are recorded in the Activity Log.</p></div>
 <x-field name="report_chapter_name" label="Chapter name on generated reports" :value="$chapterName" required/>

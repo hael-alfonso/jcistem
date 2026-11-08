@@ -1,0 +1,179 @@
+/* Notification states: amber needs attention, teal is new, neutral is read. */
+.notification-list .notification-entry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 5px 0;
+  padding: 13px 14px;
+  border: 1px solid #d9e7e7;
+  border-radius: 11px;
+  background: #eef7f5;
+}
+
+.notification-list .notification-entry.is-read {
+  border-color: #e5e9eb;
+  background: #fff;
+}
+
+.notification-list .notification-kind { align-self: flex-start; margin-top: 2px; }
+.notification-list .notification-copy { flex: 1 1 auto; }
+.notification-entry-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.notification-entry-actions form, .topbar-notification-tools form { margin: 0; }
+
+.notification-list .notification-entry.is-unread .notification-kind {
+  background: #d7ebe6;
+  color: #086d5e;
+}
+
+.notification-icon-action {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid #cde1e8;
+  border-radius: 9px;
+  background: #f1f8fa;
+  color: #0b6687;
+  cursor: pointer;
+}
+.notification-icon-action:hover, .notification-icon-action:focus-visible { border-color: #9fc9d9; background: #e2f2f7; color: #064b6a; }
+.notification-icon-action.caution { border-color: #ebd5a9; background: #fff5e3; color: #875718; }
+.notification-icon-action.caution:hover, .notification-icon-action.caution:focus-visible { background: #ffeac5; }
+.notification-icon-action .ico, .notification-icon-action svg { width: 18px; height: 18px; }
+.page-heading .notification-mark-all { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; }
+.topbar-notification-tools { display: inline-flex; align-items: center; gap: 5px; }
+.topbar-notification-heading .notification-icon-action { display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; }
+
+.notification-delete-form {
+  display: flex;
+  align-items: center;
+  padding-right: 10px;
+}
+
+.notification-delete {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #7a858a;
+  cursor: pointer;
+}
+
+.notification-delete:hover,
+.notification-delete:focus-visible {
+  border-color: #efd7d7;
+  background: #fff1f1;
+  color: #a83b3b;
+}
+
+.notification-delete:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.notification-delete .ico,
+.notification-delete svg {
+  width: 17px;
+  height: 17px;
+}
+
+.notification-important-table tr.is-unread td {
+  background: #fff4e1;
+}
+
+.notification-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.notification-actions form {
+  margin: 0;
+}
+
+.topbar-notification-panel .topbar-notification-item {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+
+.topbar-notification-panel .topbar-notification-item form {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.topbar-notification-panel .topbar-notification-item.is-unread {
+  border-color: #d9e9e5;
+  background: #eef7f5;
+}
+
+.topbar-notification-panel .topbar-notification-item.is-unread.is-important {
+  border-color: #f2dfbb;
+  background: #fff4e1;
+}
+
+.topbar-notification-panel .topbar-notification-item.is-read {
+  background: #fff;
+}
+
+.topbar-notification-panel .topbar-notification-open-form > button {
+  padding-right: 48px;
+  background: transparent;
+}
+
+.topbar-notification-panel .topbar-notification-open-form > button:hover,
+.topbar-notification-panel .topbar-notification-open-form > button:focus-visible {
+  background: rgba(0, 0, 0, .035);
+}
+
+.topbar-notification-panel .topbar-notification-static {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 48px 10px 11px;
+  color: #173e56;
+  line-height: 1.35;
+}
+
+.topbar-notification-panel .topbar-notification-delete-form {
+  position: absolute;
+  top: 8px;
+  right: 7px;
+}
+
+.topbar-notification-panel .topbar-notification-item .notification-delete {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: #747f85;
+}
+
+.topbar-notification-panel .topbar-notification-item .notification-delete:hover,
+.topbar-notification-panel .topbar-notification-item .notification-delete:focus-visible {
+  background: #fff1f1;
+  color: #a83b3b;
+}
+
+@media (max-width: 620px) {
+  .notification-actions { justify-content: flex-start; }
+  .notification-important-table tr.is-unread { background: #fff4e1; }
+  .notification-important-table tr.is-unread td { background: transparent; }
+  .notification-delete-form { padding-right: 7px; }
+}
+
+@media (max-width: 420px) {
+  .notification-list .notification-entry { flex-wrap: wrap; }
+  .notification-list .notification-copy { flex: 1 1 calc(100% - 52px); }
+  .notification-entry-actions { width: 100%; justify-content: flex-end; padding-top: 8px; border-top: 1px solid #dce9e8; }
+}

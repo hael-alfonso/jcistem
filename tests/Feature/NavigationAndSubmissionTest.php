@@ -20,26 +20,51 @@ class NavigationAndSubmissionTest extends TestCase
         foreach (['admin', 'bod', 'treasurer', 'member'] as $role) {
             $user = User::factory()->create(['role' => $role, 'status' => 'active']);
             $navigation = PmsNavigation::for($user);
-            $this->assertSame(['PROJECTS', 'TASKS', 'FINANCIAL', 'MEMBERS', 'REPORTS & DOCUMENTS', 'FILES', 'PARTNERSHIPS', 'CALENDAR', 'NOTIFICATIONS', 'SETTINGS'], array_keys($navigation));
+            $this->assertSame(['PROJECTS', 'TASKS', 'FINANCE', 'MEMBERS', 'REPORTS & DOCUMENTS', 'PARTNERSHIPS', 'CALENDAR', 'NOTIFICATIONS', 'SETTINGS'], array_keys($navigation));
+            $this->assertSame(['My Projects', 'All Projects', 'Create Project', ...($role === 'member' ? [] : ['Project Reviews'])], array_column($navigation['PROJECTS'], 1));
+            $this->assertSame(['My Tasks', 'Task Monitoring'], array_column($navigation['TASKS'], 1));
+            $this->assertSame(['filter' => 'mine'], $navigation['PROJECTS'][0][3]);
+            if ($role !== 'member') $this->assertSame(['filter' => 'review'], $navigation['PROJECTS'][3][3]);
+            $this->assertSame(['mine' => 1], $navigation['TASKS'][0][3]);
+            $this->assertSame(['mine' => 0], $navigation['TASKS'][1][3]);
+            $this->assertSame('Finance', PmsNavigation::label('FINANCE'));
             $routes = collect($navigation)->flatten(1)->pluck(0);
             $this->assertFalse($routes->contains('account')); // Profile is the separate sidebar account link.
             $this->assertTrue($routes->contains('documents'));
             $this->assertTrue($routes->contains('notifications'));
             $this->assertSame(1, $routes->filter(fn ($route) => $route === 'settings')->count());
             $labels = collect($navigation)->flatten(1)->pluck(1);
-            $this->assertTrue($labels->contains('My Project Work'));
-            $this->assertTrue($labels->contains('Submit New Project'));
+            $this->assertTrue($labels->contains('Project Finances'));
+            $this->assertTrue($labels->contains($role === 'treasurer' ? 'Claims to Review' : 'My Expense Claims'));
+            $this->assertTrue($labels->contains($role === 'treasurer' ? 'Member Dues' : 'My Dues'));
+            $this->assertFalse($labels->contains('Completed Project Library'));
+            $this->assertFalse($labels->contains('Archived Projects'));
             $this->assertFalse($labels->contains('My Chairmanships'));
             $this->assertFalse($labels->contains('Project Documents'));
             $this->assertFalse($labels->contains('User Accounts & Roles'));
-            $this->assertSame($role === 'treasurer', $labels->contains('Master Ledger'));
+            $this->assertSame($role === 'treasurer', $labels->contains('Treasurer Ledger'));
             $this->assertSame(in_array($role, ['admin', 'bod'], true), $labels->contains('Manage Member Records'));
-            $this->assertSame(in_array($role, ['admin', 'bod', 'treasurer'], true), $labels->contains('Review Queue'));
+            $this->assertSame(in_array($role, ['admin', 'bod', 'treasurer'], true), $labels->contains('Project Reviews'));
             $this->assertSame($role === 'admin', $labels->contains('System Controls'));
             $page = $this->actingAs($user)->get(route('dashboard'))->assertOk()->getContent();
             $this->assertSame(2, substr_count($page, 'href="'.route('account').'"'));
-            $this->assertSame(1, substr_count($page, 'href="'.route('settings').'"'));
+            $this->assertSame(2, substr_count($page, 'href="'.route('settings').'"'));
             $this->assertSame(2, substr_count($page, 'href="'.route('notifications').'"'));
+            $this->assertStringContainsString('My account', $page);
+            $this->assertSame(2, substr_count($page, 'action="'.route('logout').'"'));
+        }
+    }
+
+    public function test_default_task_page_highlights_the_matching_sidebar_destination(): void
+    {
+        foreach (['member', 'admin'] as $role) {
+            $user = User::factory()->create(['role' => $role, 'status' => 'active']);
+            $tasksPage = $this->actingAs($user)->get(route('tasks'))->assertOk()->getContent();
+            $defaultMine = $role === 'member' ? 1 : 0;
+            $this->assertMatchesRegularExpression(
+                '/<a class="side-link is-active" href="'.preg_quote(route('tasks', ['mine' => $defaultMine]), '/').'"\s+aria-current="page"/',
+                $tasksPage
+            );
         }
     }
 
@@ -56,7 +81,7 @@ class NavigationAndSubmissionTest extends TestCase
             ->assertDontSee('Private board update');
     }
 
-    public function test_important_notifications_require_opening_and_are_private(): void
+    public function test_important_notifications_can_be_marked_read_in_bulk_and_stay_private(): void
     {
         $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $other = User::factory()->create(['role' => 'member', 'status' => 'active']);
@@ -64,14 +89,14 @@ class NavigationAndSubmissionTest extends TestCase
         $routine = Notification::create(['user_id' => $member->id, 'title' => 'Calendar reminder', 'body' => 'Meeting tomorrow.', 'url' => '/calendar']);
 
         $page = $this->actingAs($member)->get(route('notifications', ['filter' => 'important']))->assertOk()
-            ->assertSee('Project decision')->assertSee('Open to mark read')->getContent();
+            ->assertSee('Project decision')->assertSee('Mark all notifications as read')->getContent();
         $this->assertSame(1, substr_count($page, '<tr class="is-unread"'));
         $this->assertStringContainsString('notification-important-table', $page);
         $this->post(route('notifications.read'))->assertRedirect();
         $this->assertNotNull($routine->fresh()->read_at);
-        $this->assertNull($important->fresh()->read_at);
+        $this->assertNotNull($important->fresh()->read_at);
         $this->actingAs($other)->post(route('notifications.open', $important))->assertForbidden();
-        $this->assertNull($important->fresh()->read_at);
+        $this->assertNotNull($important->fresh()->read_at);
         $this->actingAs($member)->post(route('notifications.open', $important))->assertRedirect('/projects');
         $this->assertNotNull($important->fresh()->read_at);
     }
@@ -91,8 +116,8 @@ class NavigationAndSubmissionTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertDatabaseHas('notifications', ['user_id' => $admin->id, 'title' => $project->title, 'requires_open' => true]);
         $this->get('/dashboard')->assertOk()->assertSee('Admin community project');
-        $this->get('/projects?filter=review')->assertOk()->assertSee('Admin community project')->assertSee('Review project');
-        $this->get('/projects/'.$project->id)->assertOk()->assertSee('Pass to Treasurer Review')->assertSee('both project owner and Admin reviewer');
+        $this->get('/projects?filter=review')->assertOk()->assertSee('Admin community project')->assertSee('aria-label="Open project for review: '.$project->title.'"', false);
+        $this->get('/projects/'.$project->id)->assertOk()->assertSee('Send for Budget Review')->assertSee('both project owner and Admin reviewer');
         $this->post('/projects/'.$project->id.'/transition', ['action' => 'endorse', 'comments' => 'Admin compliance complete'])
             ->assertSessionHasNoErrors();
         $this->assertSame('Treasurer Review', $project->fresh()->status);
@@ -442,7 +467,7 @@ class NavigationAndSubmissionTest extends TestCase
     {
         $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $this->actingAs($member)->get('/projects/create')->assertOk()
-            ->assertSee('Internal project proposal letter')
+            ->assertSee('Project Concept Letter')
             ->assertSee('Recipient and SDG alignment')
             ->assertSee('Project overview')
             ->assertSee('Resource requirements and signatory')
@@ -520,10 +545,21 @@ class NavigationAndSubmissionTest extends TestCase
         $this->actingAs($owner);
         $page = $this->get(route('projects.show', $project))->assertOk();
         $this->assertSame(1, substr_count($page->getContent(), '<progress '));
-        $this->assertTrue(PmsNavigation::active(['projects', 'All Chapter Projects', 'briefcase', []]));
+        $this->assertTrue(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));
         $page->assertSee('Account menu')->assertSee('account-dropdown')->assertDontSee('tracker-steps');
 
-        $this->get('/projects?filter=Archived')->assertOk()
-            ->assertSee('Project Archive')->assertSee('value="Archived" selected', false);
+        $this->get(route('projects.archived'))->assertRedirect(route('projects.completed'));
+        $this->get(route('projects.completed'))->assertOk()
+            ->assertSee('Project Library')->assertSee('aria-current="page"', false);
+        $this->assertTrue(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));
+        $this->assertFalse(PmsNavigation::active(['projects', 'My Projects', 'user', ['filter' => 'mine']]));
+
+        $this->get(route('projects', ['filter' => 'mine']))->assertOk();
+        $this->assertTrue(PmsNavigation::active(['projects', 'My Projects', 'user', ['filter' => 'mine']]));
+        $this->assertFalse(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));
+
+        $this->get(route('projects.create'))->assertOk();
+        $this->assertTrue(PmsNavigation::active(['projects.create', 'Create Project', 'filePlus', []]));
+        $this->assertFalse(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));
     }
 }

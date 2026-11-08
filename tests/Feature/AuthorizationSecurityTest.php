@@ -57,7 +57,7 @@ class AuthorizationSecurityTest extends TestCase
 
         $this->actingAs($admin)->get('/activity-log?q='.urlencode($admin->name))
             ->assertOk()->assertSee('Project Saved')->assertSee('Original title')->assertSee('Updated title')
-            ->assertSee('Clarified the project name.');
+            ->assertSee('Clarified the project name.')->assertDontSee('Technical record')->assertDontSee('audit-json')->assertDontSee('Project #7');
         $this->get('/activity-log?q=not-a-real-record')->assertOk()->assertDontSee('Updated title');
     }
 

@@ -7,6 +7,23 @@ use Illuminate\Support\Collection;
 
 class ChapterCharts
 {
+    public static function stages(Collection $projects): Collection
+    {
+        $groups = [
+            ['label' => 'Ideas and reviews', 'statuses' => ['Draft Concept', 'Needs Revision', 'Submitted for President Review', 'Admin Review', 'Treasurer Review', 'BOD Agenda', 'Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Submitted for Formal Approval'], 'color' => '#7b65b8'],
+            ['label' => 'Approved plans', 'statuses' => ['Approved', 'Plan Locked'], 'color' => '#2478a3'],
+            ['label' => 'Implementation and reports', 'statuses' => ['Ongoing', 'Completion Review'], 'color' => '#168a93'],
+            ['label' => 'Completed projects', 'statuses' => ['Completed', 'Archived'], 'color' => '#288257'],
+            ['label' => 'Closed early', 'statuses' => ['Cancelled', 'Declined', 'Not Approved'], 'color' => '#b76556'],
+        ];
+
+        return collect($groups)->map(fn (array $group) => [
+            'label' => $group['label'],
+            'count' => $projects->whereIn('status', $group['statuses'])->count(),
+            'color' => $group['color'],
+        ]);
+    }
+
     public static function projectMix(Collection $projects): array
     {
         return [

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{ChapterSetting, DocumentTemplate, Project, ProjectDocument, User, BodDecision};
+use App\Models\{ChapterSetting, DocumentTemplate, Project, BodDecision};
 use App\Services\{ChapterService, ExportService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Cache, DB, Storage};
@@ -87,9 +87,6 @@ class PmsToolsController extends Controller
             'workspaceNotice' => ChapterSetting::where('key', 'workspace_notice')->value('value') ?? '',
             'workspaceTheme' => ChapterSetting::where('key', 'workspace_theme')->value('value') ?? 'jci',
             'evidencePhotoLimit' => (int) (ChapterSetting::where('key', 'evidence_photo_limit')->value('value') ?? 8),
-            'activeUsers' => User::where('status', 'active')->count(),
-            'activeProjects' => Project::whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review'])->count(),
-            'projectFiles' => ProjectDocument::whereNotNull('path')->count(),
         ]);
     }
 
@@ -119,6 +116,6 @@ class PmsToolsController extends Controller
     {
         abort_unless(in_array($request->user()->role, ['admin', 'bod', 'treasurer'], true) || $decision->project->isChair($request->user()), 403);
         abort_unless(Storage::disk('local')->exists($decision->evidence_path), 404);
-        return Storage::disk('local')->download($decision->evidence_path, 'bod-resolution-'.$decision->id.'.'.pathinfo($decision->evidence_path, PATHINFO_EXTENSION), ['X-Content-Type-Options' => 'nosniff']);
+        return Storage::disk('local')->download($decision->evidence_path, 'bod-decision-'.$decision->id.'.'.pathinfo($decision->evidence_path, PATHINFO_EXTENSION), ['X-Content-Type-Options' => 'nosniff']);
     }
 }

@@ -123,11 +123,14 @@ class RegistrationController extends Controller
     public function index(Request $request): View
     {
         $this->authorizeMemberManager($request);
-        $status = $request->validate(['status' => 'nullable|in:pending,approved,rejected'])['status'] ?? 'pending';
+        $status = $request->validate(['status' => 'nullable|in:pending,approved,rejected', 'q' => 'nullable|string|max:200', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')])['status'] ?? 'pending';
         return view('chapter.registrations', [
-            'requests' => RegistrationRequest::with('reviewer')->where('status', $status)->latest()->paginate(20)->withQueryString(),
+            'requests' => RegistrationRequest::with('reviewer')->where('status', $status)
+                ->when($request->filled('q'), fn ($q) => $q->where(fn ($match) => $match->where('name', 'like', '%'.$request->string('q').'%')->orWhere('email', 'like', '%'.$request->string('q').'%')->orWhere('reference', 'like', '%'.$request->string('q').'%')))
+                ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
+                ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
+                ->latest()->latest('id')->paginate(20)->withQueryString(),
             'status' => $status,
-            'pendingCount' => RegistrationRequest::where('status', 'pending')->count(),
         ]);
     }
 

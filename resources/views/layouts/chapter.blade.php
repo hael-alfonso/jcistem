@@ -18,12 +18,23 @@
     <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}?v={{ filemtime(public_path('assets/css/chapter.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}?v={{ filemtime(public_path('assets/css/jci-theme.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/project-documents.css') }}?v={{ filemtime(public_path('assets/css/project-documents.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/project-workflow.css') }}?v={{ filemtime(public_path('assets/css/project-workflow.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/dashboard-charts.css') }}?v={{ filemtime(public_path('assets/css/dashboard-charts.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/project-tracker.css') }}?v={{ filemtime(public_path('assets/css/project-tracker.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/project-status.css') }}?v={{ filemtime(public_path('assets/css/project-status.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/task-ui.css') }}?v={{ filemtime(public_path('assets/css/task-ui.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/notification-ui.css') }}?v={{ filemtime(public_path('assets/css/notification-ui.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/overlay-ui.css') }}?v={{ filemtime(public_path('assets/css/overlay-ui.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/navigation-ui.css') }}?v={{ filemtime(public_path('assets/css/navigation-ui.css')) }}">
     <script type="module" src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
 </head>
 @php
     $user = auth()->user();
     $workspacePreferences = $user?->profile['preferences'] ?? [];
-    $unread = \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')->count();
+    $notificationCounts = \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')
+        ->selectRaw('COUNT(*) AS unread_count, COALESCE(SUM(CASE WHEN requires_open = 1 THEN 1 ELSE 0 END), 0) AS important_count')->first();
+    $unread = (int) $notificationCounts->unread_count;
+    $importantUnread = (int) $notificationCounts->important_count;
     $recentNotifications = \App\Models\Notification::where('user_id', $user->id)->orderByRaw('CASE WHEN requires_open = 1 AND read_at IS NULL THEN 0 ELSE 1 END')->latest()->limit(4)->get();
     $roleLabel = \App\Support\WorkspaceNav::label($user->role);
     $navigation = \App\Support\PmsNavigation::for($user);
@@ -37,7 +48,10 @@
 <a class="skip-link" href="#content">Skip to content</a>
 <div class="app-shell">
     <aside class="app-sidebar" id="navigation" aria-label="Workspace navigation">
-        @include('shared.brand')
+        <div class="sidebar-mobile-header">
+            @include('shared.brand')
+            <button class="sidebar-mobile-close" type="button" data-nav-close aria-label="Close navigation menu" title="Close menu"><x-icon name="close" /></button>
+        </div>
         <div class="workspace-label"><span class="live-dot"></span><span>{{ $roleLabel }} workspace</span><span>PH</span></div>
         <nav aria-label="Main navigation">
             <div class="sidebar-primary" aria-label="Monitoring and overview">
@@ -79,6 +93,7 @@
                 @endif
             @endforeach
         </nav>
+        <form class="sidebar-logout-form" method="POST" action="{{ route('logout') }}">@csrf<button class="side-link side-logout" type="submit"><x-icon name="logout"/><span>Sign out</span></button></form>
         <div class="sidebar-account">
             <a class="sidebar-profile-link {{ request()->routeIs('account') ? 'is-active' : '' }}" href="{{ route('account') }}" aria-label="My Profile: {{ $user->name }}" @if(request()->routeIs('account')) aria-current="page" @endif>
                 <span class="sidebar-profile-avatar" aria-hidden="true">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span>
@@ -98,11 +113,18 @@
                 <details class="topbar-settings-menu topbar-notification-menu">
                     <summary class="notification-link" aria-label="Notifications{{ $unread ? ' ('.$unread.' unread)' : '' }}" aria-controls="notification-dropdown" aria-expanded="false" title="Notifications"><x-icon name="bell" />@if($unread)<b>{{ $unread > 9 ? '9+' : $unread }}</b>@endif</summary>
                     <div class="topbar-menu-panel topbar-notification-panel" id="notification-dropdown">
-                        <div class="topbar-notification-heading"><span>Notifications</span><a href="{{ route('notifications') }}">View all</a></div>
+                        <div class="topbar-notification-heading"><span>Notifications</span><div class="topbar-notification-tools">@if($unread)<form method="POST" action="{{ route('notifications.read') }}">@csrf<button class="notification-icon-action {{ $importantUnread ? 'caution' : '' }}" type="submit" aria-label="Mark all notifications as read" title="Mark all notifications as read" @if($importantUnread) data-confirm="Mark all notifications as read, including {{ $importantUnread }} important {{ \Illuminate\Support\Str::plural('update', $importantUnread) }}? You can still review them later." @endif><x-icon name="check" /></button></form>@endif<a class="notification-icon-action" href="{{ route('notifications') }}" aria-label="View all notifications" title="View all notifications"><x-icon name="eye" /></a></div></div>
                         @forelse($recentNotifications as $notification)
-                            <form class="topbar-notification-item {{ $notification->read_at ? 'is-read' : 'is-unread' }}" method="POST" action="{{ route('notifications.open', $notification) }}">@csrf
+                            <div class="topbar-notification-item {{ $notification->read_at ? 'is-read' : 'is-unread' }} {{ $notification->requires_open ? 'is-important' : '' }}">
+                            @if($notification->hasDestination())
+                            <form method="POST" action="{{ route('notifications.open', $notification) }}" class="topbar-notification-open-form">@csrf
                                 <button type="submit"><span class="topbar-notification-title">{{ $notification->title }}@if($notification->requires_open && !$notification->read_at)<em>Important</em>@endif</span><span class="topbar-notification-body">{{ $notification->body }}</span><small>{{ $notification->created_at->diffForHumans() }}@if($notification->requires_open && !$notification->read_at) · Open to mark read @endif</small></button>
                             </form>
+                            @else
+                            <div class="topbar-notification-static"><span class="topbar-notification-title">{{ $notification->title }}@if($notification->requires_open && !$notification->read_at)<em>Important</em>@endif</span><span class="topbar-notification-body">{{ $notification->body }}</span><small>{{ $notification->created_at->diffForHumans() }}</small></div>
+                            @endif
+                            <form method="POST" action="{{ route('notifications.delete', $notification) }}" class="topbar-notification-delete-form">@csrf @method('DELETE')<button type="submit" class="notification-delete" value="delete" aria-label="Remove notification: {{ $notification->title }}" title="Remove notification" data-confirm="{{ $notification->requires_open && !$notification->read_at ? ($notification->hasDestination() ? 'Remove this important unread notification? You can no longer open it here.' : 'Remove this important unread notification?') : 'Remove this notification?' }}"><x-icon name="trash" /></button></form>
+                            </div>
                         @empty
                             <p class="topbar-notification-empty">You're all caught up. New updates will appear here.</p>
                         @endforelse
@@ -111,8 +133,13 @@
                 <details class="topbar-settings-menu topbar-profile-menu">
                     <summary class="topbar-profile-trigger" aria-label="Account menu" aria-controls="account-dropdown" aria-expanded="false"><span class="avatar small">@if(!empty($user->profile['photo_path']))<img src="{{ route('account.photo') }}" alt="">@else{{ strtoupper(mb_substr($user->name, 0, 1)) }}@endif</span></summary>
                     <div class="topbar-menu-panel" id="account-dropdown">
-                        <span class="topbar-menu-label">{{ $user->name }}<small>{{ $roleLabel }}</small></span>
-                        <a href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user" /> My Profile</a>
+                        <span class="topbar-menu-label">{{ $user->name }}<small>{{ $roleLabel }}@if($user->member_no) &middot; {{ $user->member_no }}@endif</small></span>
+                        <a href="{{ route('account') }}" @if(request()->routeIs('account')) aria-current="page" @endif><x-icon name="user" /> My account</a>
+                        <a href="{{ route('settings') }}"><x-icon name="settings" /> Workspace settings</a>
+                        @if($user->role === 'member')<a href="{{ route('tasks', ['mine' => 1]) }}"><x-icon name="checklist" /> My assigned tasks</a>
+                        @elseif($user->role === 'treasurer')<a href="{{ route('expense-claims.index', ['status' => 'pending']) }}"><x-icon name="receipt" /> Claims to review</a>
+                        @elseif($user->role === 'bod')<a href="{{ route('projects', ['filter' => 'board']) }}"><x-icon name="fileSignature" /> BOD agenda</a>
+                        @else<a href="{{ route('projects', ['filter' => 'review']) }}"><x-icon name="fileSignature" /> Project reviews</a>@endif
                         <form method="POST" action="{{ route('logout') }}">@csrf<button type="submit"><x-icon name="logout" /> Sign out</button></form>
                     </div>
                 </details>
@@ -121,7 +148,7 @@
         <main class="app-content" id="content">
             @if($workspaceNotice)<div class="workspace-notice" role="note"><x-icon name="bell"/><span>{{ $workspaceNotice }}</span></div>@endif
             @if(session('success'))<div class="app-toast-stack" aria-label="Notification"><div class="app-toast" role="status" data-toast><x-icon name="check"/><span>{{ session('success') }}</span><button type="button" aria-label="Dismiss notification" data-toast-dismiss><x-icon name="close"/></button></div></div>@endif
-            @if($errors->any())
+            @if($errors->any() && !old('_task_dialog'))
                 <div class="alert error" role="alert">
                     <strong>Please check the following:</strong>
                     <ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
@@ -140,8 +167,23 @@
         <span class="confirm-dialog-icon"><x-icon name="shieldCheck"/></span>
         <h2 id="confirm-dialog-title">Confirm this change</h2>
         <p id="confirm-dialog-message"></p>
-        <div class="confirm-dialog-actions"><button class="btn secondary" type="button" data-dialog-cancel><x-icon name="close" /> Cancel</button><button class="btn primary" type="button" data-dialog-confirm><x-icon name="check" /> Continue</button></div>
+        <div class="confirm-dialog-actions"><button class="btn secondary" type="button" data-dialog-cancel><x-icon name="close" /> Cancel</button><button class="btn primary" type="button" data-dialog-confirm><x-icon name="check" /> <span data-confirm-label>Continue</span></button></div>
     </div>
 </dialog>
+@php
+    $feedbackType = session('error') ? 'error' : (session('warning') ? 'warning' : null);
+    $feedbackMessage = $feedbackType ? session($feedbackType) : null;
+@endphp
+@if($feedbackType)
+<dialog class="feedback-dialog is-{{ $feedbackType }}" id="feedback-dialog" aria-labelledby="feedback-title" aria-describedby="feedback-message" data-feedback-dialog>
+    <div class="feedback-dialog-inner">
+        <span class="feedback-dialog-icon" aria-hidden="true"><x-icon name="info" /></span>
+        <span class="eyebrow">PLEASE REVIEW</span>
+        <h2 id="feedback-title">{{ $feedbackType === 'error' ? 'Something needs attention' : 'Please check this' }}</h2>
+        <p id="feedback-message">{{ $feedbackMessage }}</p>
+        <button class="btn primary" type="button" data-feedback-close>Continue</button>
+    </div>
+</dialog>
+@endif
 </body>
 </html>

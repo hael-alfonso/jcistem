@@ -8,11 +8,12 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     public function sendPasswordResetNotification($token): void
     {
@@ -36,6 +37,7 @@ class User extends Authenticatable
         'proposal_reviewer',
         'profile',
         'last_login_at',
+        'inactive_since',
     ];
 
     /**
@@ -63,6 +65,18 @@ class User extends Authenticatable
             'profile' => 'array',
             'last_login_at' => 'datetime',
             'active_login_seen_at' => 'datetime',
+            'inactive_since' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (User $user): void {
+            if ($user->status !== 'inactive') {
+                $user->inactive_since = null;
+            } elseif (!$user->inactive_since || $user->isDirty('status')) {
+                $user->inactive_since = now();
+            }
+        });
     }
 }

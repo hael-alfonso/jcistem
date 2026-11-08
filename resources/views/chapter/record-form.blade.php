@@ -9,7 +9,7 @@
 @endphp
 <div class="page-heading">
     <div>
-        <a class="back-link" href="{{ $project ? route('projects.show', $project).'#completion' : route('records', $kind) }}"><x-icon name="arrowLeft" /> {{ $project ? $project->title : ($kind === 'letters' ? 'External LOIs' : 'Reports') }}</a>
+        <a class="back-link" href="{{ $project ? route('projects.show', $project).'#completion' : route('records', $kind) }}"><x-icon name="arrowLeft" /> {{ $project ? $project->title : ($kind === 'letters' ? 'External LOIs' : 'Project Reports') }}</a>
         <div class="chapter-form-brand"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="JCI logo" width="92" height="52"><span>JCI Carmona<small>JCI Philippines</small></span></div>
         <div class="eyebrow">{{ $project?->reference ?? 'CHAPTER FINANCES' }}</div>
         <h1>{{ $kind === 'letters' ? 'External partnership LOI' : 'Prepare report' }}</h1>

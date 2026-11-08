@@ -60,4 +60,17 @@ class MemberManagementTest extends TestCase
         $this->actingAs($bod)->get(route('members.manage', ['q' => 'Former']))->assertOk()
             ->assertSee($inactive->name)->assertSee(route('members.manage'), false);
     }
+
+    public function test_admin_can_remove_and_restore_an_account_without_erasing_its_history(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $this->actingAs($admin)->delete('/members/'.$member->id, ['reason' => 'Duplicate account'])->assertSessionHasNoErrors();
+        $this->assertNull(User::find($member->id));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'member_account_deleted', 'user_id' => $admin->id, 'object_id' => $member->id]);
+        $this->get('/admin/accounts?state=archived')->assertOk()->assertSee($member->name)->assertSee('Restore');
+        $this->post('/members/'.$member->id.'/restore')->assertSessionHasNoErrors();
+        $this->assertSame('inactive', $member->fresh()->status);
+        $this->actingAs($member->fresh())->get('/dashboard')->assertRedirect();
+    }
 }

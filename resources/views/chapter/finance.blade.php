@@ -1,14 +1,14 @@
 @extends('layouts.chapter')
-@section('title', 'Financial monitoring')
+@section('title', 'Project Finances')
 @section('content')
 <div class="page-heading">
     <div>
         <div class="eyebrow">PROJECT FINANCES</div>
-        <h1>Financial monitoring</h1>
-        <p>All visible projects. Budgets and posted expenses are all-time totals; monthly spending covers the last six months.</p>
+        <h1>Project Finances</h1>
+        <p>Monitor approved allocations, posted expenses, and available chapter funds for the projects you can access.</p>
     </div>
     @if(auth()->user()->role === 'treasurer')
-        <a class="btn primary" href="{{ route('ledger') }}"><x-icon name="receipt" /> Open Treasurer ledger</a>
+        <a class="btn primary" href="{{ route('ledger') }}"><x-icon name="receipt" /> Open Treasurer Ledger</a>
     @endif
 </div>
 
@@ -28,7 +28,7 @@
     @include('chapter.partials.monthly-expense-chart')
 </div>
 <section class="panel">
-    <div class="panel-heading"><div><h2>Project fund utilization</h2><p>Exact amounts behind the charts</p></div></div>
+    <div class="panel-heading"><div><h2>Project Budget Use</h2><p>Proposed budgets, approved allocations, and posted expenses by project</p></div></div>
     <div class="table-wrap">
         <table>
             <caption class="sr-only">Project budgets and recorded use</caption>

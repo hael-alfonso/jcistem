@@ -1,0 +1,37 @@
+/* One neutral backdrop for workspace dialogs and mobile navigation. */
+dialog[open]::backdrop,
+.modal-backdrop {
+  background: rgba(30, 32, 35, .46);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.media-viewer[open]::backdrop { background: rgba(20, 20, 20, .82); }
+
+@media (max-width: 820px) {
+  .sidebar-overlay.show {
+    background: rgba(30, 32, 35, .46);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+}
+
+@media (max-width: 760px) {
+  .nav-open .nav-overlay {
+    background: rgba(30, 32, 35, .46);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  dialog[open]::backdrop,
+  .modal-backdrop,
+  .sidebar-overlay.show,
+  .nav-open .nav-overlay {
+    background: rgba(30, 32, 35, .66);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .media-viewer[open]::backdrop { background: rgba(20, 20, 20, .9); }
+}

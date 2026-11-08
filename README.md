@@ -24,14 +24,14 @@ Password recovery uses email reset links. The default `MAIL_MAILER=log` writes m
 
 ## Local demo accounts
 
-The database seeder creates one account for each workspace. New seeded accounts use `password123` unless `JCI_BOOTSTRAP_PASSWORD` is set before seeding. Rerunning the seeder keeps passwords already stored for existing accounts.
+The database seeder creates one account for each workspace. Seeded accounts use `password123` unless `JCI_BOOTSTRAP_PASSWORD` is set before seeding. Rerunning the local seeder restores these accounts as active and resets them to that configured password so the documented credentials remain usable.
 
-| Workspace | Email |
-| --- | --- |
-| Admin | `jci.admin@gmail.com` |
-| Treasurer | `jci.treasurer@gmail.com` |
-| Board of Directors | `jci.bod@gmail.com` |
-| Member | `jci.member@gmail.com` |
+| Workspace | Username | Email |
+| --- | --- | --- |
+| Admin | `chapter-admin` | `jci.admin@gmail.com` |
+| Treasurer | `chapter-treasurer` | `jci.treasurer@gmail.com` |
+| Board of Directors | `board-reviewer` | `jci.bod@gmail.com` |
+| Member | `chapter-member` | `jci.member@gmail.com` |
 
 These credentials are for local development only. Change or remove seeded accounts before deploying anywhere accessible to other people.
 
@@ -39,11 +39,17 @@ These credentials are for local development only. Change or remove seeded accoun
 
 - `php artisan test` runs the PHPUnit suite.
 - `npm run build` builds the production frontend assets.
-- `composer run dev` starts the Laravel server, queue worker, log viewer, and Vite development server.
+- `composer run dev` starts the Laravel server, queue worker, log viewer, Vite development server, and scheduler.
+- `php artisan schedule:run` runs due scheduled jobs. Configure a system cron or Windows Task Scheduler entry to call this every minute in a deployed environment.
+- `php artisan members:remove-inactive` runs the member retention job manually.
 
 ## Current scope
 
-The application includes role protected workspace routes and Blade views for projects, tasks, reports, calendar, member accounts, and Treasurer financial workflows. The pages currently use `App\Support\JciDemoData` for their displayed records. Although database models and migrations exist for the planned records, most workspace pages do not yet read or write those records. Treat the current data and interactions as a demonstration; persistent project workflows, validated record management, document handling, notifications, and audit capture still need implementation before operational use.
+The application includes role-protected, database-backed workspaces for projects, tasks, reports, calendar, member accounts, and Treasurer financial workflows. A project moves from concept review through proposal, budget verification, Board decision, delivery, completion review, and the completed-project library. A Treasurer cash advance becomes a posted ledger debit only after the Chair confirms receipt; receipt-backed reimbursement claims follow a separate Treasurer review.
+
+Project concepts and full proposals can be saved as incomplete drafts; the required details and official upload are checked when they are submitted for review. A project with no planned expenses can record a zero budget without a placeholder expense. After project details change, an uploaded submission must be updated before it can be sent to reviewers.
+
+Admin can remove member accounts and closed projects from active lists and restore them from the removed lists. Removal is a soft delete so project history, ledger entries, and audit records remain intact. General-member accounts marked inactive for a full year are moved to Removed Accounts automatically by the daily scheduled `members:remove-inactive` command. This does not apply to Admin, Treasurer, or BOD accounts. Members chairing an active project are held until that assignment is resolved. For inactive accounts that predate the tracking migration, the year starts when the migration is applied because the original deactivation date is unknown.
 
 Admin financial pages are intended for read only monitoring. Treasurer routes hold the financial recording workflows. Role middleware enforces these workspace boundaries on the server.
 

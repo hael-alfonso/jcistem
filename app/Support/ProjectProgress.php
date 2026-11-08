@@ -36,6 +36,7 @@ final class ProjectProgress
                 $status === 'Ongoing' && $completed >= $total => 'Implementation complete',
                 $status === 'Ongoing' => 'Implementation in progress',
                 in_array($status, ['Not Approved', 'Declined'], true) => 'Not approved',
+                $status === 'Cancelled' => 'Project cancelled',
                 default => 'Awaiting next stage',
             },
             'due' => $due,

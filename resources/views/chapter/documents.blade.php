@@ -10,22 +10,16 @@
     <a class="btn primary" href="{{ route('projects') }}"><x-icon name="folder" /> Open projects</a>
 </div>
 
-<nav class="file-library-shortcuts" aria-label="Other document locations"><span>Related records</span><a class="text-link" href="{{ route('records', 'reports') }}"><x-icon name="report" /> Reports</a><a class="text-link" href="{{ route('records', 'letters') }}"><x-icon name="filePlus" /> External LOIs</a><a class="text-link" href="{{ route('templates') }}"><x-icon name="folder" /> Forms &amp; Templates</a>@if(auth()->user()->role === 'treasurer')<a class="text-link" href="{{ route('ledger') }}"><x-icon name="receipt" /> Receipts in ledger</a>@endif</nav>
-
 <section class="panel form-panel" aria-labelledby="project-files-heading">
-    <div class="panel-heading flush">
-        <div>
-            <h2 id="project-files-heading">Project files &amp; images</h2>
-            <p>Private uploads remain linked to their projects. Open a project to add files when your role allows it.</p>
-        </div>
-        <span>{{ number_format($documents->total()) }} {{ \Illuminate\Support\Str::plural('file', $documents->total()) }}</span>
-    </div>
+    <h2 id="project-files-heading" class="sr-only">Project files</h2>
     <form class="list-filters document-search" method="GET" action="{{ route('documents') }}">
         <label><span>Search files</span><input name="q" value="{{ request('q') }}" placeholder="Title, category, or project"></label>
         <label><span>Show</span><select name="type"><option value="all" @selected(request('type', 'all') === 'all')>All project uploads</option><option value="evidence" @selected(request('type') === 'evidence')>Attendance &amp; evaluations</option><option value="attendance" @selected(request('type') === 'attendance')>Attendance photos</option><option value="evaluation" @selected(request('type') === 'evaluation')>Evaluations</option><option value="documents" @selected(request('type') === 'documents')>Documents &amp; letters</option></select></label>
-        <button class="btn secondary" type="submit"><x-icon name="search" /> Search</button>
-        @if(request()->filled('q') || request()->filled('type'))<a class="text-link" href="{{ route('documents') }}"><x-icon name="close" /> Clear filters</a>@endif
+        <label>Added from<input type="date" name="from" value="{{ request('from') }}"></label><label>Added to<input type="date" name="to" value="{{ request('to') }}"></label>
+        <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
+        @if(request()->filled('q') || request()->filled('type') || request()->filled('from') || request()->filled('to'))<a class="text-link" href="{{ route('documents') }}"><x-icon name="close" /> Clear filters</a>@endif
     </form>
+    <div class="collection-results"><span>{{ number_format($documents->total()) }} {{ \Illuminate\Support\Str::plural('file', $documents->total()) }}</span><span>Private project records</span></div>
     @if($documents->isNotEmpty())
         <div class="table-wrap"><table>
             <thead><tr><th>File</th><th>Project</th><th>Added</th><th>Actions</th></tr></thead>

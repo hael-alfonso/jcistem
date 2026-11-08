@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class MemberDue extends ChapterRecord
 {
     protected $casts = ['amount' => 'decimal:2', 'due_date' => 'date'];
-    public function member() { return $this->belongsTo(User::class, 'member_id'); }
+    public function member() { return $this->belongsTo(User::class, 'member_id')->withTrashed(); }
     public function payments() { return $this->hasMany(LedgerEntry::class); }
     public function getPaidAttribute(): float
     {

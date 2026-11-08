@@ -1,0 +1,22 @@
+<a
+    class="task-row-preview"
+    href="{{ route('projects.show', $task->project_id) }}#task-{{ $task->id }}"
+    aria-label="Preview task: {{ $task->title }}"
+    aria-haspopup="dialog"
+    aria-controls="task-preview-dialog"
+    title="Preview task: {{ $task->title }}"
+    data-task-preview
+    data-task-title="{{ $task->title }}"
+    data-task-project="{{ $task->project?->title ?? 'Project' }}"
+    data-task-chair="{{ $task->project?->chair?->name ?? 'Not assigned' }}"
+    data-task-status="{{ $task->status }}"
+    data-task-tone="{{ $tone }}"
+    data-task-priority="{{ $task->priority ?: 'Not set' }}"
+    data-task-priority-tone="{{ $priorityTone }}"
+    data-task-deadline="{{ $task->deadline?->format('M d, Y') ?? 'Not set' }}"
+    data-task-milestone="{{ $task->milestone ?: 'None' }}"
+    data-task-assignees="{{ $assigneeNames ?: 'Unassigned' }}"
+    data-task-description="{{ $task->description ?: 'No instructions added.' }}"
+    data-task-notes="{{ $task->notes ?: 'No progress note yet.' }}"
+    data-task-evidence="{{ $task->evidence ?: 'No completion evidence yet.' }}"
+><x-icon name="eye" /><span class="sr-only">Preview task</span></a>

@@ -5,6 +5,6 @@ namespace App\Models;
 class BodDecision extends ChapterRecord
 {
     protected $casts = ['meeting_date' => 'date'];
-    public function project() { return $this->belongsTo(Project::class); }
-    public function recorder() { return $this->belongsTo(User::class, 'recorded_by'); }
+    public function project() { return $this->belongsTo(Project::class)->withTrashed(); }
+    public function recorder() { return $this->belongsTo(User::class, 'recorded_by')->withTrashed(); }
 }

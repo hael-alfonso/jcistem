@@ -26,7 +26,7 @@ class PmsWorkflowTest extends TestCase
         return $project;
     }
 
-    public function test_all_four_roles_can_become_chair_only_after_ordered_reviews_and_recorded_resolution(): void
+    public function test_all_four_roles_can_become_chair_only_after_ordered_reviews_and_signed_decisions_without_resolution_numbers(): void
     {
         Storage::fake('local');
         $admin = $this->actor('admin'); $treasurer = $this->actor('treasurer'); $bod = $this->actor('bod');
@@ -46,8 +46,8 @@ class PmsWorkflowTest extends TestCase
             $this->assertSame('Treasurer Review', $project->fresh()->status);
             $this->actingAs($treasurer)->post($url, ['action' => 'budget_review', 'comments' => 'Feasible'])->assertSessionHasNoErrors();
             $this->assertSame('BOD Agenda', $project->fresh()->status);
-            $this->actingAs($admin)->post($url, ['action' => 'approve', 'comments' => 'Approved'])->assertSessionHasErrors(['meeting_date', 'resolution_number', 'evidence']);
-            $decision = ['action' => 'approve', 'comments' => 'Approved at meeting', 'meeting_date' => '2026-10-01', 'resolution_number' => 'RES-'.$project->id, 'evidence' => UploadedFile::fake()->create('minutes.pdf', 10, 'application/pdf')];
+            $this->actingAs($admin)->post($url, ['action' => 'approve', 'comments' => 'Approved'])->assertSessionHasErrors(['meeting_date', 'evidence']);
+            $decision = ['action' => 'approve', 'comments' => 'Approved at meeting', 'meeting_date' => '2026-10-01', 'evidence' => UploadedFile::fake()->create('minutes.pdf', 10, 'application/pdf')];
             $this->actingAs($bod)->post($url, $decision)->assertForbidden();
             $this->actingAs($admin)->post($url, $decision)->assertSessionHasNoErrors();
             $this->assertSame($owner->id, $project->fresh()->chair_id);
@@ -60,7 +60,7 @@ class PmsWorkflowTest extends TestCase
             $this->actingAs($owner);
             $this->post($url, ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
             $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Full budget checked'])->assertSessionHasNoErrors();
-            $formalDecision = ['action' => 'approve_full_proposal', 'comments' => 'Full proposal approved', 'meeting_date' => '2026-10-02', 'resolution_number' => 'FULL-'.$project->id, 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')];
+            $formalDecision = ['action' => 'approve_full_proposal', 'comments' => 'Full proposal approved', 'meeting_date' => '2026-10-02', 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')];
             $this->actingAs($admin)->post($url, $formalDecision)->assertSessionHasNoErrors();
             $this->actingAs($owner);
             $this->post($url, ['action' => 'lock_plan'])->assertSessionHasNoErrors();
@@ -275,6 +275,14 @@ class PmsWorkflowTest extends TestCase
         $this->actingAs($admin)->post($url, ['action' => 'endorse', 'comments' => 'Pass'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, ['action' => 'revise_budget', 'comments' => 'Clarify costs'])->assertSessionHasNoErrors();
         $this->assertSame('Needs Revision', $project->fresh()->status);
+        $this->actingAs($owner)->post($url, ['action' => 'submit_concept'])->assertSessionHasErrors('action');
+        $concept = $project->fresh()->concept;
+        $concept[array_key_first($concept)] = 'Clarified community costs and scope';
+        $this->put('/projects/'.$project->id, [
+            'title' => $project->title, 'area' => $project->area,
+            'starts_on' => '2026-11-01', 'venue' => 'Carmona',
+            'proposed_budget' => '5000.00', 'concept' => $concept,
+        ])->assertSessionHasNoErrors();
         $this->actingAs($owner)->post($url, ['action' => 'submit_concept'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, ['action' => 'budget_review', 'comments' => 'Skip admin'])->assertForbidden();
         $this->actingAs($admin)->post($url, ['action' => 'endorse', 'comments' => 'Rechecked'])->assertSessionHasNoErrors();

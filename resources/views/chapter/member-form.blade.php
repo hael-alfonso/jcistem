@@ -37,12 +37,13 @@
         </div>
     </section>
     <section class="panel form-panel membership-section" aria-labelledby="member-account"><div class="membership-section-heading"><span>03</span><div><h2 id="member-account">Membership and account</h2><p>JCI Carmona member ID is generated automatically when the account is created or approved.</p></div></div>
-        <div class="membership-id-note"><strong>JCI Carmona ID</strong><span>{{ $member->member_no ?: 'Assigned on save' }}</span></div>
+        <div class="membership-id-note"><strong>JCI Carmona ID</strong><span>{{ $member->member_no ?: 'JCI-CAR-'.now()->format('Y').'-••••• (assigned on save)' }}</span></div>
         <div class="form-grid"><x-field name="profile[joined_on]" label="Membership date" type="date" :value="$profile['joined_on'] ?? ''"/><x-field name="profile[emergency_contact]" label="Emergency contact (optional)" :value="$profile['emergency_contact'] ?? ''"/>
         @if($isAdmin)
             <x-field name="username" label="Username for sign-in" :value="$member->username" required autocomplete="username"/><x-field name="email" label="Email address" type="email" :value="$member->email" required autocomplete="email"/>
             <x-field name="role" label="Permanent account role" type="select" :options="['admin'=>'Admin','bod'=>'Board of Directors','treasurer'=>'Treasurer','member'=>'General Member']" :value="$member->role ?? 'member'" required/>
             <x-field name="status" label="Account status" type="select" :options="['active'=>'Active','inactive'=>'Inactive']" :value="$member->status ?? 'active'" required/>
+            <p class="hint full">General-member accounts inactive for one full year move automatically to Removed Accounts. Admin, Treasurer, and BOD accounts are not removed by this rule. Restoring an account starts a new inactive period.</p>
             <x-field name="password" :label="$member->exists ? 'New password (leave blank to keep current)' : 'Initial password'" type="password" :required="!$member->exists" minlength="10" autocomplete="new-password"/>
             <x-field name="password_confirmation" label="Confirm password" type="password" :required="!$member->exists" autocomplete="new-password"/>
         @else
@@ -52,4 +53,5 @@
     </section>
     <div class="membership-actions"><a class="btn secondary" href="{{ route('members') }}">Cancel</a><button class="btn primary" type="submit"><x-icon name="save" /> Save member details</button></div>
 </form>
+@if($isAdmin && $member->exists && $member->id !== auth()->id())<details class="panel form-panel account-remove-panel"><summary class="large-summary"><x-icon name="info"/> Remove account</summary><p>Remove this account from sign-in and member lists. Past project, payment, and activity records stay available. The account can be restored as inactive.</p><form method="POST" action="{{ route('members.delete', $member) }}">@csrf @method('DELETE')<label class="field"><span>Reason for removal <em aria-hidden="true">*</em></span><textarea name="reason" rows="3" maxlength="2000" required></textarea></label><button class="btn danger" type="submit" data-confirm="Remove this account from active use? Its chapter history will be preserved.">Remove account</button></form></details>@endif
 @endsection

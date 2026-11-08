@@ -1,11 +1,12 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport, LedgerEntry};
+use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport, LedgerEntry, ExpenseClaim, ProjectFundRelease, BodDecision, RegistrationRequest};
 use Carbon\CarbonImmutable;
 use App\Services\{ChapterService, OfficePreviewService, ProjectWordDocumentService};
-use App\Support\{ChapterCharts, ChapterFunds, ChapterForms, Permissions, ProjectBudget};
+use App\Support\{ChapterCharts, ChapterFunds, ChapterForms, Money, Permissions, ProjectBudget, ProjectReviewQueue};
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\{DB, Storage};
 use Illuminate\Validation\{Rule, ValidationException};
 
@@ -14,67 +15,178 @@ class ChapterController extends Controller
     public function dashboard(Request $request)
     {
         $projects = ChapterService::visibleProjects($request->user())->with('chair')->latest()->get();
-        $assignedTasks = Task::whereIn('project_id', $projects->pluck('id'))
+        $assignedTasks = Task::with('project.tasks')->whereIn('project_id', $projects->pluck('id'))
             ->whereJsonContains('assignees', $request->user()->id)
             ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END')->orderBy('deadline')->get();
         $tasks = $assignedTasks->where('status', '!=', 'Completed');
+        $pendingAssignments = $tasks->filter(fn ($task) => in_array($task->project?->status, ['Plan Locked', 'Ongoing'], true)
+            && !in_array($task->assignment_responses[$request->user()->id]['response'] ?? null, ['accepted', 'declined'], true));
+        $readyTasks = $tasks->filter(fn ($task) => $task->status !== 'Blocked' && $task->project?->status === 'Ongoing'
+            && ($task->assignment_responses[$request->user()->id]['response'] ?? null) === 'accepted'
+            && $task->project->tasks->whereIn('id', $task->dependencies ?? [])->where('status', 'Completed')->count() === count($task->dependencies ?? []));
         $personalProjects = $projects->filter(fn ($project) => $project->created_by === $request->user()->id
             || $project->chair_id === $request->user()->id || $assignedTasks->contains('project_id', $project->id));
         $dashboardProjects = $request->user()->role === 'member' ? $personalProjects : $projects;
-        $reviewStatuses = match ($request->user()->role) {
-            'admin' => ['Admin Review', 'Submitted for Formal Approval', 'Completion Review'],
-            'treasurer' => ['Treasurer Review', 'Submitted for Formal Approval'],
-            'bod' => ['BOD Agenda'],
-            default => [],
+        $chairProjects = $request->user()->role === 'member'
+            ? $projects->where('chair_id', $request->user()->id)->whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review']) : collect();
+        $pendingIds = ProjectReviewQueue::apply(ChapterService::visibleProjects($request->user()), $request->user())->pluck('id');
+        $pending = $projects->whereIn('id', $pendingIds);
+        $financeActionProjects = $request->user()->role === 'treasurer'
+            ? $projects->filter(fn ($project) => $project->chair_id !== $request->user()->id && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing'], true)
+                && ($project->proposal_reviewed_at || $project->plan_locked_at) && !empty($project->budget_items) && (float) $project->allocated === 0.0) : collect();
+        $pendingClaims = $request->user()->role === 'treasurer'
+            ? ExpenseClaim::with('submitter')->where('status', 'Pending')->whereIn('project_id', $projects->filter(fn ($project) => $project->chair_id !== $request->user()->id)->pluck('id'))->latest()->get() : collect();
+        $pendingFundReleases = match ($request->user()->role) {
+            'treasurer' => ProjectFundRelease::with(['project', 'chair'])->where('status', 'Pending')->whereIn('project_id', $projects->filter(fn ($project) => $project->chair_id !== $request->user()->id)->pluck('id'))->latest()->get(),
+            'member' => ProjectFundRelease::with(['project', 'treasurer'])->where('status', 'Pending')->where('chair_id', $request->user()->id)->latest()->get(),
+            default => collect(),
         };
-        $pending = $projects->whereIn('status', $reviewStatuses)->filter(fn ($project) => in_array($request->user()->role, ['admin', 'bod'], true) || $project->created_by !== $request->user()->id);
+        $recentDecisions = $request->user()->role === 'bod'
+            ? BodDecision::with('project')->whereIn('project_id', $projects->pluck('id'))->orderByDesc('meeting_date')->orderByDesc('id')->limit(4)->get() : collect();
+        $adminActions = $request->user()->role === 'admin' ? [
+            'registrations' => RegistrationRequest::where('status', 'pending')->count(),
+            'reports' => ProjectReport::where('status', 'Submitted')->where('type', 'Completion')->count(),
+        ] : [];
         $myDuesBalance = $request->user()->role === 'member'
             ? MemberDue::where('member_id', $request->user()->id)->with('payments')->get()->sum('balance') : 0;
         $charts = ChapterCharts::projectMix($dashboardProjects);
+        $monitorStages = ChapterCharts::stages($projects);
         $taskStatuses = $assignedTasks->countBy('status');
         $financeCharts = ChapterCharts::finances($projects->whereIn('status', Project::APPROVED));
         $chapterFunds = ChapterFunds::postedBalance();
         $recentProjects = $dashboardProjects->sortByDesc('updated_at')->take(4);
         $recentTransactions = LedgerEntry::with('project')->whereIn('project_id', $dashboardProjects->whereIn('status', Project::APPROVED)->pluck('id'))
             ->where('status', 'Posted')->orderByDesc('transaction_date')->orderByDesc('id')->limit(4)->get();
-        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'reviewStatuses', 'myDuesBalance', 'tasks', 'charts', 'taskStatuses', 'financeCharts', 'chapterFunds', 'recentProjects', 'recentTransactions'));
+        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'myDuesBalance', 'tasks', 'pendingAssignments', 'readyTasks', 'chairProjects', 'financeActionProjects', 'pendingClaims', 'pendingFundReleases', 'recentDecisions', 'adminActions', 'charts', 'monitorStages', 'taskStatuses', 'financeCharts', 'chapterFunds', 'recentProjects', 'recentTransactions'));
     }
 
     public function projects(Request $request)
     {
-        $request->validate(['q' => 'nullable|string|max:200', 'filter' => 'nullable|string|max:80']);
+        $legacyFolderRoutes = [
+            'completed' => 'projects.completed',
+            'Archived' => 'projects.completed',
+            'archived' => 'projects.completed',
+            'cancelled' => 'projects.cancelled',
+            'closed' => 'projects.cancelled',
+            'removed' => 'projects.removed',
+        ];
+        if (isset($legacyFolderRoutes[$request->query('filter')])) {
+            return redirect()->route($legacyFolderRoutes[$request->query('filter')], $request->except('filter'));
+        }
+
+        return $this->projectCollection($request, 'active');
+    }
+
+    public function completedProjects(Request $request)
+    {
+        return $this->projectCollection($request, 'library');
+    }
+
+    public function legacyCompletedProjects(Request $request)
+    {
+        return redirect()->to(str_replace('/projects/completed', '/projects/library', $request->fullUrl()));
+    }
+
+    public function archivedProjects(Request $request)
+    {
+        return redirect()->to(str_replace('/projects/archived', '/projects/library', $request->fullUrl()));
+    }
+
+    public function cancelledProjects(Request $request)
+    {
+        return $this->projectCollection($request, 'cancelled');
+    }
+
+    public function removedProjects(Request $request)
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+
+        return $this->projectCollection($request, 'removed');
+    }
+
+    private function projectCollection(Request $request, string $folder)
+    {
+        $request->validate([
+            'q' => 'nullable|string|max:200',
+            'filter' => 'nullable|string|max:80',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''),
+            'sort' => 'nullable|in:newest,oldest,title',
+        ]);
+        abort_unless(in_array($folder, ['active', 'library', 'cancelled', 'removed'], true), 404);
+        abort_if($folder === 'removed' && $request->user()->role !== 'admin', 403);
+
+        $folderQuery = ChapterService::visibleProjects($request->user());
+        $projectFolderCounts = [
+            'active' => (clone $folderQuery)->whereNotIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved', 'Cancelled'])->count(),
+            'library' => (clone $folderQuery)->whereIn('status', ['Completed', 'Archived'])->count(),
+            'cancelled' => (clone $folderQuery)->whereIn('status', ['Declined', 'Not Approved', 'Cancelled'])->count(),
+        ];
+        if ($request->user()->role === 'admin') {
+            $projectFolderCounts['removed'] = (clone $folderQuery)->onlyTrashed()->count();
+        }
         $query = ChapterService::visibleProjects($request->user())
             ->with(['chair', 'owner', 'reports'])
             ->withCount(['tasks', 'tasks as completed_tasks_count' => fn ($q) => $q->where('status', 'Completed')])
             ->withSum('allocations as allocated_amount', 'amount');
-        if ($request->filled('q')) $query->where('title', 'like', '%'.$request->string('q').'%');
-        if ($request->filter === 'mine') $query->where(fn ($q) => $q->where('created_by', $request->user()->id)->orWhere('chair_id', $request->user()->id)->orWhereHas('tasks', fn ($q) => $q->whereJsonContains('assignees', $request->user()->id)));
-        elseif ($request->filter === 'proposals') $query->where('created_by', $request->user()->id);
-        elseif ($request->filter === 'chairing') $query->where('chair_id', $request->user()->id)->whereIn('status', Project::APPROVED);
-        elseif ($request->filter === 'board') {
+        match ($folder) {
+            'active' => $query->whereNotIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved', 'Cancelled']),
+            'library' => $query->whereIn('status', ['Completed', 'Archived']),
+            'cancelled' => $query->whereIn('status', ['Declined', 'Not Approved', 'Cancelled']),
+            'removed' => $query->onlyTrashed(),
+        };
+        if ($request->filled('q')) $query->where(fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%')
+            ->orWhere('reference', 'like', '%'.$request->string('q').'%')
+            ->orWhereHas('chair', fn ($chair) => $chair->where('name', 'like', '%'.$request->string('q').'%')));
+        if ($request->filled('from')) $query->whereDate('created_at', '>=', $request->query('from'));
+        if ($request->filled('to')) $query->whereDate('created_at', '<=', $request->query('to'));
+        if ($folder === 'active' && $request->filter === 'mine') $query->where(fn ($q) => $q->where('created_by', $request->user()->id)->orWhere('chair_id', $request->user()->id)->orWhereHas('tasks', fn ($q) => $q->whereJsonContains('assignees', $request->user()->id)));
+        elseif ($folder === 'active' && $request->filter === 'proposals') $query->where('created_by', $request->user()->id);
+        elseif ($folder === 'active' && $request->filter === 'chairing') $query->where('chair_id', $request->user()->id)->whereIn('status', Project::APPROVED);
+        elseif ($folder === 'active' && $request->filter === 'board') {
             abort_unless(in_array($request->user()->role, ['admin', 'bod', 'treasurer'], true), 403);
             $query->where(fn ($q) => $q->where('status', 'BOD Agenda')->orWhereHas('decisions'));
         }
-        elseif ($request->filter === 'concepts') $query->whereIn('status', ['Draft Concept', 'Submitted for President Review', 'Needs Revision', 'Endorsed for Development', 'Declined']);
-        elseif ($request->filter === 'active') $query->whereIn('status', ['Approved', 'Submitted for Formal Approval', 'Plan Locked', 'Ongoing', 'Completion Review']);
-        elseif ($request->filter === 'closed') $query->whereIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved']);
-        elseif ($request->filter === 'approved') $query->whereIn('status', ['Approved', 'Plan Locked']);
-        elseif ($request->filter === 'ongoing') $query->whereIn('status', ['Ongoing', 'Completion Review']);
-        elseif ($request->filter === 'completed') $query->whereIn('status', ['Completed', 'Archived']);
-        elseif ($request->filter === 'cancelled') $query->whereIn('status', ['Declined', 'Not Approved']);
-        elseif ($request->filter === 'review') {
-            $statuses = match ($request->user()->role) {
-                'admin' => ['Admin Review', 'BOD Agenda', 'Submitted for Formal Approval'],
-                'treasurer' => ['Treasurer Review', 'Submitted for Formal Approval'],
-                'bod' => ['BOD Agenda'],
-                default => null,
-            };
-            abort_unless($statuses, 403);
-            $query->whereIn('status', $statuses);
+        elseif ($folder === 'active' && $request->filter === 'concepts') $query->whereIn('status', ['Draft Concept', 'Needs Revision', 'Submitted for President Review', 'Admin Review', 'Treasurer Review', 'BOD Agenda', 'Endorsed for Development']);
+        elseif ($folder === 'active' && $request->filter === 'active') $query->whereIn('status', ['Approved', 'Full Proposal Draft', 'Returned for Revision', 'Submitted for Formal Approval', 'Plan Locked', 'Ongoing', 'Completion Review']);
+        elseif ($folder === 'active' && $request->filter === 'approved') $query->whereIn('status', ['Approved', 'Plan Locked']);
+        elseif ($folder === 'active' && $request->filter === 'ongoing') $query->whereIn('status', ['Ongoing', 'Completion Review']);
+        elseif ($folder === 'active' && $request->filter === 'review') {
+            abort_unless(in_array($request->user()->role, ['admin', 'treasurer', 'bod'], true), 403);
+            ProjectReviewQueue::apply($query, $request->user());
         }
-        elseif ($request->filled('filter')) $query->where('status', $request->filter);
-        $projects = $query->latest()->paginate(12)->withQueryString();
-        return view('chapter.projects', compact('projects'));
+        elseif ($folder === 'active' && $request->filled('filter')) $query->where('status', $request->filter);
+        $projects = (match ($request->query('sort', 'newest')) {
+            'oldest' => $query->oldest('created_at')->orderBy('id'),
+            'title' => $query->orderBy('title')->orderBy('id'),
+            default => $query->latest('created_at')->latest('id'),
+        })->paginate(12)->withQueryString();
+        $projectFolder = [
+            'key' => $folder,
+            'route' => match ($folder) {
+                'library' => 'projects.completed',
+                'cancelled' => 'projects.cancelled',
+                'removed' => 'projects.removed',
+                default => 'projects',
+            },
+            'title' => match ($folder) {
+                'library' => 'Project Library',
+                'cancelled' => 'Cancelled Projects',
+                'removed' => 'Removed Projects',
+                default => $request->filter === 'review' ? 'Project Review Queue' : ($request->filter === 'mine' ? 'My Current Projects' : 'Current Projects'),
+            },
+            'eyebrow' => $request->filter === 'review' ? 'REVIEW WORKFLOW' : ($folder === 'active' ? 'PROJECT WORK' : 'PROJECT LIBRARY'),
+            'description' => match ($folder) {
+                'library' => 'Completed and archived chapter projects available for reference and future reuse.',
+                'cancelled' => 'Cancelled, declined, and not approved project records kept for chapter history.',
+                'removed' => 'Admin-only storage for closed projects removed from the chapter collections.',
+                default => $request->filter === 'review'
+                    ? match ($request->user()->role) { 'admin' => 'Review concepts, record signed Board decisions, and follow submitted completion reports.', 'treasurer' => 'Verify independent concept and proposal budgets, then review submitted liquidations.', default => 'Open projects ready for Board deliberation and recorded decisions.' }
+                    : 'Find current concepts, reviews, approved plans, and ongoing project work.',
+            },
+        ];
+
+        return view('chapter.projects', compact('projects', 'projectFolderCounts', 'projectFolder'));
     }
 
     public function create()
@@ -95,22 +207,31 @@ class ChapterController extends Controller
         $section = $proposal ? 'proposal' : 'concept';
         $methodField = $section.'_submission_method';
         $request->merge([$methodField => $request->input($methodField, 'online')]);
-        $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'proposed_budget' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'budget_items' => 'nullable|array|max:50', 'budget_items.*.id' => 'nullable|uuid', 'budget_items.*.category' => ['required', Rule::in(array_keys(ProjectBudget::CATEGORIES))], 'budget_items.*.description' => 'required|string|max:255', 'budget_items.*.quantity' => 'required|numeric|decimal:0,2|min:0.01|max:999999.99', 'budget_items.*.unit_cost' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', $methodField => ['required', Rule::in(['online', 'upload'])], 'submission_file' => 'nullable|file|mimes:pdf,doc,docx|max:10240', 'revision_note' => 'nullable|string|max:2000'];
+        $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'no_budget' => 'sometimes|boolean', 'proposed_budget' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'budget_items' => 'nullable|array|max:50', 'budget_items.*.id' => 'nullable|uuid|distinct', 'budget_items.*.category' => ['required', Rule::in(array_keys(ProjectBudget::CATEGORIES))], 'budget_items.*.description' => 'required|string|max:255', 'budget_items.*.quantity' => 'required|numeric|decimal:0,2|min:0.01|max:999999.99', 'budget_items.*.unit_cost' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', $methodField => ['required', Rule::in(['online', 'upload'])], 'submission_file' => 'nullable|prohibited_unless:'.$methodField.',upload|file|mimes:pdf,doc,docx|max:10240', 'revision_note' => 'nullable|string|max:2000'];
+        $sectionKeys = array_keys($proposal ? ChapterForms::PROPOSAL : ChapterForms::CONCEPT);
+        if ($proposal) $sectionKeys = array_merge($sectionKeys, ['committee_director', 'president_name', 'board_meeting_date', 'projected_income', 'income_lines', 'expense_lines']);
+        $rules[$section] = 'sometimes|array:'.implode(',', $sectionKeys);
+        $rules['budget_items.*'] = 'required|array:id,category,description,quantity,unit_cost,amount';
         foreach ($proposal ? ChapterForms::PROPOSAL : ChapterForms::CONCEPT as $key => $label) $rules[$section.'.'.$key] = 'nullable|string|max:15000';
         if ($proposal) {
             $rules['proposal.committee_director'] = 'nullable|string|max:200';
             $rules['proposal.president_name'] = 'nullable|string|max:200';
             $rules['proposal.board_meeting_date'] = 'nullable|date_format:Y-m-d';
             $rules['proposal.projected_income'] = 'nullable|numeric|min:0|max:999999999.99';
-            $rules['proposal.income_lines'] = 'nullable|array';
-            $rules['proposal.expense_lines'] = 'nullable|array';
+            $rules['proposal.income_lines'] = 'nullable|array:'.implode(',', array_keys(ChapterForms::PROPOSAL_INCOME_LINES));
+            $rules['proposal.expense_lines'] = 'nullable|array:'.implode(',', array_keys(ChapterForms::PROPOSAL_EXPENSE_LINES));
             foreach (array_keys(ChapterForms::PROPOSAL_INCOME_LINES) as $key) $rules['proposal.income_lines.'.$key] = 'nullable|numeric|decimal:0,2|min:0|max:999999999.99';
             foreach (array_keys(ChapterForms::PROPOSAL_EXPENSE_LINES) as $key) $rules['proposal.expense_lines.'.$key] = 'nullable|numeric|decimal:0,2|min:0|max:999999999.99';
         }
         $data = $request->validate($rules);
-        $submittedBudgetItems = array_key_exists('budget_items', $data);
-        $budgetItems = ProjectBudget::normalize($data['budget_items'] ?? []);
-        if ($budgetItems) {
+        $noBudget = (bool) ($data['no_budget'] ?? false);
+        unset($data['no_budget']);
+        $submittedBudgetItems = array_key_exists('budget_items', $data) || $noBudget;
+        $budgetItems = $noBudget ? [] : ProjectBudget::normalize($data['budget_items'] ?? []);
+        if ($noBudget) {
+            $data['budget_items'] = [];
+            $data['proposed_budget'] = '0.00';
+        } elseif ($budgetItems) {
             $data['budget_items'] = $budgetItems;
             $data['proposed_budget'] = ProjectBudget::total($budgetItems);
         } elseif ($submittedBudgetItems) {
@@ -122,6 +243,9 @@ class ChapterController extends Controller
         } else {
             unset($data['budget_items']);
         }
+        if (Money::cents($data['proposed_budget']) > Money::cents('999999999.99')) {
+            throw ValidationException::withMessages(['budget_items' => 'The itemized project budget exceeds the allowed maximum. Reduce the quantities or unit costs.']);
+        }
         if ($proposal && $project->allocations()->whereNotNull('budget_item_id')->exists()) {
             $originalLines = collect($project->budget_items ?? [])->mapWithKeys(fn ($item) => [$item['id'] ?? '' => [$item['category'] ?? '', $item['description'] ?? '', (string) ($item['amount'] ?? '')]])->all();
             $updatedLines = collect($data['budget_items'] ?? [])->mapWithKeys(fn ($item) => [$item['id'] ?? '' => [$item['category'] ?? '', $item['description'] ?? '', (string) ($item['amount'] ?? '')]])->all();
@@ -130,18 +254,17 @@ class ChapterController extends Controller
         if ($proposal && $data[$methodField] === 'online') {
             $incomeLines = array_filter($data['proposal']['income_lines'] ?? [], fn ($value) => $value !== null && $value !== '');
             if ($incomeLines) {
-                $data['proposal']['projected_income'] = \App\Support\Money::decimal(array_sum(array_map(\App\Support\Money::cents(...), $incomeLines)));
+                $incomeCents = array_sum(array_map(Money::cents(...), $incomeLines));
+                if ($incomeCents > Money::cents('999999999.99')) {
+                    throw ValidationException::withMessages(['proposal.income_lines' => 'The combined estimated income exceeds the allowed maximum.']);
+                }
+                $data['proposal']['projected_income'] = Money::decimal($incomeCents);
             } elseif (array_key_exists('income_lines', $data['proposal'] ?? [])) {
                 $data['proposal']['projected_income'] = null;
             } elseif (isset($project->proposal['projected_income'])) {
                 $data['proposal']['projected_income'] = $project->proposal['projected_income'];
             }
             if ($budgetItems) $data['proposal']['expense_lines'] = ProjectBudget::officialExpenseLines($budgetItems);
-        }
-        $method = $data[$methodField];
-        $hasPriorUpload = $project?->documents()->where('submission_stage', $section)->exists() ?? false;
-        if ($method === 'upload' && !$request->hasFile('submission_file') && !$hasPriorUpload) {
-            throw ValidationException::withMessages(['submission_file' => 'Upload the completed DOCX or PDF template before saving this submission method.']);
         }
         if ($proposal && \App\Support\Money::cents($data['proposed_budget']) !== \App\Support\Money::cents($project->proposed_budget)) {
             throw ValidationException::withMessages(['proposed_budget' => 'The BOD-approved proposed budget is locked. An authorized amendment is required to change it.']);
@@ -159,7 +282,8 @@ class ChapterController extends Controller
             $before = $project?->toArray() ?? [];
             $project ??= new Project(['created_by' => $request->user()->id, 'status' => 'Draft Concept']);
             $project->fill($data);
-            $project->revision = ($project->revision ?? 0) + 1;
+            $changed = !$project->exists || $project->isDirty() || (bool) $path;
+            if ($changed) $project->revision = ($project->revision ?? 0) + 1;
             $project->save();
             if (!$project->reference) $project->update(['reference' => 'JCI-'.now()->year.'-'.str_pad((string) $project->id, 5, '0', STR_PAD_LEFT)]);
             if ($path) {
@@ -171,6 +295,7 @@ class ChapterController extends Controller
                     'category' => $section === 'concept' ? 'Concept Proposal Submission' : 'Project Proposal Form Submission',
                     'submission_stage' => $section,
                     'version' => ($previous?->version ?? 0) + 1,
+                    'project_revision' => $project->revision,
                     'replaces_document_id' => $previous?->id,
                     'submitted_at' => now(),
                     'path' => $path,
@@ -178,8 +303,8 @@ class ChapterController extends Controller
                 ]);
                 ChapterService::audit('project_submission_uploaded', $document, [], $revisionNote);
             }
-            if ($before) \App\Models\ProjectReview::create(['project_id' => $project->id, 'user_id' => $request->user()->id, 'action' => 'revision_saved', 'from_status' => $before['status'], 'to_status' => $project->status, 'snapshot' => $before]);
-            ChapterService::audit('project_saved', $project, $before);
+            if ($before && $changed) \App\Models\ProjectReview::create(['project_id' => $project->id, 'user_id' => $request->user()->id, 'action' => 'revision_saved', 'from_status' => $before['status'], 'to_status' => $project->status, 'snapshot' => $before]);
+            if ($changed) ChapterService::audit('project_saved', $project, $before);
             return $project;
         });
         } catch (\Throwable $e) {
@@ -189,10 +314,94 @@ class ChapterController extends Controller
         return redirect()->route('projects.show', $project)->with('success', 'Draft saved. Review the document and submit when ready.');
     }
 
+    public function projectReuse(Request $request, Project $project)
+    {
+        abort_unless(ChapterService::canView($project, $request->user()), 403);
+        abort_unless(in_array($project->status, ['Completed', 'Archived'], true), 403);
+
+        $copy = DB::transaction(function () use ($project, $request) {
+            $source = Project::lockForUpdate()->findOrFail($project->id);
+            abort_unless(in_array($source->status, ['Completed', 'Archived'], true), 403);
+
+            $copy = Project::create([
+                'created_by' => $request->user()->id,
+                'chair_id' => null,
+                'title' => Str::limit($source->title, 188, '').' (New Cycle)',
+                'area' => $source->area,
+                'status' => 'Draft Concept',
+                'venue' => $source->venue,
+                'starts_on' => null,
+                'ends_on' => null,
+                'proposed_budget' => $source->proposed_budget,
+                'budget_items' => $source->budget_items,
+                'concept' => $source->concept,
+                'proposal' => null,
+                'concept_submission_method' => 'online',
+                'proposal_submission_method' => null,
+                'budget_reviewed_at' => null,
+                'budget_reviewed_by' => null,
+                'proposal_submitted_revision' => null,
+                'proposal_budget_reviewed_at' => null,
+                'proposal_budget_reviewed_by' => null,
+                'proposal_reviewed_at' => null,
+                'proposal_reviewed_by' => null,
+                'plan_locked_at' => null,
+                'revision' => 1,
+            ]);
+            $copy->update(['reference' => 'JCI-'.now()->year.'-'.str_pad((string) $copy->id, 5, '0', STR_PAD_LEFT)]);
+            ChapterService::audit('project_reused', $copy, [], 'Source project: '.($source->reference ?: '#'.$source->id));
+
+            return $copy;
+        });
+
+        return redirect()->route('projects.edit', $copy)
+            ->with('success', 'A new draft was created from the stored project. Review its dates, venue, plan, and budget before submitting it.');
+    }
+
+    public function projectDelete(Request $request, Project $project)
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+        $data = $request->validate(['reason' => 'required|string|max:2000']);
+        DB::transaction(function () use ($project, $data) {
+            $project = Project::lockForUpdate()->findOrFail($project->id);
+            abort_unless(in_array($project->status, ['Completed', 'Archived', 'Cancelled', 'Declined', 'Not Approved'], true), 403);
+            if ($project->expenseClaims()->where('status', 'Pending')->exists()) {
+                throw ValidationException::withMessages(['reason' => 'Resolve pending expense claims before removing this project.']);
+            }
+            if ($project->fundReleases()->where('status', 'Pending')->exists()) {
+                throw ValidationException::withMessages(['reason' => 'Resolve pending fund releases before removing this project.']);
+            }
+            $before = $project->toArray();
+            $project->delete();
+            ChapterService::audit('project_removed', $project, $before, $data['reason']);
+        });
+        return redirect()->route('projects.removed')->with('success', 'Project moved to Removed Projects. Its finance and audit history is preserved.');
+    }
+
+    public function projectRestore(Request $request, int $projectId)
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+        $project = DB::transaction(function () use ($projectId) {
+            $project = Project::onlyTrashed()->lockForUpdate()->findOrFail($projectId);
+            $before = $project->toArray();
+            $project->restore();
+            ChapterService::audit('project_restored', $project, $before);
+
+            return $project;
+        });
+        $route = match ($project->status) {
+            'Completed' => 'projects.completed',
+            'Archived' => 'projects.completed',
+            default => 'projects.cancelled',
+        };
+
+        return redirect()->route($route)->with('success', 'Project restored to its chapter collection.');
+    }
+
     public function show(Request $request, Project $project)
     {
         abort_unless(ChapterService::canView($project, $request->user()), 403);
-        $project->load(['owner', 'chair', 'tasks', 'allocations', 'transactions', 'expenseClaims.submitter', 'documents', 'letters', 'reports', 'events', 'reviews.user']);
+        $project->load(['owner', 'chair', 'tasks', 'allocations', 'transactions', 'expenseClaims.submitter', 'fundReleases.chair', 'fundReleases.treasurer', 'fundReleases.ledgerEntry', 'documents', 'letters', 'reports', 'events', 'reviews.user']);
         $members = User::where('status', 'active')->orderBy('name')->get();
         $assignableMembers = $members->where('role', '!=', 'admin');
         $evidencePhotoLimit = (int) (\App\Models\ChapterSetting::where('key', 'evidence_photo_limit')->value('value') ?? 8);
@@ -202,7 +411,7 @@ class ChapterController extends Controller
     public function proposalPacket(Request $request, Project $project)
     {
         abort_unless(ChapterService::canView($project, $request->user()), 403);
-        abort_unless($project->proposal, 404);
+        abort_unless($project->proposal_submission_method !== 'upload' && $project->proposal, 404);
         $project->load(['owner', 'chair', 'documents', 'reviews']);
         return view('chapter.proposal-packet', compact('project'));
     }
@@ -244,7 +453,6 @@ class ChapterController extends Controller
         $data = $request->validate([
             'action' => 'required|string', 'comments' => 'nullable|string|max:5000',
             'meeting_date' => 'required_if:action,approve,reject,defer,approve_full_proposal|nullable|date|before_or_equal:today',
-            'resolution_number' => 'required_if:action,approve,approve_full_proposal|nullable|string|max:255|unique:bod_decisions,resolution_number',
             'evidence' => 'required_if:action,approve,reject,defer,approve_full_proposal|nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
         $path = $request->hasFile('evidence') ? $request->file('evidence')->store('bod-evidence', 'local') : null;
@@ -265,6 +473,8 @@ class ChapterController extends Controller
             'q' => 'nullable|string|max:200',
             'status' => ['nullable', Rule::in(['To Do', 'In Progress', 'Blocked', 'Completed'])],
             'project' => 'nullable|integer',
+            'assignee' => 'nullable|integer|exists:users,id',
+            'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''),
         ]);
         $visibleProjects = ChapterService::visibleProjects($request->user())
             ->orderBy('title')->get(['id', 'title']);
@@ -273,13 +483,18 @@ class ChapterController extends Controller
             ->where('chair_id', $request->user()->id)
             ->with('tasks')->orderBy('title')->get();
         $managedProjects = $chairProjects->filter(fn (Project $project) => $project->canManage($request->user()));
-        $taskSetupProjects = $chairProjects->reject(fn (Project $project) => $project->canManage($request->user()));
+        $taskSetupProjects = $chairProjects->filter(fn (Project $project) => in_array($project->status, ['Approved', 'Submitted for Formal Approval'], true));
+        $selectedProject = $visibleProjects->firstWhere('id', $request->integer('project'));
         $assignableMembers = User::where('status', 'active')->where('role', '!=', 'admin')->orderBy('name')->get();
 
         $taskQuery = Task::query()->whereIn('project_id', $projectIds)
             ->when($request->boolean('mine'), fn ($q) => $q->whereJsonContains('assignees', $request->user()->id))
             ->when($request->filled('project'), fn ($q) => $q->where('project_id', $request->integer('project')))
-            ->when($request->filled('q'), fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%'));
+            ->when($request->filled('assignee'), fn ($q) => $q->whereJsonContains('assignees', $request->integer('assignee')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('deadline', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('deadline', '<=', $request->query('to')))
+            ->when($request->filled('q'), fn ($q) => $q->where(fn ($match) => $match->where('title', 'like', '%'.$request->string('q').'%')
+                ->orWhereHas('project', fn ($project) => $project->where('title', 'like', '%'.$request->string('q').'%'))));
 
         $statusCounts = (clone $taskQuery)->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')->pluck('total', 'status');
@@ -289,54 +504,85 @@ class ChapterController extends Controller
         $overdueTasks = (clone $taskQuery)->whereDate('deadline', '<', today())
             ->where('status', '!=', 'Completed')->count();
 
-        $tasks = $taskQuery->with('project.chair')
+        $tasks = $taskQuery->with(['project.chair', 'project.tasks'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->orderByRaw("CASE WHEN status = 'Completed' THEN 1 ELSE 0 END")
             ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END')
             ->orderBy('deadline')->paginate(18)->withQueryString();
         $assignedMembers = User::whereIn('id', $tasks->getCollection()
             ->flatMap(fn ($task) => $task->assignees ?? [])->unique())
-            ->get(['id', 'name', 'profile'])->keyBy('id');
+            ->get(['id', 'name', 'status', 'profile', 'updated_at'])->keyBy('id');
 
         return view('chapter.tasks', compact(
             'tasks', 'assignedMembers', 'assignableMembers', 'managedProjects', 'taskSetupProjects', 'visibleProjects', 'statusCounts',
-            'taskTotal', 'doneTasks', 'progress', 'overdueTasks'
+            'taskTotal', 'doneTasks', 'progress', 'overdueTasks', 'selectedProject'
         ));
     }
 
     public function taskSave(Request $request, Project $project, ?Task $task = null)
     {
-        if ($task) abort_unless($task->project_id === $project->id, 404);
-        $manager = $project->canManage($request->user());
-        abort_unless($manager || ($task && in_array($request->user()->id, $task->assignees ?? [], true) && in_array($project->status, ['Plan Locked', 'Ongoing'])), 403);
-        if (!$manager) abort_unless(($task->assignment_responses[$request->user()->id]['response'] ?? null) === 'accepted', 403, 'Accept this assignment before updating progress.');
-        $rules = ['status' => ['required', Rule::in(['To Do', 'In Progress', 'Blocked', 'Completed'])], 'notes' => 'nullable|string|max:10000', 'evidence' => 'nullable|string|max:10000'];
-        if ($manager) $rules += ['title' => 'required|string|max:200', 'description' => 'nullable|string|max:10000', 'assignees' => 'required|array|min:1', 'assignees.*' => ['integer', Rule::exists('users', 'id')->where('status', 'active')->where('role', '!=', 'admin')], 'priority' => ['required', Rule::in(['Low', 'Medium', 'High', 'Urgent'])], 'starts_on' => 'nullable|date', 'deadline' => 'required|date|after_or_equal:starts_on', 'milestone' => 'nullable|string|max:255', 'dependencies' => 'nullable|array', 'dependencies.*' => ['integer', Rule::exists('tasks', 'id')->where('project_id', $project->id)]];
-        $data = $request->validate($rules);
-        if ($data['status'] === 'Completed' && !trim($data['evidence'] ?? '')) throw ValidationException::withMessages(['evidence' => 'Completion evidence is required.']);
-        if ($manager) {
-            $data['assignees'] = array_map('intval', $data['assignees']);
-            $data['dependencies'] = array_map('intval', $data['dependencies'] ?? []);
-            foreach ($data['dependencies'] as $id) {
-                if ($task && $this->dependsOn($id, $task->id)) throw ValidationException::withMessages(['dependencies' => 'Task dependencies cannot contain a cycle.']);
-            }
-        }
-        if ($data['status'] === 'Completed' && Task::whereIn('id', $data['dependencies'] ?? $task?->dependencies ?? [])->where('status', '!=', 'Completed')->exists()) throw ValidationException::withMessages(['status' => 'Complete prerequisite tasks first.']);
-        DB::transaction(function () use ($task, $project, $data, $request) {
+        DB::transaction(function () use ($request, $project, $task) {
+            // Serialize task changes with project transitions and other task changes.
             $project = Project::lockForUpdate()->findOrFail($project->id);
-            abort_unless(in_array($project->status, ['Plan Locked', 'Ongoing']) && $project->plan_locked_at, 403);
             if ($task) $task = Task::lockForUpdate()->findOrFail($task->id);
-            if (!$project->canManage($request->user())) {
-                abort_unless($task && in_array($request->user()->id, $task->assignees ?? [], true) && ($task->assignment_responses[$request->user()->id]['response'] ?? null) === 'accepted', 403);
+            if ($task) abort_unless($task->project_id === $project->id, 404);
+            abort_unless($request->user()->status === 'active' && $project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing'], true), 403);
+            $manager = $project->canManage($request->user());
+            abort_unless($manager || ($task && in_array($request->user()->id, $task->assignees ?? [], true) && $project->status === 'Ongoing'), 403);
+            if (!$manager) abort_unless(($task->assignment_responses[$request->user()->id]['response'] ?? null) === 'accepted', 403, 'Accept this assignment before updating progress.');
+            $rules = ['status' => ['required', Rule::in(['To Do', 'In Progress', 'Blocked', 'Completed'])], 'notes' => 'nullable|string|max:10000', 'evidence' => 'nullable|string|max:10000'];
+            if ($manager) $rules += ['title' => 'required|string|max:200', 'description' => 'nullable|string|max:10000', 'assignees' => 'required|array|min:1', 'assignees.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where('status', 'active')->where('role', '!=', 'admin')], 'priority' => ['required', Rule::in(['Low', 'Medium', 'High', 'Urgent'])], 'starts_on' => 'nullable|date', 'deadline' => ['required', 'date', Rule::when($request->filled('starts_on'), 'after_or_equal:starts_on')], 'milestone' => 'nullable|string|max:255', 'dependencies' => 'nullable|array', 'dependencies.*' => ['integer', 'distinct', Rule::exists('tasks', 'id')->where('project_id', $project->id)]];
+            $data = $request->validate($rules);
+            if ($project->status === 'Plan Locked' && $data['status'] !== 'To Do') throw ValidationException::withMessages(['status' => 'Launch the project before recording task progress.']);
+            if ($data['status'] === 'Completed' && !trim($data['evidence'] ?? '')) throw ValidationException::withMessages(['evidence' => 'Completion evidence is required.']);
+            if ($manager) {
+                $data['assignees'] = array_map('intval', $data['assignees']);
+                $data['dependencies'] = array_map('intval', $data['dependencies'] ?? []);
+                foreach ($data['dependencies'] as $id) {
+                    if ($task && $this->dependsOn($id, $task->id)) throw ValidationException::withMessages(['dependencies' => 'Task dependencies cannot contain a cycle.']);
+                }
+            }
+            $dependencyIds = $data['dependencies'] ?? $task?->dependencies ?? [];
+            $completedDependencies = $project->tasks()->whereIn('id', $dependencyIds)->where('status', 'Completed')->count();
+            if (in_array($data['status'], ['In Progress', 'Completed'], true) && $completedDependencies !== count($dependencyIds)) throw ValidationException::withMessages(['status' => 'Complete prerequisite tasks before starting or completing this task.']);
+            if ($task?->status === 'Completed' && $data['status'] !== 'Completed'
+                && $project->tasks()->whereIn('status', ['In Progress', 'Completed'])->get()->contains(fn ($dependent) => in_array($task->id, $dependent->dependencies ?? [], true))) {
+                throw ValidationException::withMessages(['status' => 'Move dependent tasks back to To Do or Blocked before reopening this prerequisite.']);
             }
             $before = $task?->toArray() ?? [];
             $task ??= new Task(['project_id' => $project->id]);
             if (isset($data['assignees'])) $data['assignment_responses'] = array_intersect_key($task->assignment_responses ?? [], array_flip($data['assignees']));
             $task->fill($data)->save();
+            $project->touch();
             ChapterService::audit('task_saved', $task, $before);
-            ChapterService::notify(array_merge($task->assignees ?? [], [$project->chair_id]), 'Task updated: '.$task->title, $task->status, route('projects.show', $project, false).'#tasks');
+            ChapterService::notify(array_merge($task->assignees ?? [], [$project->chair_id]), 'Task updated: '.$task->title, $task->status, route('projects.show', $project, false).'#task-'.$task->id);
         });
         return back()->with('success', 'Task saved.');
+    }
+
+    public function taskComplete(Request $request, Project $project, Task $task)
+    {
+        $data = $request->validate(['evidence' => 'required|string|max:10000']);
+        if (!trim($data['evidence'])) throw ValidationException::withMessages(['evidence' => 'Describe the completed work.']);
+        DB::transaction(function () use ($request, $project, $task, $data) {
+            $project = Project::lockForUpdate()->findOrFail($project->id);
+            $task = Task::lockForUpdate()->findOrFail($task->id);
+            abort_unless($task->project_id === $project->id, 404);
+            $memberId = $request->user()->id;
+            abort_unless($request->user()->status === 'active' && $project->status === 'Ongoing' && $project->plan_locked_at
+                && $task->status !== 'Completed' && in_array($memberId, $task->assignees ?? [], true)
+                && ($task->assignment_responses[$memberId]['response'] ?? null) === 'accepted', 403);
+            $dependencyIds = $task->dependencies ?? [];
+            if ($project->tasks()->whereIn('id', $dependencyIds)->where('status', 'Completed')->count() !== count($dependencyIds)) {
+                throw ValidationException::withMessages(['evidence' => 'Complete prerequisite tasks first.']);
+            }
+            $before = $task->toArray();
+            $task->update(['status' => 'Completed', 'evidence' => trim($data['evidence'])]);
+            $project->touch();
+            ChapterService::audit('task_completed', $task, $before);
+            ChapterService::notify(array_merge($task->assignees ?? [], [$project->chair_id]), 'Task completed: '.$task->title, $request->user()->name.' completed this task.', route('projects.show', $project, false).'#task-'.$task->id);
+        });
+        return back()->with('success', 'Task marked complete.');
     }
 
     public function taskRespond(Request $request, Project $project, Task $task)
@@ -346,13 +592,14 @@ class ChapterController extends Controller
             $project = Project::lockForUpdate()->findOrFail($project->id);
             $task = Task::lockForUpdate()->findOrFail($task->id);
             abort_unless($task->project_id === $project->id, 404);
-            abort_unless(in_array($project->status, ['Plan Locked', 'Ongoing']) && in_array($request->user()->id, $task->assignees ?? [], true) && $task->status !== 'Completed', 403);
+            abort_unless($request->user()->status === 'active' && $project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing']) && in_array($request->user()->id, $task->assignees ?? [], true) && $task->status !== 'Completed', 403);
             $before = $task->toArray();
             $responses = $task->assignment_responses ?? [];
             $responses[$request->user()->id] = $data + ['at' => now()->toIso8601String()];
             $task->update(['assignment_responses' => $responses]);
+            $project->touch();
             ChapterService::audit('task_assignment_'.$data['response'], $task, $before, $data['note'] ?? null);
-            ChapterService::notify([$project->chair_id], 'Task assignment '.$data['response'], $request->user()->name.': '.$task->title, route('projects.show', $project, false).'#tasks');
+            ChapterService::notify([$project->chair_id], 'Task assignment '.$data['response'], $request->user()->name.': '.$task->title, route('projects.show', $project, false).'#task-'.$task->id);
         });
         return back()->with('success', 'Assignment response recorded.');
     }
@@ -604,7 +851,7 @@ class ChapterController extends Controller
 
     public function documents(Request $request)
     {
-        $request->validate(['q' => 'nullable|string|max:200', 'type' => 'nullable|in:all,evidence,attendance,evaluation,documents']);
+        $request->validate(['q' => 'nullable|string|max:200', 'type' => 'nullable|in:all,evidence,attendance,evaluation,documents', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
 
         $documents = ProjectDocument::query()
             ->with('project')
@@ -615,6 +862,8 @@ class ChapterController extends Controller
             ->when($request->query('type') === 'evidence', fn ($query) => $query->whereIn('submission_stage', ['attendance', 'evaluation']))
             ->when(in_array($request->query('type'), ['attendance', 'evaluation'], true), fn ($query) => $query->where('submission_stage', $request->query('type')))
             ->when($request->query('type') === 'documents', fn ($query) => $query->where(fn ($query) => $query->whereNull('submission_stage')->orWhereNotIn('submission_stage', ['attendance', 'evaluation'])))
+            ->when($request->filled('from'), fn ($query) => $query->whereDate('created_at', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($query) => $query->whereDate('created_at', '<=', $request->query('to')))
             ->when($request->filled('q'), fn ($query) => $query->where(fn ($query) => $query
                 ->where('title', 'like', '%'.$request->string('q').'%')
                 ->orWhere('category', 'like', '%'.$request->string('q').'%')
@@ -643,31 +892,43 @@ class ChapterController extends Controller
 
     public function readNotifications(Request $request)
     {
-        $count = Notification::where('user_id', $request->user()->id)->where('requires_open', false)->whereNull('read_at')->update(['read_at' => now()]);
-        return back()->with('success', $count.' routine '.($count === 1 ? 'notification' : 'notifications').' marked as read. Important updates stay unread until opened.');
+        $count = Notification::where('user_id', $request->user()->id)->whereNull('read_at')->update(['read_at' => now()]);
+        return back()->with('success', $count.' '.($count === 1 ? 'notification' : 'notifications').' marked as read.');
     }
 
     public function openNotification(Request $request, Notification $notification)
     {
         abort_unless($notification->user_id === $request->user()->id, 403);
         if (!$notification->read_at) $notification->update(['read_at' => now()]);
-        $url = $notification->url;
-        return is_string($url) && str_starts_with($url, '/') && !str_starts_with($url, '//')
-            ? redirect()->to($url)
+        return $notification->hasDestination()
+            ? redirect()->to($notification->url)
             : redirect()->route('notifications');
+    }
+
+    public function deleteNotification(Request $request, Notification $notification)
+    {
+        abort_unless($notification->user_id === $request->user()->id, 403);
+        $notification->delete();
+
+        return back()->with('success', 'Notification removed.');
     }
 
     public function audit(Request $request)
     {
         abort_unless(Permissions::allows($request->user(), Permissions::AUDIT_VIEW), 403);
-        $filters = $request->validate(['action' => 'nullable|string|max:100', 'q' => 'nullable|string|max:100']);
+        $filters = $request->validate(['action' => 'nullable|string|max:100', 'actor' => 'nullable|integer|exists:users,id', 'q' => 'nullable|string|max:100', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $action = $filters['action'] ?? null;
         $search = trim($filters['q'] ?? '');
+        $actor = $filters['actor'] ?? null;
         $actions = AuditLog::query()->distinct()->orderBy('action')->pluck('action');
+        $actors = User::whereIn('id', AuditLog::query()->whereNotNull('user_id')->distinct()->pluck('user_id'))->orderBy('name')->get(['id', 'name']);
         $records = AuditLog::with('actor')->when($action, fn ($q) => $q->where('action', $action))
+            ->when($actor, fn ($q) => $q->where('user_id', $actor))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
             ->when($search !== '', fn ($q) => $q->where(fn ($match) => $match->where('action', 'like', '%'.$search.'%')->orWhere('object_type', 'like', '%'.$search.'%')->orWhere('remarks', 'like', '%'.$search.'%')->orWhereHas('actor', fn ($actor) => $actor->where('name', 'like', '%'.$search.'%'))))
             ->latest()->paginate(25)->withQueryString();
-        return view('chapter.activity-log', compact('records', 'actions', 'action', 'search'));
+        return view('chapter.activity-log', compact('records', 'actions', 'actors', 'action', 'actor', 'search'));
     }
 
 }
