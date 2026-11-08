@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Project extends ChapterRecord
 {
     use SoftDeletes;
-    protected $casts = ['concept' => 'array', 'proposal' => 'array', 'budget_items' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'plan_locked_at' => 'datetime', 'budget_reviewed_at' => 'datetime', 'proposal_budget_reviewed_at' => 'datetime', 'proposal_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
+    protected $casts = ['concept' => 'array', 'proposal' => 'array', 'budget_items' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'completed_at' => 'datetime', 'archived_at' => 'datetime', 'plan_locked_at' => 'datetime', 'budget_reviewed_at' => 'datetime', 'proposal_budget_reviewed_at' => 'datetime', 'proposal_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
     public const APPROVED = ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed', 'Archived'];
     public static function toneForStatus(string $status): string
     {
@@ -55,7 +55,7 @@ class Project extends ChapterRecord
     }
     public function decisions() { return $this->hasMany(BodDecision::class); }
     public function canCancel(User $user): bool {
-        return !$this->trashed() && $this->status !== 'Cancelled' && $user->status === 'active'
+        return !$this->trashed() && !$this->archived_at && !in_array($this->status, ['Completed', 'Archived', 'Cancelled', 'Declined', 'Not Approved'], true) && $user->status === 'active'
             && ($user->role === 'admin' || ($this->chair_id === $user->id && $this->decisions()->where('decision', 'approved')->exists()));
     }
     public function isChair(User $user): bool { return $user->status === 'active' && $this->chair_id === $user->id && in_array($this->status, self::APPROVED, true) && $this->decisions()->where('decision', 'approved')->exists(); }

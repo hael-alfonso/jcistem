@@ -115,7 +115,7 @@ class ProjectTaskWorkflowTest extends TestCase
         [$project, $chair, $member] = $this->workspace();
         $this->actingAs($chair)->get('/tasks?project='.$project->id.'&mine=0')->assertOk()
             ->assertSee('Open project workspace')->assertSee('data-task-dialog-open="task-create-'.$project->id.'"', false);
-        $project->update(['status' => 'Archived']);
+        $project->update(['status' => 'Completed', 'completed_at' => now()->subDays(8), 'archived_at' => now()]);
         $this->get('/tasks?mine=0')->assertOk()->assertDontSee('Task creation is not open yet');
         $this->get('/projects/'.$project->id)->assertOk()->assertDontSee('resolution_number', false)->assertSee('Open task board');
     }
@@ -142,13 +142,14 @@ class ProjectTaskWorkflowTest extends TestCase
         $this->assertSame('Completed', $chairTask->fresh()->status);
     }
 
-    public function test_chair_can_cancel_an_archived_project_and_admin_can_remove_and_restore_it(): void
+    public function test_chair_can_cancel_an_ongoing_project_and_admin_can_remove_and_restore_it(): void
     {
-        [$project, $chair, $member] = $this->workspace('Archived');
+        [$project, $chair, $member] = $this->workspace('Ongoing');
         $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', [
             'action' => 'cancel', 'comments' => 'Partner withdrew after closeout.',
         ])->assertSessionHasNoErrors();
         $this->assertSame('Cancelled', $project->fresh()->status);
+        $this->assertNotNull($project->fresh()->archived_at);
         $this->actingAs($member)->delete('/projects/'.$project->id, ['reason' => 'No access'])->assertForbidden();
 
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);

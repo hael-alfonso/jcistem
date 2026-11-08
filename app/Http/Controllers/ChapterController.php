@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{Project, Task, User, CalendarEvent, ProjectDocument, Notification, AuditLog, MemberDue, ProjectReport, LedgerEntry, ExpenseClaim, ProjectFundRelease, BodDecision, RegistrationRequest};
 use Carbon\CarbonImmutable;
-use App\Services\{ChapterService, OfficePreviewService, ProjectWordDocumentService};
+use App\Services\{ChapterService, OfficePreviewService, ProjectArchiveService, ProjectWordDocumentService};
 use App\Support\{ChapterCharts, ChapterFunds, ChapterForms, Money, Permissions, ProjectBudget, ProjectReviewQueue};
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -14,6 +14,7 @@ class ChapterController extends Controller
 {
     public function dashboard(Request $request)
     {
+        ProjectArchiveService::archiveDue();
         $projects = ChapterService::visibleProjects($request->user())->with('chair')->latest()->get();
         $assignedTasks = Task::with('project.tasks')->whereIn('project_id', $projects->pluck('id'))
             ->whereJsonContains('assignees', $request->user()->id)
@@ -64,8 +65,8 @@ class ChapterController extends Controller
     {
         $legacyFolderRoutes = [
             'completed' => 'projects.completed',
-            'Archived' => 'projects.completed',
-            'archived' => 'projects.completed',
+            'Archived' => 'projects.archived',
+            'archived' => 'projects.archived',
             'cancelled' => 'projects.cancelled',
             'closed' => 'projects.cancelled',
             'removed' => 'projects.removed',
@@ -79,7 +80,7 @@ class ChapterController extends Controller
 
     public function completedProjects(Request $request)
     {
-        return $this->projectCollection($request, 'library');
+        return $this->projectCollection($request, 'completed');
     }
 
     public function legacyCompletedProjects(Request $request)
@@ -89,7 +90,7 @@ class ChapterController extends Controller
 
     public function archivedProjects(Request $request)
     {
-        return redirect()->to(str_replace('/projects/archived', '/projects/library', $request->fullUrl()));
+        return $this->projectCollection($request, 'archived');
     }
 
     public function cancelledProjects(Request $request)
@@ -106,6 +107,7 @@ class ChapterController extends Controller
 
     private function projectCollection(Request $request, string $folder)
     {
+        ProjectArchiveService::archiveDue();
         $request->validate([
             'q' => 'nullable|string|max:200',
             'filter' => 'nullable|string|max:80',
@@ -113,14 +115,15 @@ class ChapterController extends Controller
             'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''),
             'sort' => 'nullable|in:newest,oldest,title',
         ]);
-        abort_unless(in_array($folder, ['active', 'library', 'cancelled', 'removed'], true), 404);
+        abort_unless(in_array($folder, ['active', 'completed', 'archived', 'cancelled', 'removed'], true), 404);
         abort_if($folder === 'removed' && $request->user()->role !== 'admin', 403);
 
         $folderQuery = ChapterService::visibleProjects($request->user());
         $projectFolderCounts = [
             'active' => (clone $folderQuery)->whereNotIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved', 'Cancelled'])->count(),
-            'library' => (clone $folderQuery)->whereIn('status', ['Completed', 'Archived'])->count(),
-            'cancelled' => (clone $folderQuery)->whereIn('status', ['Declined', 'Not Approved', 'Cancelled'])->count(),
+            'completed' => (clone $folderQuery)->where('status', 'Completed')->whereNull('archived_at')->count(),
+            'archived' => (clone $folderQuery)->where('status', 'Completed')->whereNotNull('archived_at')->count(),
+            'cancelled' => (clone $folderQuery)->whereIn('status', ['Declined', 'Not Approved', 'Cancelled'])->whereNotNull('archived_at')->count(),
         ];
         if ($request->user()->role === 'admin') {
             $projectFolderCounts['removed'] = (clone $folderQuery)->onlyTrashed()->count();
@@ -131,8 +134,9 @@ class ChapterController extends Controller
             ->withSum('allocations as allocated_amount', 'amount');
         match ($folder) {
             'active' => $query->whereNotIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved', 'Cancelled']),
-            'library' => $query->whereIn('status', ['Completed', 'Archived']),
-            'cancelled' => $query->whereIn('status', ['Declined', 'Not Approved', 'Cancelled']),
+            'completed' => $query->where('status', 'Completed')->whereNull('archived_at'),
+            'archived' => $query->where('status', 'Completed')->whereNotNull('archived_at'),
+            'cancelled' => $query->whereIn('status', ['Declined', 'Not Approved', 'Cancelled'])->whereNotNull('archived_at'),
             'removed' => $query->onlyTrashed(),
         };
         if ($request->filled('q')) $query->where(fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%')
@@ -164,22 +168,25 @@ class ChapterController extends Controller
         $projectFolder = [
             'key' => $folder,
             'route' => match ($folder) {
-                'library' => 'projects.completed',
+                'completed' => 'projects.completed',
+                'archived' => 'projects.archived',
                 'cancelled' => 'projects.cancelled',
                 'removed' => 'projects.removed',
                 default => 'projects',
             },
             'title' => match ($folder) {
-                'library' => 'Project Library',
-                'cancelled' => 'Cancelled Projects',
-                'removed' => 'Removed Projects',
+                'completed' => 'Completed Projects',
+                'archived' => 'Archive · Completed',
+                'cancelled' => 'Archive · Cancelled & Closed',
+                'removed' => 'Deleted Projects',
                 default => $request->filter === 'review' ? 'Project Review Queue' : ($request->filter === 'mine' ? 'My Current Projects' : 'Current Projects'),
             },
             'eyebrow' => $request->filter === 'review' ? 'REVIEW WORKFLOW' : ($folder === 'active' ? 'PROJECT WORK' : 'PROJECT LIBRARY'),
             'description' => match ($folder) {
-                'library' => 'Completed and archived chapter projects available for reference and future reuse.',
-                'cancelled' => 'Cancelled, declined, and not approved project records kept for chapter history.',
-                'removed' => 'Admin-only storage for closed projects removed from the chapter collections.',
+                'completed' => 'Finished projects remain here for seven days before moving to the archive. Admin can archive them sooner.',
+                'archived' => 'Stored completed projects keep their Completed status and remain available for reference and reuse.',
+                'cancelled' => 'Cancelled, declined, and not approved records are stored separately from completed projects.',
+                'removed' => 'Admin-only deleted-project folder. Records can be restored without losing finance or audit history.',
                 default => $request->filter === 'review'
                     ? match ($request->user()->role) { 'admin' => 'Review concepts, record signed Board decisions, and follow submitted completion reports.', 'treasurer' => 'Verify independent concept and proposal budgets, then review submitted liquidations.', default => 'Open projects ready for Board deliberation and recorded decisions.' }
                     : 'Find current concepts, reviews, approved plans, and ongoing project work.',
@@ -364,7 +371,7 @@ class ChapterController extends Controller
         $data = $request->validate(['reason' => 'required|string|max:2000']);
         DB::transaction(function () use ($project, $data) {
             $project = Project::lockForUpdate()->findOrFail($project->id);
-            abort_unless(in_array($project->status, ['Completed', 'Archived', 'Cancelled', 'Declined', 'Not Approved'], true), 403);
+            abort_unless($project->archived_at && in_array($project->status, ['Completed', 'Cancelled', 'Declined', 'Not Approved'], true), 403);
             if ($project->expenseClaims()->where('status', 'Pending')->exists()) {
                 throw ValidationException::withMessages(['reason' => 'Resolve pending expense claims before removing this project.']);
             }
@@ -375,7 +382,21 @@ class ChapterController extends Controller
             $project->delete();
             ChapterService::audit('project_removed', $project, $before, $data['reason']);
         });
-        return redirect()->route('projects.removed')->with('success', 'Project moved to Removed Projects. Its finance and audit history is preserved.');
+        return redirect()->route('projects.removed')->with('success', 'Project moved to Deleted Projects. Its finance and audit history is preserved.');
+    }
+
+    public function projectArchive(Request $request, Project $project)
+    {
+        abort_unless($request->user()->role === 'admin', 403);
+        DB::transaction(function () use ($project): void {
+            $project = Project::lockForUpdate()->findOrFail($project->id);
+            abort_unless($project->status === 'Completed' && !$project->archived_at, 403);
+            $before = $project->toArray();
+            $project->update(['archived_at' => now()]);
+            ChapterService::audit('project_archived_by_admin', $project, $before, 'Admin archived the completed project before the automatic seven-day move.');
+        });
+
+        return redirect()->route('projects.archived')->with('success', 'Completed project moved to the archive. Its status remains Completed.');
     }
 
     public function projectRestore(Request $request, int $projectId)
@@ -389,11 +410,9 @@ class ChapterController extends Controller
 
             return $project;
         });
-        $route = match ($project->status) {
-            'Completed' => 'projects.completed',
-            'Archived' => 'projects.completed',
-            default => 'projects.cancelled',
-        };
+        $route = $project->status === 'Completed'
+            ? ($project->archived_at ? 'projects.archived' : 'projects.completed')
+            : 'projects.cancelled';
 
         return redirect()->route($route)->with('success', 'Project restored to its chapter collection.');
     }
@@ -705,7 +724,7 @@ class ChapterController extends Controller
     public function uploadPartnership(Request $request, Project $project)
     {
         $user = $request->user();
-        abort_unless($user->status === 'active' && ($user->role === 'admin' || $project->created_by === $user->id || $project->isChair($user)), 403);
+        abort_unless($user->status === 'active' && !$project->archived_at && ($user->role === 'admin' || $project->created_by === $user->id || $project->isChair($user)), 403);
         $data = $request->validate([
             'title' => 'required|string|max:200',
             'file' => 'required|file|mimes:pdf,doc,docx|max:10240',
@@ -738,7 +757,7 @@ class ChapterController extends Controller
 
     public function storeEvidence(Request $request, Project $project)
     {
-        abort_unless($project->isChair($request->user()) && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed'], true), 403);
+        abort_unless(!$project->archived_at && $project->isChair($request->user()) && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed'], true), 403);
 
         $evidenceLimit = (int) (\App\Models\ChapterSetting::where('key', 'evidence_photo_limit')->value('value') ?? 8);
         $data = $request->validate([

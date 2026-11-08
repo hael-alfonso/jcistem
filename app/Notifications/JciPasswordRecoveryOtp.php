@@ -5,6 +5,8 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
 
 class JciPasswordRecoveryOtp extends Notification
 {
@@ -23,10 +25,19 @@ class JciPasswordRecoveryOtp extends Notification
     {
         return (new MailMessage)
             ->subject('Your JCISTEM password recovery code')
-            ->greeting('Hello, '.$notifiable->name)
-            ->line('Use this code to continue recovering your JCI Carmona chapter workspace account:')
-            ->line($this->code)
-            ->line('This code expires in 10 minutes. You can use it only once.')
-            ->line('If you did not request this code, you can ignore this email.');
+            ->view([
+                'html' => 'emails.password-recovery-otp',
+                'text' => 'emails.password-recovery-otp-text',
+            ], [
+                'name' => $notifiable->name,
+                'code' => $this->code,
+            ])
+            ->withSymfonyMessage(function (Email $message): void {
+                $message->addPart(
+                    DataPart::fromPath(public_path('assets/images/brand/logo.png'), 'jcistem-logo.png', 'image/png')
+                        ->asInline()
+                        ->setContentId('jcistem-logo@jcistem.local')
+                );
+            });
     }
 }

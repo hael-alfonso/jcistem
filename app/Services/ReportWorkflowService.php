@@ -7,7 +7,7 @@ use App\Models\Project;
 class ReportWorkflowService
 {
     // Caller holds the project lock; a returned report never resets the other approval.
-    public static function archiveIfReady(Project $project): void
+    public static function completeIfReady(Project $project): void
     {
         if ($project->status !== 'Completion Review' || $project->tasks()->where('status', '!=', 'Completed')->exists()) return;
         foreach (['Completion' => 'admin', 'Liquidation' => 'treasurer'] as $type => $role) {
@@ -16,8 +16,8 @@ class ReportWorkflowService
             if (!\App\Models\User::whereKey($report->reviewed_by)->where('role', $role)->exists()) return;
         }
         $before = $project->toArray();
-        $project->update(['status' => 'Archived']);
-        ChapterService::audit('project_archived', $project, $before, 'Independent completion and liquidation approvals recorded.');
-        ChapterService::notify([$project->created_by, $project->chair_id], 'Project archived', $project->title, route('projects.show', $project, false));
+        $project->update(['status' => 'Completed', 'completed_at' => now()]);
+        ChapterService::audit('project_completed', $project, $before, 'Independent completion and liquidation approvals recorded.');
+        ChapterService::notify([$project->created_by, $project->chair_id], 'Project completed', $project->title, route('projects.show', $project, false));
     }
 }

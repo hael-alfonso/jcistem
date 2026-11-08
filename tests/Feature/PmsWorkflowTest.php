@@ -111,9 +111,11 @@ class PmsWorkflowTest extends TestCase
         $this->assertSame('Reviewed', $reports['Completion']->fresh()->status);
         $this->actingAs($chair)->post($liq, ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($liq, ['action' => 'approve', 'comments' => 'Reconciled'])->assertSessionHasNoErrors();
-        $this->assertSame('Archived', $project->fresh()->status);
+        $this->assertSame('Completed', $project->fresh()->status);
+        $this->assertNotNull($project->fresh()->completed_at);
+        $this->assertNull($project->fresh()->archived_at);
         $this->actingAs($chair)->post($pcr, ['action' => 'revise'])->assertForbidden();
-        $this->assertDatabaseHas('audit_logs', ['action' => 'project_archived', 'object_id' => $project->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'project_completed', 'object_id' => $project->id]);
     }
 
     public function test_chair_transactions_are_project_scoped_and_details_are_private(): void
@@ -318,7 +320,7 @@ class PmsWorkflowTest extends TestCase
         $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $lineId, 'amount' => '5000.01', 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Before full-proposal approval'])->assertStatus(422);
         $project->update(['proposal_reviewed_at' => now()]);
         $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $lineId, 'amount' => '5000.01', 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Over budget'])->assertSessionHasErrors('amount');
-        $project->update(['status' => 'Archived']);
+        $project->update(['status' => 'Completed', 'completed_at' => now()->subDays(8), 'archived_at' => now()]);
         $entry = LedgerEntry::create(['project_id' => $project->id, 'reference' => 'CLOSED', 'amount' => '10.00', 'status' => 'Posted', 'direction' => 'debit']);
         $this->post('/ledger/'.$entry->id, ['action' => 'void', 'remarks' => 'After closure'])->assertForbidden();
         $this->assertSame('Posted', $entry->fresh()->status);

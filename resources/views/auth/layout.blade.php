@@ -15,7 +15,7 @@
     <script defer src="{{ asset('assets/js/auth-transition.js') }}?v={{ filemtime(public_path('assets/js/auth-transition.js')) }}"></script>
     <script defer src="{{ asset('assets/js/auth.js') }}?v={{ filemtime(public_path('assets/js/auth.js')) }}"></script>
 </head>
-<body class="auth-page {{ request()->routeIs('register', 'scoped.register') ? 'auth-page-registration' : '' }} {{ request()->routeIs('login', 'scoped.login', 'password.request') ? 'auth-page-compact' : '' }}">
+<body class="auth-page {{ request()->routeIs('register', 'scoped.register') ? 'auth-page-registration' : '' }} {{ request()->routeIs('login', 'scoped.login') ? 'auth-page-compact' : '' }} {{ request()->routeIs('password.request', 'password.email', 'password.otp', 'password.otp.verify', 'password.otp.send', 'password.recovery.reset', 'password.recovery.update') ? 'auth-page-recovery' : '' }}">
     @php($landingUrl = url('/'))
     <a class="skip-link" href="#signin-main">Skip to form</a>
     <div class="auth-frame"><header class="auth-header shell">

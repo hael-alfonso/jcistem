@@ -36,7 +36,7 @@
             <x-dashboard-stat :label="$role === 'bod' ? 'Board agenda' : 'Awaiting review'" :value="$pending->count()" :note="$role === 'bod' ? 'Projects awaiting Board deliberation' : 'Requests matching your review role'" icon="fileSignature" tone="reviews" href="#dashboard-reviews"/>
         @endif
         @if($role === 'admin')
-            <x-dashboard-stat label="Completed projects" :value="$dashboardProjects->whereIn('status', ['Completed', 'Archived'])->count()" note="Completed and archived projects" icon="check" tone="balance" :href="route('projects.completed')"/>
+            <x-dashboard-stat label="Completed projects" :value="$dashboardProjects->where('status', 'Completed')->whereNull('archived_at')->count()" note="Awaiting archive" icon="check" tone="balance" :href="route('projects.completed')"/>
             <x-dashboard-stat label="Chapter funds available" :value="'PHP '.number_format((float) $chapterFunds, 2)" note="Posted income minus posted expenses" icon="wallet" :tone="(float) $chapterFunds < 0 ? 'expenses' : 'balance'" :money="true" :href="route('finance')"/>
         @else
             <x-dashboard-stat label="Chapter funds available" :value="'PHP '.number_format((float) $chapterFunds, 2)" note="Posted income minus posted expenses" icon="wallet" :tone="(float) $chapterFunds < 0 ? 'expenses' : 'balance'" :money="true" :href="route('finance')"/>

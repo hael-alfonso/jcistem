@@ -32,6 +32,7 @@ class ProposalWorkflowService
                         ChapterService::audit('fund_release_cancelled', $release, $releaseBefore, $comments);
                     }
                     $project->status = 'Cancelled';
+                    $project->archived_at = now();
                     break;
                 case 'restart_review':
                     abort_unless(($admin || $owner) && !$project->decisions()->exists()
@@ -86,6 +87,7 @@ class ProposalWorkflowService
                         'decision' => ['approve' => 'approved', 'reject' => 'rejected', 'defer' => 'deferred'][$action],
                     ]);
                     $project->status = ['approve' => 'Approved', 'reject' => 'Not Approved', 'defer' => 'BOD Agenda'][$action];
+                    if ($action === 'reject') $project->archived_at = now();
                     if ($action === 'approve') {
                         $project->chair_id = $project->created_by;
                         $project->plan_locked_at = null;
@@ -152,7 +154,7 @@ class ProposalWorkflowService
                     }
                     $project->status = 'Completion Review';
                     break;
-                // Closed projects are archived automatically after independent report approvals.
+                // Independent report approvals complete the project; archiving is separate.
                 default:
                     abort(422, 'This transition is not part of the current workflow.');
             }

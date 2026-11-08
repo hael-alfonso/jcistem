@@ -548,9 +548,9 @@ class NavigationAndSubmissionTest extends TestCase
         $this->assertTrue(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));
         $page->assertSee('Account menu')->assertSee('account-dropdown')->assertDontSee('tracker-steps');
 
-        $this->get(route('projects.archived'))->assertRedirect(route('projects.completed'));
+        $this->get(route('projects.archived'))->assertOk()->assertSee('Archive · Completed');
         $this->get(route('projects.completed'))->assertOk()
-            ->assertSee('Project Library')->assertSee('aria-current="page"', false);
+            ->assertSee('Completed Projects')->assertSee('aria-current="page"', false);
         $this->assertTrue(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));
         $this->assertFalse(PmsNavigation::active(['projects', 'My Projects', 'user', ['filter' => 'mine']]));
 

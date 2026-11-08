@@ -17,17 +17,17 @@ class ProjectLibraryTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $current = Project::create(['created_by' => $viewer->id, 'title' => 'Current chapter work', 'status' => 'Draft Concept']);
         $completed = Project::create(['created_by' => $owner->id, 'title' => 'Reusable completed project', 'status' => 'Completed', 'concept_submission_method' => 'upload', 'concept' => ['objective' => 'Stale online objective']]);
-        $archived = Project::create(['created_by' => $owner->id, 'title' => 'Reusable archived project', 'status' => 'Archived']);
-        $cancelled = Project::create(['created_by' => $viewer->id, 'title' => 'Cancelled chapter project', 'status' => 'Cancelled']);
+        $archived = Project::create(['created_by' => $owner->id, 'title' => 'Reusable archived project', 'status' => 'Completed', 'completed_at' => now()->subDays(8), 'archived_at' => now()]);
+        $cancelled = Project::create(['created_by' => $viewer->id, 'title' => 'Cancelled chapter project', 'status' => 'Cancelled', 'archived_at' => now()]);
 
         $this->actingAs($viewer)->get(route('projects'))->assertOk()
             ->assertSee($current->title)->assertDontSee($completed->title)->assertDontSee($archived->title)->assertDontSee($cancelled->title)
-            ->assertSee(route('projects.completed'), false)->assertDontSee(route('projects.archived'), false);
+            ->assertSee(route('projects.completed'), false)->assertSee(route('projects.archived'), false);
         $this->get(route('projects.completed'))->assertOk()
-            ->assertSee($completed->title)->assertSee($archived->title)->assertDontSee($current->title)
-            ->assertSee('Chapter project library')->assertDontSee('?filter=completed', false)
+            ->assertSee($completed->title)->assertDontSee($archived->title)->assertDontSee($current->title)
+            ->assertSee('Chapter project records')->assertDontSee('?filter=completed', false)
             ->assertDontSee('Stale online objective');
-        $this->get(route('projects.archived'))->assertRedirect(route('projects.completed'));
+        $this->get(route('projects.archived'))->assertOk()->assertSee($archived->title)->assertDontSee($completed->title);
         $this->get(route('projects.cancelled'))->assertOk()->assertSee($cancelled->title)->assertDontSee($completed->title);
         $this->get(route('projects.show', $completed))->assertOk()->assertSee($completed->title);
         $this->get(route('projects.show', $archived))->assertOk()->assertSee($archived->title);

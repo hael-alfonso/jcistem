@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('chapter:backup')->dailyAt('02:00')->withoutOverlapping();
 Schedule::command('pms:reminders')->timezone('Asia/Manila')->dailyAt('08:00')->withoutOverlapping();
 Schedule::command('members:remove-inactive')->timezone('Asia/Manila')->dailyAt('02:30')->withoutOverlapping();
+Schedule::command('projects:archive-completed')->timezone('Asia/Manila')->dailyAt('02:45')->withoutOverlapping();

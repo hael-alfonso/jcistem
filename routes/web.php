@@ -48,6 +48,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/projects/archived', [ChapterController::class, 'archivedProjects'])->name('projects.archived');
     Route::get('/projects/cancelled', [ChapterController::class, 'cancelledProjects'])->name('projects.cancelled');
     Route::get('/projects/removed', [ChapterController::class, 'removedProjects'])->name('projects.removed');
+    Route::post('/projects/{project}/archive', [ChapterController::class, 'projectArchive'])->whereNumber('project')->name('projects.archive');
     Route::get('/projects/create', [ChapterController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ChapterController::class, 'save'])->name('projects.store');
     Route::post('/projects/{project}/reuse', [ChapterController::class, 'projectReuse'])->whereNumber('project')->name('projects.reuse');

@@ -9,10 +9,10 @@ use App\Support\{ChapterForms, Permissions};
 
 class ChapterService
 {
-    public static function audit(string $action, Model $record, array $before = [], ?string $remarks = null): void
+    public static function audit(string $action, Model $record, array $before = [], ?string $remarks = null, bool $system = false): void
     {
         AuditLog::create([
-            'user_id' => auth()->id(), 'action' => $action,
+            'user_id' => $system ? null : auth()->id(), 'action' => $action,
             'object_type' => class_basename($record), 'object_id' => $record->getKey(),
             'before' => self::redact($before), 'after' => self::redact($record->toArray()), 'remarks' => $remarks,
         ]);

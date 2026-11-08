@@ -252,7 +252,7 @@ class RecordController extends Controller
             }
             if ($kind === 'reports' && in_array($action, ['submit', 'revise'])) { $record->reviewed_by = null; $record->reviewed_at = null; }
             $record->save();
-            if ($kind === 'reports' && $record->project_id) \App\Services\ReportWorkflowService::archiveIfReady($record->project);
+            if ($kind === 'reports' && $record->project_id) \App\Services\ReportWorkflowService::completeIfReady($record->project);
             ChapterService::audit('document_'.$action, $record, $before, $data['comments'] ?? null);
         });
         return back()->with('success', 'Document status updated.');

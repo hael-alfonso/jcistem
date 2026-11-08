@@ -93,16 +93,16 @@ class PublicEntryTest extends TestCase
         Notification::fake();
         $user = User::factory()->create(['status' => 'active', 'role' => 'member']);
         $cookies = [];
-        $this->browse('GET', self::WORKSPACE.'/forgot-password', $cookies)->assertOk()->assertSee('Step 1 of 3');
+        $this->browse('GET', self::WORKSPACE.'/forgot-password', $cookies)->assertOk()->assertSee('01 / 03');
         $this->browse('POST', self::WORKSPACE.'/forgot-password', $cookies, ['email' => $user->email])
             ->assertRedirect(self::WORKSPACE.'/forgot-password/verify');
         Notification::assertSentTo($user, JciPasswordRecoveryOtp::class);
         $notification = Notification::sent($user, JciPasswordRecoveryOtp::class)->first();
-        $code = $notification->toMail($user)->introLines[1];
-        $this->browse('GET', self::WORKSPACE.'/forgot-password/verify', $cookies)->assertOk()->assertSee('Step 2 of 3');
+        $code = $notification->toMail($user)->viewData['code'];
+        $this->browse('GET', self::WORKSPACE.'/forgot-password/verify', $cookies)->assertOk()->assertSee('02 / 03');
         $this->browse('POST', self::WORKSPACE.'/forgot-password/verify', $cookies, ['code' => $code])
             ->assertRedirect(self::WORKSPACE.'/forgot-password/reset');
-        $this->browse('GET', self::WORKSPACE.'/forgot-password/reset', $cookies)->assertOk()->assertSee('Step 3 of 3');
+        $this->browse('GET', self::WORKSPACE.'/forgot-password/reset', $cookies)->assertOk()->assertSee('03 / 03');
         $this->browse('POST', self::WORKSPACE.'/forgot-password/reset', $cookies, [
             'password' => 'NewChapterPass123', 'password_confirmation' => 'NewChapterPass123',
         ])->assertRedirect(self::WORKSPACE.'/login');

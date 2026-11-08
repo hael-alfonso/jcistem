@@ -53,7 +53,7 @@ class AgreementController extends Controller
             'terms.data_handling' => 'nullable|string|max:5000', 'terms.changes_and_termination' => 'required|string|max:5000',
         ]);
         $project = Project::findOrFail($data['project_id']);
-        abort_unless($project->status !== 'Archived' && ($project->isChair($request->user()) || ($request->user()->role === 'admin' && in_array($project->status, Project::APPROVED))), 403);
+        abort_unless(!$project->archived_at && !in_array($project->status, ['Archived', 'Completed', 'Cancelled'], true) && ($project->isChair($request->user()) || ($request->user()->role === 'admin' && in_array($project->status, Project::APPROVED))), 403);
         if ($agreement) abort_unless($agreement->project_id === $project->id, 403);
         DB::transaction(function () use (&$agreement, $data, $partner, $request) {
             $agreement ??= new PartnershipAgreement(['partner_id' => $partner->id, 'created_by' => $request->user()->id]);

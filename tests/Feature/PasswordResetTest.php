@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Symfony\Component\Mime\Email;
 use Tests\TestCase;
 
 class PasswordResetTest extends TestCase
@@ -37,9 +38,22 @@ class PasswordResetTest extends TestCase
             ->assertRedirect($workspace.'/forgot-password/verify');
         Notification::assertSentTo($user, JciPasswordRecoveryOtp::class);
         $notification = Notification::sent($user, JciPasswordRecoveryOtp::class)->first();
-        $code = $notification->toMail($user)->introLines[1];
+        $mail = $notification->toMail($user);
+        $code = $mail->viewData['code'];
+        $this->assertSame('emails.password-recovery-otp', $mail->view['html']);
+        $this->assertSame('emails.password-recovery-otp-text', $mail->view['text']);
+        $this->assertSame(6, strlen($code));
+        $emailHtml = view($mail->view['html'], $mail->viewData)->render();
+        $this->assertStringContainsString('cid:jcistem-logo@jcistem.local', $emailHtml);
+        $this->assertSame(6, substr_count($emailHtml, 'class="code-tile"'));
+        preg_match_all('/class="code-tile"[^>]*>([0-9])<\/div>/', $emailHtml, $tileMatches);
+        $this->assertSame($code, implode('', $tileMatches[1]));
+        $symfonyMessage = new Email();
+        foreach ($mail->callbacks as $callback) $callback($symfonyMessage);
+        $this->assertSame('jcistem-logo@jcistem.local', $symfonyMessage->getAttachments()[0]->getContentId());
+        $this->assertSame('inline', $symfonyMessage->getAttachments()[0]->getDisposition());
 
-        $this->browse('GET', $workspace.'/forgot-password/verify', $cookies)->assertOk();
+        $this->browse('GET', $workspace.'/forgot-password/verify', $cookies)->assertOk()->assertSee('data-otp-cells');
         $this->browse('POST', $workspace.'/forgot-password/verify', $cookies, ['code' => '000000'])
             ->assertSessionHasErrors('code');
         $this->browse('POST', $workspace.'/forgot-password/verify', $cookies, ['code' => $code])

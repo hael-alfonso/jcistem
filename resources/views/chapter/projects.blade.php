@@ -12,12 +12,13 @@
 </div>
 <nav class="project-folder-nav" aria-label="Project folders">
     <a href="{{ route('projects') }}" @if(request()->routeIs('projects')) aria-current="page" @endif><x-icon name="briefcase" /><span><strong>Current</strong><small>Concepts and implementation</small></span><b>{{ $projectFolderCounts['active'] }}</b></a>
-    <a href="{{ route('projects.completed') }}" @if(request()->routeIs('projects.completed')) aria-current="page" @endif><x-icon name="folder" /><span><strong>Project Library</strong><small>Completed and archived records</small></span><b>{{ $projectFolderCounts['library'] }}</b></a>
-    <a href="{{ route('projects.cancelled') }}" @if(request()->routeIs('projects.cancelled')) aria-current="page" @endif><x-icon name="close" /><span><strong>Cancelled</strong><small>Cancelled and declined</small></span><b>{{ $projectFolderCounts['cancelled'] }}</b></a>
-    @if(auth()->user()->role === 'admin')<a href="{{ route('projects.removed') }}" @if(request()->routeIs('projects.removed')) aria-current="page" @endif><x-icon name="archive" /><span><strong>Removed</strong><small>Restorable closed records</small></span><b>{{ $projectFolderCounts['removed'] }}</b></a>@endif
+    <a href="{{ route('projects.completed') }}" @if(request()->routeIs('projects.completed')) aria-current="page" @endif><x-icon name="check" /><span><strong>Completed</strong><small>Awaiting 7-day archive</small></span><b>{{ $projectFolderCounts['completed'] }}</b></a>
+    <a href="{{ route('projects.archived') }}" @if(request()->routeIs('projects.archived')) aria-current="page" @endif><x-icon name="archive" /><span><strong>Archive · Completed</strong><small>Finished project records</small></span><b>{{ $projectFolderCounts['archived'] }}</b></a>
+    <a href="{{ route('projects.cancelled') }}" @if(request()->routeIs('projects.cancelled')) aria-current="page" @endif><x-icon name="folder" /><span><strong>Archive · Cancelled</strong><small>Cancelled and other closed</small></span><b>{{ $projectFolderCounts['cancelled'] }}</b></a>
+    @if(auth()->user()->role === 'admin')<a href="{{ route('projects.removed') }}" @if(request()->routeIs('projects.removed')) aria-current="page" @endif><x-icon name="trash" /><span><strong>Deleted Projects</strong><small>Restorable records</small></span><b>{{ $projectFolderCounts['removed'] }}</b></a>@endif
 </nav>
-@if($projectFolder['key'] === 'library')
-<div class="notice project-library-note"><x-icon name="archive" /><span><strong>Chapter project library.</strong> Every active member can open these records for reference. Use <em>Reuse as new concept</em> to start a fresh draft from a stored plan.</span></div>
+@if(in_array($projectFolder['key'], ['completed', 'archived'], true))
+<div class="notice project-library-note"><x-icon name="archive" /><span><strong>Chapter project records.</strong> Members can open completed plans for reference and use <em>Reuse as new concept</em> to start a fresh draft.</span></div>
 @endif
 @if($projectFolder['key'] === 'active' && request('filter') === 'review')
 <div class="notice">{{ match(auth()->user()->role) {
@@ -73,7 +74,10 @@
                 <div class="project-card-footer"><span><small>Removed on</small><strong>{{ $project->deleted_at?->format('M d, Y') }}</strong></span><form class="project-card-actions" method="POST" action="{{ route('projects.restore', $project->id) }}">@csrf<button class="project-card-action" type="submit" data-confirm="Restore this project to its original chapter collection?" aria-label="Restore project: {{ $project->title }}" title="Restore project"><x-icon name="refresh" /></button></form></div>
             @else
                 <div class="project-card-footer"><span><small>{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}</small><strong>PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}</strong></span><div class="project-card-actions"><button class="project-card-action" type="button" data-project-preview data-title="{{ $project->title }}" data-reference="{{ $project->reference ?? 'Project #'.$project->id }}" data-status="{{ \App\Support\ProjectFlow::statusLabel($project) }}" data-area="{{ $project->area }}" data-chair="{{ $project->chair?->name ?? 'Not assigned' }}" data-dates="{{ $project->starts_on?->format('M d, Y') ?? 'Not set' }} – {{ $project->ends_on?->format('M d, Y') ?? 'Not set' }}" data-completed="{{ $project->completed_tasks_count }}" data-total="{{ $project->tasks_count }}" data-progress="{{ $workProgress['percent'] }}" data-pace="{{ $workProgress['pace'] }}" data-elapsed="{{ $workProgress['elapsed'] }}" data-objective="{{ $project->concept_submission_method === 'upload' ? '' : ($project->concept['objective'] ?? '') }}" data-budget-label="{{ $isFundedStage ? 'Allocated budget' : 'Proposed budget' }}" data-budget="PHP {{ number_format($isFundedStage ? ($project->allocated_amount ?? 0) : $project->proposed_budget, 2) }}" data-href="{{ route('projects.show', $project) }}" aria-label="Quick view: {{ $project->title }}" title="Quick view"><x-icon name="eye" /></button><a class="project-card-action" href="{{ route('projects.show', $project) }}" aria-label="{{ request('filter') === 'review' ? 'Open project for review' : 'Open full project' }}: {{ $project->title }}" title="{{ request('filter') === 'review' ? 'Open for review' : 'Open full project' }}"><x-icon name="arrow" /></a>
-                    @if(auth()->user()->role === 'admin' && in_array($projectFolder['key'], ['library', 'cancelled'], true))
+                    @if(auth()->user()->role === 'admin' && $projectFolder['key'] === 'completed')
+                        <form method="POST" action="{{ route('projects.archive', $project) }}">@csrf<button class="project-card-action" type="submit" data-confirm="Archive this completed project now? Its status will remain Completed." aria-label="Archive project: {{ $project->title }}" title="Archive now"><x-icon name="archive" /></button></form>
+                    @endif
+                    @if(auth()->user()->role === 'admin' && in_array($projectFolder['key'], ['archived', 'cancelled'], true))
                         <a class="project-card-action is-danger" href="{{ route('projects.show', $project) }}#project-remove-title" data-project-remove data-remove-url="{{ route('projects.delete', $project) }}" data-remove-title="{{ $project->title }}" aria-label="Remove project: {{ $project->title }}" aria-haspopup="dialog" aria-controls="project-remove-dialog" title="Remove project"><x-icon name="trash" /></a>
                     @endif
                 </div></div>
@@ -108,16 +112,16 @@
         <div class="project-preview-actions"><button class="btn secondary" type="button" data-preview-close>Close</button><a class="btn primary" href="{{ route('projects') }}" data-preview-link>Open full project <x-icon name="arrow"/></a></div>
     </div>
 </dialog>
-@if(auth()->user()->role === 'admin' && in_array($projectFolder['key'], ['library', 'cancelled'], true))
+@if(auth()->user()->role === 'admin' && in_array($projectFolder['key'], ['archived', 'cancelled'], true))
 <dialog class="project-remove-dialog" id="project-remove-dialog" aria-labelledby="project-remove-dialog-title" aria-describedby="project-remove-dialog-description">
     <div class="project-remove-dialog-content">
         <header><span class="project-remove-dialog-icon"><x-icon name="trash" /></span><button type="button" class="project-preview-close" data-remove-close aria-label="Close removal dialog"><x-icon name="close" /></button></header>
         <h2 id="project-remove-dialog-title">Remove project</h2>
-        <p id="project-remove-dialog-description"><strong data-remove-name></strong> will move to Removed Projects. Its audit and finance records stay intact, and Admin can restore it.</p>
+        <p id="project-remove-dialog-description"><strong data-remove-name></strong> will move to Deleted Projects. Its audit and finance records stay intact, and Admin can restore it.</p>
         <form method="POST" action="" data-remove-form>
             @csrf @method('DELETE')
             <label class="field"><span>Reason for removal <em aria-hidden="true">*</em></span><textarea name="reason" rows="3" maxlength="2000" required placeholder="Enter a brief reason for the project record"></textarea></label>
-            <div class="project-remove-dialog-actions"><button class="btn secondary" type="button" data-remove-close>Keep project</button><button class="btn danger" type="submit">Move to Removed Projects</button></div>
+            <div class="project-remove-dialog-actions"><button class="btn secondary" type="button" data-remove-close>Keep project</button><button class="btn danger" type="submit">Move to Deleted Projects</button></div>
         </form>
     </div>
 </dialog>

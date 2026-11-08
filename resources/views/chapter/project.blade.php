@@ -5,11 +5,9 @@
     $u=auth()->user();
     $manages=$project->canManage($u);
     $canReview=$u->role==='admin'||($u->role==='bod'&&$u->proposal_reviewer);
-    $collectionRoute = match($project->status) {
-        'Completed', 'Archived' => 'projects.completed',
-        'Declined', 'Not Approved', 'Cancelled' => 'projects.cancelled',
-        default => 'projects',
-    };
+    $collectionRoute = $project->status === 'Completed'
+        ? ($project->archived_at ? 'projects.archived' : 'projects.completed')
+        : (in_array($project->status, ['Declined', 'Not Approved', 'Cancelled'], true) ? 'projects.cancelled' : 'projects');
 @endphp
 <header class="project-workspace-hero">
     <div class="project-workspace-hero-main">
@@ -22,7 +20,7 @@
             <span><small>Venue</small><strong>{{ $project->venue ?? 'To be set' }}</strong></span>
         </div>
     </div>
-    <div class="project-workspace-hero-actions"><span class="badge large project-status status-{{ $project->status_tone }}">{{ \App\Support\ProjectFlow::statusLabel($project) }}</span>@if(in_array($project->status, ['Completed', 'Archived'], true))<form method="POST" action="{{ route('projects.reuse', $project) }}">@csrf<button class="btn primary" type="submit" data-confirm="Create a new editable concept from this stored project? Review its plan and budget before resubmitting."><x-icon name="filePlus" /> Reuse as new concept</button></form>@endif<button class="btn secondary" type="button" data-print><x-icon name="print" /> Print / save PDF</button></div>
+    <div class="project-workspace-hero-actions"><span class="badge large project-status status-{{ $project->status_tone }}">{{ \App\Support\ProjectFlow::statusLabel($project) }}</span>@if($project->archived_at)<span class="badge">Archived record</span>@endif @if(in_array($project->status, ['Completed', 'Archived'], true))<form method="POST" action="{{ route('projects.reuse', $project) }}">@csrf<button class="btn primary" type="submit" data-confirm="Create a new editable concept from this stored project? Review its plan and budget before resubmitting."><x-icon name="filePlus" /> Reuse as new concept</button></form>@endif<button class="btn secondary" type="button" data-print><x-icon name="print" /> Print / save PDF</button></div>
 </header>
 @php
     $trackedTasks = $project->tasks;
@@ -33,9 +31,9 @@
     $projectTeam = $members->whereIn('id', $teamMemberIds);
     $supportingDocuments = $project->documents->whereNull('submission_stage');
     $evidenceDocuments = $project->documents->whereIn('submission_stage', ['attendance', 'evaluation'])->sortByDesc('activity_on');
-    $canAddEvidence = $project->isChair($u) && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed'], true);
+    $canAddEvidence = !$project->archived_at && $project->isChair($u) && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed'], true);
     $partnershipDocuments = $project->documents->where('submission_stage', 'partnership')->sortByDesc('version');
-    $canUploadPartnership = $u->status === 'active' && $project->status !== 'Cancelled' && ($u->role === 'admin' || $project->created_by === $u->id || $project->isChair($u));
+    $canUploadPartnership = $u->status === 'active' && !$project->archived_at && $project->status !== 'Cancelled' && ($u->role === 'admin' || $project->created_by === $u->id || $project->isChair($u));
     $cancellation = $project->status === 'Cancelled' ? $project->reviews->where('action', 'cancel')->sortByDesc('id')->first() : null;
     $flowNext = \App\Support\ProjectFlow::next($project);
     $tracker = \App\Support\ProjectFlow::tracker($project, $completedTasks, $trackedTasks->count());
@@ -128,7 +126,7 @@
 @if($project->isChair($u) && $project->status === 'Approved' && $project->proposal_reviewed_at)@include('chapter.partials.project-action',['action'=>'lock_plan','label'=>'Finalize Approved Project Plan','tone'=>'primary'])@endif
 @if($manages && $project->status === 'Plan Locked')@include('chapter.partials.project-action',['action'=>'start','label'=>'Start Implementation','tone'=>'primary'])@endif
 @if($manages && $project->status === 'Ongoing')@include('chapter.partials.project-action',['action'=>'request_completion','label'=>'Finish Implementation and Prepare Reports'])@endif
-@if($project->status === 'Completion Review')<p class="hint">The chair submits a completion report and liquidation. Independent Admin and Treasurer approvals archive the project automatically.</p>@endif
+@if($project->status === 'Completion Review')<p class="hint">The chair submits a completion report and liquidation. Independent Admin and Treasurer approvals complete the project; it moves to the archive seven days later.</p>@endif
 </div>
 @if($project->canCancel($u))
 <div class="project-cancel-wrap"><details class="project-cancel-action">
@@ -298,10 +296,17 @@
         @endforeach
     @endforeach
 </section>
-@if($u->role === 'admin' && in_array($project->status, ['Completed', 'Archived', 'Cancelled', 'Declined', 'Not Approved'], true))
+@if($u->role === 'admin' && $project->status === 'Completed' && !$project->archived_at)
+<section class="panel form-panel no-print" aria-labelledby="project-archive-title">
+    <h2 id="project-archive-title">Archive completed project</h2>
+    <p>Completed projects move to the archive after seven days. Admin can move this one sooner without changing its Completed status.</p>
+    <form method="POST" action="{{ route('projects.archive', $project) }}">@csrf<button class="btn secondary" type="submit" data-confirm="Archive this completed project now? Its status will remain Completed."><x-icon name="archive" /> Archive now</button></form>
+</section>
+@endif
+@if($u->role === 'admin' && $project->archived_at && in_array($project->status, ['Completed', 'Cancelled', 'Declined', 'Not Approved'], true))
 <section class="panel form-panel project-remove-panel no-print" aria-labelledby="project-remove-title">
     <h2 id="project-remove-title">Remove from project folders</h2>
-    <p>This closed project will move to Removed Projects. Its audit trail, claims, and posted ledger records remain stored. Admin can restore it to its original folder.</p>
+    <p>This archived project will move to Deleted Projects. Its audit trail, claims, and posted ledger records remain stored. Admin can restore it to its original folder.</p>
     <form method="POST" action="{{ route('projects.delete', $project) }}" class="project-remove-form">@csrf @method('DELETE')
         <label class="field"><span>Reason for removal <em aria-hidden="true">*</em></span><textarea name="reason" rows="2" maxlength="2000" required></textarea></label>
         <button class="btn danger" type="submit" data-confirm="Remove this closed project from project lists? Its financial and audit history will be retained.">Remove project</button>

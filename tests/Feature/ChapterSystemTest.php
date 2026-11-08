@@ -153,7 +153,9 @@ class ChapterSystemTest extends TestCase
         $liquidation = ProjectReport::where('type', 'Liquidation')->firstOrFail();
         $this->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'approve', 'comments' => 'Receipts verified'])->assertSessionHasNoErrors();
-        $this->assertSame('Archived', $p->fresh()->status);
+        $this->assertSame('Completed', $p->fresh()->status);
+        $this->assertNotNull($p->fresh()->completed_at);
+        $this->assertNull($p->fresh()->archived_at);
         $this->actingAs($member)->get('/records/reports/'.$liquidation->id)->assertOk()->assertSee('Print / save PDF');
         $this->assertGreaterThan(15, AuditLog::count());
         $this->actingAs($member)->get('/projects/'.$p->id)->assertOk();

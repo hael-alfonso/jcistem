@@ -14,7 +14,7 @@ class RemovalLifecycleTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
-        $completed = Project::create(['created_by' => $member->id, 'title' => 'Completed chapter project', 'status' => 'Completed']);
+        $completed = Project::create(['created_by' => $member->id, 'title' => 'Completed chapter project', 'status' => 'Completed', 'completed_at' => now(), 'archived_at' => now()]);
         $ongoing = Project::create(['created_by' => $member->id, 'title' => 'Live chapter project', 'status' => 'Ongoing']);
         $entry = LedgerEntry::create(['project_id' => $completed->id, 'reference' => 'REMOVAL-1', 'direction' => 'debit', 'status' => 'Posted', 'amount' => 120]);
 
@@ -26,7 +26,7 @@ class RemovalLifecycleTest extends TestCase
         $this->assertSoftDeleted($completed);
         $this->assertNotNull($entry->fresh());
         $this->get(route('projects.removed'))->assertOk()->assertSee('Completed chapter project');
-        $this->post(route('projects.restore', $completed->id))->assertRedirect(route('projects.completed'));
+        $this->post(route('projects.restore', $completed->id))->assertRedirect(route('projects.archived'));
         $this->assertNotNull($completed->fresh());
     }
 
@@ -34,20 +34,20 @@ class RemovalLifecycleTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
-        $archived = Project::create(['created_by' => $owner->id, 'title' => 'Archived chapter project', 'status' => 'Archived']);
-        $cancelled = Project::create(['created_by' => $owner->id, 'title' => 'Cancelled chapter project', 'status' => 'Cancelled']);
-        $declined = Project::create(['created_by' => $owner->id, 'title' => 'Declined chapter project', 'status' => 'Declined']);
-        $notApproved = Project::create(['created_by' => $owner->id, 'title' => 'Unapproved chapter project', 'status' => 'Not Approved']);
+        $archived = Project::create(['created_by' => $owner->id, 'title' => 'Archived chapter project', 'status' => 'Completed', 'completed_at' => now()->subDays(8), 'archived_at' => now()]);
+        $cancelled = Project::create(['created_by' => $owner->id, 'title' => 'Cancelled chapter project', 'status' => 'Cancelled', 'archived_at' => now()]);
+        $declined = Project::create(['created_by' => $owner->id, 'title' => 'Declined chapter project', 'status' => 'Declined', 'archived_at' => now()]);
+        $notApproved = Project::create(['created_by' => $owner->id, 'title' => 'Unapproved chapter project', 'status' => 'Not Approved', 'archived_at' => now()]);
 
-        $this->actingAs($owner)->get(route('projects.completed'))
+        $this->actingAs($owner)->get(route('projects.archived'))
             ->assertOk()->assertSee($archived->title)->assertDontSee('data-project-remove');
         $this->delete(route('projects.delete', $cancelled), ['reason' => 'No authority'])->assertForbidden();
-        $this->actingAs($admin)->get(route('projects.completed'))
+        $this->actingAs($admin)->get(route('projects.archived'))
             ->assertOk()->assertSee($archived->title)->assertSee('data-project-remove')->assertSee('id="project-remove-dialog"', false);
         $this->get(route('projects.cancelled'))
             ->assertOk()->assertSee($cancelled->title)->assertSee('data-project-remove');
 
-        foreach ([[$archived, 'projects.completed'], [$cancelled, 'projects.cancelled'], [$declined, 'projects.cancelled'], [$notApproved, 'projects.cancelled']] as [$project, $folder]) {
+        foreach ([[$archived, 'projects.archived'], [$cancelled, 'projects.cancelled'], [$declined, 'projects.cancelled'], [$notApproved, 'projects.cancelled']] as [$project, $folder]) {
             $this->delete(route('projects.delete', $project), ['reason' => 'Duplicate chapter record'])
                 ->assertRedirect(route('projects.removed'));
             $this->assertSoftDeleted($project);
@@ -70,7 +70,7 @@ class RemovalLifecycleTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $chair = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $treasurer = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
-        $project = Project::create(['created_by' => $chair->id, 'chair_id' => $chair->id, 'title' => 'Cancelled with cash pending', 'status' => 'Cancelled']);
+        $project = Project::create(['created_by' => $chair->id, 'chair_id' => $chair->id, 'title' => 'Cancelled with cash pending', 'status' => 'Cancelled', 'archived_at' => now()]);
         $release = ProjectFundRelease::create([
             'project_id' => $project->id,
             'budget_item_id' => (string) \Illuminate\Support\Str::uuid(),

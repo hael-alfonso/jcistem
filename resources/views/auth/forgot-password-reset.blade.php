@@ -1,7 +1,7 @@
 @extends('auth.layout')
 @section('title', 'Choose a new password')
 @section('auth-content')
-    <p class="eyebrow">Account recovery · Step 3 of 3</p>
+    <p class="eyebrow">Account recovery <span class="auth-step-count">03 / 03</span></p>
     <h1>Choose a new password.</h1>
     <p class="auth-description">Use at least 10 characters. Enter the same password in both fields.</p>
     <div class="auth-steps" aria-hidden="true"><span class="is-current"></span><span class="is-current"></span><span class="is-current"></span></div>
