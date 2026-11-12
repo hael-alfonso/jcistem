@@ -145,7 +145,6 @@ import { boundedProgress } from './pms-helpers.js';
     form.reset();
     name.textContent = link.dataset.removeTitle || 'This project';
     projectRemove.showModal();
-    form.querySelector('textarea[name="reason"]')?.focus();
   }));
   projectRemove?.querySelectorAll('[data-remove-close]').forEach((button) => button.addEventListener('click', () => projectRemove.close()));
   projectRemove?.addEventListener('click', (event) => { if (event.target === projectRemove) projectRemove.close(); });
@@ -222,6 +221,65 @@ import { boundedProgress } from './pms-helpers.js';
   const taskReopen = document.querySelector('[data-task-reopen]')?.dataset.taskReopen;
   const taskReopenDialog = taskReopen && document.getElementById(taskReopen);
   if (taskReopenDialog?.showModal && document.querySelector('.alert.error')) taskReopenDialog.showModal();
+  document.querySelectorAll('.ledger-row').forEach((row) => {
+    const header = row.querySelector('.ledger-row-header');
+    const oldTrigger = row.querySelector('.ledger-detail-trigger');
+    if (!header || !oldTrigger) return;
+    const dialogId = oldTrigger.dataset.financeDialogOpen;
+    const reference = row.querySelector('.ledger-reference strong')?.textContent?.trim() || 'transaction';
+    header.dataset.financeDialogOpen = dialogId;
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.setAttribute('aria-haspopup', 'dialog');
+    header.setAttribute('aria-controls', dialogId);
+    header.setAttribute('aria-label', `Open transaction details for ${reference}`);
+    header.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      header.click();
+    });
+    oldTrigger.remove();
+  });
+  const financeDialogTriggers = new WeakMap();
+  document.querySelectorAll('[data-finance-dialog-open]').forEach((button) => button.addEventListener('click', () => {
+    const dialog = document.getElementById(button.dataset.financeDialogOpen);
+    if (!dialog?.showModal) return;
+    if (dialog.id === 'dues-assessment-dialog') {
+      const memberId = button.dataset.duesMemberId;
+      dialog.querySelectorAll('input[name="member_id"]').forEach((input) => {
+        input.checked = memberId !== 'none' && input.value === memberId;
+      });
+      const search = dialog.querySelector('[data-dues-choice-search]');
+      if (search) { search.value = ''; search.dispatchEvent(new Event('input')); }
+    }
+    financeDialogTriggers.set(dialog, button);
+    dialog.showModal();
+  }));
+  document.querySelectorAll('.finance-dialog').forEach((dialog) => {
+    dialog.querySelectorAll('[data-finance-dialog-close]').forEach((button) => button.addEventListener('click', () => dialog.close()));
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+    dialog.addEventListener('close', () => financeDialogTriggers.get(dialog)?.focus());
+  });
+  const ledgerTransactionForm = document.querySelector('#ledger-transaction-dialog form');
+  const ledgerType = ledgerTransactionForm?.querySelector('select[name="type"]');
+  const ledgerReceipt = ledgerTransactionForm?.querySelector('input[name="receipt"]');
+  const updateLedgerReceiptRequirement = () => {
+    if (!ledgerReceipt || !ledgerType) return;
+    ledgerReceipt.required = ['Expense', 'Disbursement', 'Adjustment debit'].includes(ledgerType.value);
+  };
+  ledgerType?.addEventListener('change', updateLedgerReceiptRequirement);
+  updateLedgerReceiptRequirement();
+  const financeReopenId = document.querySelector('[data-finance-dialog-reopen]')?.dataset.financeDialogReopen;
+  const financeReopenDialog = financeReopenId && document.getElementById(financeReopenId);
+  if (financeReopenDialog?.closest('#budget')) history.replaceState(null, '', '#budget');
+  if (financeReopenDialog?.showModal && financeReopenDialog.querySelector('.alert.error')) financeReopenDialog.showModal();
+  const duesChoiceSearch = document.querySelector('[data-dues-choice-search]');
+  duesChoiceSearch?.addEventListener('input', () => {
+    const term = duesChoiceSearch.value.trim().toLocaleLowerCase();
+    duesChoiceSearch.closest('fieldset')?.querySelectorAll('[data-dues-choice-list] .dues-target-option').forEach((label) => {
+      label.hidden = !!term && !label.textContent.toLocaleLowerCase().includes(term) && !label.querySelector('input').checked;
+    });
+  });
   document.querySelectorAll('.app-sidebar .side-link').forEach((link) => link.addEventListener('click', () => setNavigation(false)));
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { setNavigation(false); topbarMenus.forEach((menu) => { if (menu.open) { menu.open = false; menu.querySelector('summary')?.focus(); } }); if (createMenu?.open) { createMenu.open = false; createMenu.querySelector('summary')?.focus(); } } });
   document.querySelectorAll('[data-print]').forEach((button) => button.addEventListener('click', () => window.print()));
@@ -276,9 +334,12 @@ import { boundedProgress } from './pms-helpers.js';
     const updateSubmissionPanels = () => {
       const method = choices.find((choice) => choice.checked)?.value || 'online';
       panels.forEach((panel) => {
-        panel.hidden = panel.dataset.submissionPanel !== method;
-        // Hidden required fields must not block the other submission method.
-        panel.querySelectorAll('input, select, textarea').forEach((field) => { field.disabled = panel.hidden; });
+        // Keep both sections visible so the complete project record is always
+        // available while only the selected submission method is editable.
+        panel.hidden = false;
+        panel.querySelectorAll('input, select, textarea').forEach((field) => {
+          field.disabled = panel.dataset.submissionPanel !== method;
+        });
       });
     };
     choices.forEach((choice) => choice.addEventListener('change', updateSubmissionPanels));
@@ -293,21 +354,17 @@ import { boundedProgress } from './pms-helpers.js';
     const save = form.querySelector('[data-project-save]');
     let projectStep = 0;
     const showProjectStep = () => {
-      if (!review) return;
-      general.hidden = projectStep !== 0;
-      methodSection.hidden = projectStep !== 1;
+      if (!general || !methodSection) return;
+      // The project editor is a complete, single-page form. All details stay
+      // visible; the selected method controls which inputs can be edited.
+      general.hidden = false;
+      methodSection.hidden = false;
       updateSubmissionPanels();
-      panels.forEach((panel) => { panel.hidden = projectStep !== 2 || panel.dataset.submissionPanel !== (choices.find((choice) => choice.checked)?.value || 'online'); });
-      review.hidden = projectStep !== 3;
-      previous.hidden = projectStep === 0;
-      next.hidden = projectStep === 3;
-      save.hidden = projectStep !== 3;
-      document.querySelectorAll('[data-project-step-label]').forEach((label, index) => {
-        label.classList.toggle('is-current', index === projectStep);
-        label.classList.toggle('is-complete', index < projectStep);
-        if (index === projectStep) label.setAttribute('aria-current', 'step'); else label.removeAttribute('aria-current');
-      });
-      form.querySelector('[data-project-step-hint]').textContent = projectStep === 3 ? 'Confirm the preview, then save the draft.' : 'Complete this step to continue.';
+      if (review) review.hidden = true;
+      if (previous) previous.hidden = true;
+      if (next) next.hidden = true;
+      if (save) save.hidden = false;
+      form.querySelector('[data-project-step-hint]').textContent = 'All project details are visible. Select a submission method, then save your draft.';
     };
     const activeStepFields = () => {
       const group = projectStep === 0 ? general : projectStep === 1 ? methodSection : panels.find((panel) => !panel.hidden);
@@ -343,9 +400,6 @@ import { boundedProgress } from './pms-helpers.js';
       document.querySelector('.project-entry-steps')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
     previous?.addEventListener('click', () => { projectStep = Math.max(0, projectStep - 1); showProjectStep(); document.querySelector('.project-entry-steps')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
-    form.addEventListener('submit', (event) => {
-      if (projectStep !== 3 || !confirmReview.checked) { event.preventDefault(); projectStep = 3; previewProjectDetails(); showProjectStep(); confirmReview.focus(); }
-    });
     choices.forEach((choice) => choice.addEventListener('change', showProjectStep));
     showProjectStep();
     const budget = form.querySelector('[data-budget-builder]');
@@ -422,6 +476,18 @@ import { boundedProgress } from './pms-helpers.js';
       amountFields.forEach((field) => field.addEventListener('input', updateTotal));
       updateTotal();
     }
+  });
+  document.querySelectorAll('[data-report-submission-form]').forEach((form) => {
+    const choices = [...form.querySelectorAll('input[type="radio"][name="data[submission_method]"]')];
+    const digitalFields = form.querySelector('[data-report-digital-fields]');
+    const attachment = form.querySelector('input[name="attachment"]');
+    const updateReportMethod = () => {
+      const method = choices.find((choice) => choice.checked)?.value || 'digital';
+      if (digitalFields) digitalFields.hidden = method === 'upload';
+      if (attachment) attachment.required = method === 'upload' && form.dataset.reportHasFile !== '1';
+    };
+    choices.forEach((choice) => choice.addEventListener('change', updateReportMethod));
+    updateReportMethod();
   });
   const confirmDialog = document.querySelector('#confirm-dialog');
   const confirmMessage = confirmDialog?.querySelector('#confirm-dialog-message');

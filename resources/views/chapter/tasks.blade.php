@@ -3,19 +3,10 @@
 @section('content')
 @php
     $mine = request()->boolean('mine');
-    $baseFilters = array_filter([
-        'mine' => $mine ? 1 : 0,
-        'q' => request('q'),
-        'project' => request('project'),
-        'assignee' => request('assignee'),
-        'from' => request('from'),
-        'to' => request('to'),
-    ], fn ($value) => $value !== null && $value !== '');
     $statusOptions = ['' => 'All', 'To Do' => 'To do', 'In Progress' => 'In progress', 'Blocked' => 'Blocked', 'Completed' => 'Completed'];
     $createProjects = request()->filled('project') ? $managedProjects->where('id', request()->integer('project')) : $managedProjects;
     $setupProjects = request()->filled('project') ? $taskSetupProjects->where('id', request()->integer('project')) : $taskSetupProjects;
     $hasFilters = request()->filled('q') || request()->filled('project') || request()->filled('status') || request()->filled('assignee') || request()->filled('from') || request()->filled('to');
-    $hasAdvancedFilters = request()->filled('assignee') || request()->filled('from') || request()->filled('to');
 @endphp
 
 <div class="page-heading collection-heading">
@@ -54,20 +45,16 @@
 
 <form class="list-filters collection-toolbar task-toolbar" method="GET" action="{{ route('tasks') }}">
     <input type="hidden" name="mine" value="{{ $mine ? 1 : 0 }}">
-    @if(request()->filled('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
-    <label>Search tasks<input name="q" value="{{ request('q') }}" placeholder="Task or project title"></label>
+    <label class="task-search-field">Find task<input name="q" value="{{ request('q') }}" placeholder="Task or project title"></label>
     <label>Project<select name="project"><option value="">All projects</option>@foreach($visibleProjects as $project)<option value="{{ $project->id }}" @selected((string) request('project') === (string) $project->id)>{{ $project->title }}</option>@endforeach</select></label>
-    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
-    @if(request()->filled('q') || request()->filled('project') || request()->filled('assignee') || request()->filled('from') || request()->filled('to'))
-        <a class="text-link" href="{{ route('tasks', ['mine' => $mine ? 1 : 0] + array_filter(['status' => request('status')])) }}"><x-icon name="close" /> Clear filters</a>
-    @endif
-    <details class="task-advanced-filters full" @if($hasAdvancedFilters) open @endif>
-        <summary><x-icon name="settings" /> More filters @if($hasAdvancedFilters)<span>Active</span>@endif <x-icon name="chevron" class="disclosure-icon" /></summary>
-        <div class="task-advanced-filter-grid">
-            @unless($mine)<label>Assigned to<select name="assignee"><option value="">Anyone</option>@foreach($assignableMembers as $person)<option value="{{ $person->id }}" @selected((string) request('assignee') === (string) $person->id)>{{ $person->name }}</option>@endforeach</select></label>@endunless
-            <label>Due from<input type="date" name="from" value="{{ request('from') }}"></label><label>Due to<input type="date" name="to" value="{{ request('to') }}"></label>
-        </div>
-    </details>
+    <label>Task status<select name="status">@foreach($statusOptions as $value => $label)<option value="{{ $value }}" @selected((string) request('status', '') === (string) $value)>{{ $label }}</option>@endforeach</select></label>
+    @unless($mine)<label>Assigned to<select name="assignee"><option value="">Anyone</option>@foreach($assignableMembers as $person)<option value="{{ $person->id }}" @selected((string) request('assignee') === (string) $person->id)>{{ $person->name }}</option>@endforeach</select></label>@endunless
+    <label>Due from<input type="date" name="from" value="{{ request('from') }}"></label>
+    <label>Due to<input type="date" name="to" value="{{ request('to') }}"></label>
+    <div class="task-filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply</button>
+    @if(request()->filled('q') || request()->filled('project') || request()->filled('status') || request()->filled('assignee') || request()->filled('from') || request()->filled('to'))
+        <a class="text-link" href="{{ route('tasks', ['mine' => $mine ? 1 : 0]) }}"><x-icon name="close" /> Clear filters</a>
+    @endif</div>
 </form>
 
 <section class="panel task-board task-table-panel" aria-label="Task list">
@@ -78,16 +65,6 @@
         </div>
         <a class="btn secondary" href="{{ route('tasks', ['mine' => $mine ? 0 : 1] + array_filter(['q' => request('q'), 'project' => request('project'), 'status' => request('status'), 'from' => request('from'), 'to' => request('to')])) }}"><x-icon name="{{ $mine ? 'users' : 'user' }}" /> {{ $mine ? 'View All Tasks' : 'View My Tasks' }}</a>
     </div>
-    @if($taskTotal > 0)
-    <nav class="filter-tabs task-status-tabs" aria-label="Filter tasks by status">
-        @foreach($statusOptions as $value => $label)
-            <a class="{{ request('status', '') === $value ? 'selected' : '' }}" href="{{ route('tasks', $baseFilters + ($value !== '' ? ['status' => $value] : [])) }}" @if(request('status', '') === $value) aria-current="page" @endif>
-                {{ $label }} <span>{{ $value === '' ? $taskTotal : (int) ($statusCounts[$value] ?? 0) }}</span>
-            </a>
-        @endforeach
-    </nav>
-    @endif
-
     @if($tasks->isNotEmpty())
         <div class="task-list-table-wrap">
             <table class="task-list-table" aria-label="Tasks">
@@ -104,6 +81,9 @@
                         $readyToFinish = $isMyTask && $myResponse === 'accepted' && $task->project?->status === 'Ongoing'
                             && $task->project->plan_locked_at && $task->status !== 'Completed'
                             && $task->project->tasks->whereIn('id', $task->dependencies ?? [])->where('status', 'Completed')->count() === count($task->dependencies ?? []);
+                        $canRemoveTask = auth()->user()->role === 'admin' && $task->project?->plan_locked_at
+                            && in_array($task->project->status, ['Plan Locked', 'Ongoing'], true)
+                            && !$task->project->tasks->contains(fn ($other) => $other->id !== $task->id && in_array($task->id, array_map('intval', $other->dependencies ?? []), true));
                     @endphp
                     <tr id="task-{{ $task->id }}">
                         <td data-label="Task"><div class="task-row-main"><a class="task-row-title" href="{{ route('projects.show', $task->project_id) }}#task-{{ $task->id }}">{{ $task->title }}</a><a class="task-row-project" href="{{ route('projects.show', $task->project_id) }}"><x-icon name="briefcase" />{{ $task->project?->title ?? 'Project details' }}</a><span class="task-row-next">{{ $task->nextStep(auth()->user()) }}</span></div></td>
@@ -124,6 +104,7 @@
                                     <a class="task-row-finish" href="{{ route('projects.show', $task->project_id) }}#task-{{ $task->id }}" aria-label="Open completion form for {{ $task->title }}"><x-icon name="check" /> Complete task</a>
                                 @endif
                                 @include('chapter.partials.task-preview-link')
+                                @if($canRemoveTask)<form method="POST" action="{{ route('tasks.destroy', [$task->project, $task]) }}">@csrf @method('DELETE')<button class="task-row-remove" type="submit" aria-label="Remove task: {{ $task->title }}" title="Remove task" data-confirm="Remove this task? It will disappear from active work and project progress, but remain in the audit history and can be restored while the project is active."><x-icon name="trash" /></button></form>@endif
                             </div>
                         </td>
                     </tr>

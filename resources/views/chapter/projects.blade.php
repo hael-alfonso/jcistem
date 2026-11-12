@@ -2,19 +2,30 @@
 @section('title', $projectFolder['title'])
 @section('content')
 @php
-    $quickFilters = ['' => 'All Current Projects', 'mine' => 'My Current Projects', 'concepts' => 'Ideas & Reviews', 'active' => 'Planning & Implementation', 'approved' => 'Approved Plans', 'ongoing' => 'Implementation & Reports'];
-    if (in_array(auth()->user()->role, ['admin', 'treasurer', 'bod'], true)) $quickFilters['review'] = 'Needs my review';
+    $statusFilters = [
+        'review' => 'In Review',
+        'approved' => 'Approved',
+        'ongoing' => 'Ongoing',
+        'launching' => 'Launching (happening now)',
+        'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+    ];
+    $selectedFilter = request('filter', '');
+    $specialFilter = $projectFolder['key'] === 'active' && $selectedFilter !== '' && !array_key_exists($selectedFilter, $statusFilters);
     $hasDateFilters = request()->filled('from') || request()->filled('to');
+    $isArchive = in_array($projectFolder['key'], ['archived', 'cancelled'], true);
+    $archiveQuery = request()->except(['archive', 'page']);
+    $completedArchiveQuery = array_merge($archiveQuery, ['archive' => 'completed']);
+    $cancelledArchiveQuery = array_merge($archiveQuery, ['archive' => 'cancelled']);
 @endphp
 <div class="page-heading collection-heading">
     <div><div class="eyebrow">{{ $projectFolder['eyebrow'] }}</div><h1>{{ $projectFolder['title'] }}</h1><p>{{ $projectFolder['description'] }}</p></div>
-    <a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus"/> Create Project</a>
+    <div class="heading-actions">@if(auth()->user()->role === 'admin')<a class="btn secondary" href="{{ route($projectFolder['route'], array_merge($projectFolder['routeParams'], request()->query(), ['print' => 1])) }}"><x-icon name="print"/> Print project report</a>@endif<a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus"/> Create Project</a></div>
 </div>
 <nav class="project-folder-nav" aria-label="Project folders">
     <a href="{{ route('projects') }}" @if(request()->routeIs('projects')) aria-current="page" @endif><x-icon name="briefcase" /><span><strong>Current</strong><small>Concepts and implementation</small></span><b>{{ $projectFolderCounts['active'] }}</b></a>
     <a href="{{ route('projects.completed') }}" @if(request()->routeIs('projects.completed')) aria-current="page" @endif><x-icon name="check" /><span><strong>Completed</strong><small>Awaiting 7-day archive</small></span><b>{{ $projectFolderCounts['completed'] }}</b></a>
-    <a href="{{ route('projects.archived') }}" @if(request()->routeIs('projects.archived')) aria-current="page" @endif><x-icon name="archive" /><span><strong>Archive · Completed</strong><small>Finished project records</small></span><b>{{ $projectFolderCounts['archived'] }}</b></a>
-    <a href="{{ route('projects.cancelled') }}" @if(request()->routeIs('projects.cancelled')) aria-current="page" @endif><x-icon name="folder" /><span><strong>Archive · Cancelled</strong><small>Cancelled and other closed</small></span><b>{{ $projectFolderCounts['cancelled'] }}</b></a>
+    <a href="{{ route('projects.archived') }}" @if($isArchive) aria-current="page" @endif><x-icon name="archive" /><span><strong>Archive</strong><small>Completed and cancelled records</small></span><b>{{ $projectFolderCounts['archived'] + $projectFolderCounts['cancelled'] }}</b></a>
     @if(auth()->user()->role === 'admin')<a href="{{ route('projects.removed') }}" @if(request()->routeIs('projects.removed')) aria-current="page" @endif><x-icon name="trash" /><span><strong>Deleted Projects</strong><small>Restorable records</small></span><b>{{ $projectFolderCounts['removed'] }}</b></a>@endif
 </nav>
 @if(in_array($projectFolder['key'], ['completed', 'archived'], true))
@@ -27,19 +38,39 @@
     default => 'Review concepts on the Board agenda. Admin records the official Board decision.'
 } }}</div>
 @endif
-<form class="list-filters collection-toolbar" method="GET" action="{{ route($projectFolder['route']) }}">
-    <label>Find project<input name="q" value="{{ request('q') }}" placeholder="Title, reference, or Chair"></label>
-    @if($projectFolder['key'] === 'active')
-    <label>Show projects<select name="filter">
-        @foreach($quickFilters as $value => $label)
-            <option value="{{ $value }}" @selected(request('filter', '') === $value)>{{ $label }}</option>
-        @endforeach
-    </select></label>
+<div class="project-collection-controls">
+    @if($isArchive)
+    <nav class="project-folder-nav project-archive-tabs" aria-label="Archive sections">
+        <a href="{{ route('projects.archived', $completedArchiveQuery) }}" @if($projectFolder['key'] === 'archived') aria-current="page" @endif><x-icon name="check" /><span><strong>Completed</strong><small>Finished project records</small></span><b>{{ $projectFolderCounts['archived'] }}</b></a>
+        <a href="{{ route('projects.archived', $cancelledArchiveQuery) }}" @if($projectFolder['key'] === 'cancelled') aria-current="page" @endif><x-icon name="folder" /><span><strong>Cancelled &amp; Closed</strong><small>Cancelled, declined, and not approved</small></span><b>{{ $projectFolderCounts['cancelled'] }}</b></a>
+    </nav>
     @endif
-    <label>Sort<select name="sort"><option value="newest" @selected(request('sort', 'newest') === 'newest')>Newest first</option><option value="oldest" @selected(request('sort') === 'oldest')>Oldest first</option><option value="title" @selected(request('sort') === 'title')>Title A–Z</option></select></label>
-    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
-    @if(request()->filled('q') || request()->filled('filter') || request()->filled('from') || request()->filled('to') || request('sort', 'newest') !== 'newest')<a class="text-link" href="{{ route($projectFolder['route']) }}"><x-icon name="close" /> Clear filters</a>@endif
-    <details class="task-advanced-filters project-advanced-filters" @if($hasDateFilters) open @endif><summary><x-icon name="calendar" /> Date filters @if($hasDateFilters)<span>Active</span>@endif <x-icon name="chevron" class="disclosure-icon" /></summary><div class="project-advanced-filter-grid"><label>Created from<input type="date" name="from" value="{{ request('from') }}"></label><label>Created to<input type="date" name="to" value="{{ request('to') }}"></label></div></details>
+    <nav class="project-sort-tabs" aria-label="Sort projects">
+        @foreach(['newest' => 'Newest first', 'oldest' => 'Oldest first', 'title' => 'Title A-Z'] as $sortValue => $sortLabel)
+            @php $sortQuery = request()->except(['sort', 'page']); if ($sortValue !== 'newest') $sortQuery['sort'] = $sortValue; @endphp
+            <a href="{{ route($projectFolder['route'], array_merge($projectFolder['routeParams'], $sortQuery)) }}" @if(request('sort', 'newest') === $sortValue) aria-current="page" @endif>{{ $sortLabel }}</a>
+        @endforeach
+    </nav>
+</div>
+<form class="list-filters collection-toolbar" method="GET" action="{{ route($projectFolder['route']) }}">
+    @if($isArchive)<input type="hidden" name="archive" value="{{ $projectFolder['routeParams']['archive'] }}">@endif
+    <input type="hidden" name="sort" value="{{ request('sort', 'newest') }}">
+    <label class="project-search-field">Find project<input name="q" value="{{ request('q') }}" placeholder="Title, reference, or Chair"></label>
+    @if($projectFolder['key'] === 'active')
+    <label class="project-status-select">Project status
+        <select name="filter">
+            <option value="">All statuses</option>
+            @if($specialFilter)<option value="{{ $selectedFilter }}" selected>{{ $projectFolder['title'] }}</option>@endif
+            @foreach($statusFilters as $value => $label)
+                <option value="{{ $value }}" @selected($selectedFilter === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+    </label>
+    @endif
+    <label>Created from<input type="date" name="from" value="{{ request('from') }}"></label>
+    <label>Created to<input type="date" name="to" value="{{ request('to') }}"></label>
+    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply</button>
+    @if(request()->filled('q') || request()->filled('filter') || request()->filled('from') || request()->filled('to') || request('sort', 'newest') !== 'newest')<a class="text-link" href="{{ route($projectFolder['route'], $projectFolder['routeParams']) }}"><x-icon name="close" /> Clear filters</a>@endif
 </form>
 <div class="collection-results"><span>{{ number_format($projects->total()) }} {{ \Illuminate\Support\Str::plural('project', $projects->total()) }}</span><span>{{ match(request('sort', 'newest')) { 'oldest' => 'Oldest first', 'title' => 'Title A–Z', default => 'Newest first' } }}</span></div>
 <div class="project-grid modern-project-grid">
@@ -90,7 +121,7 @@
                 <h2>No chair assignments yet</h2><p>The proposer becomes chair after Admin records the official BOD approval.</p>
             @elseif(request()->filled('q') || request()->filled('filter') || $hasDateFilters)
                 <h2>No matching projects</h2><p>Try another title or filter.</p>
-                <a class="btn secondary" href="{{ route($projectFolder['route']) }}"><x-icon name="close" /> Clear filters</a>
+                <a class="btn secondary" href="{{ route($projectFolder['route'], $projectFolder['routeParams']) }}"><x-icon name="close" /> Clear filters</a>
             @elseif($projectFolder['key'] !== 'active')
                 <h2>No {{ strtolower($projectFolder['title']) }}</h2>
                 <p>This folder is ready when a project reaches this stage.</p>
@@ -120,7 +151,6 @@
         <p id="project-remove-dialog-description"><strong data-remove-name></strong> will move to Deleted Projects. Its audit and finance records stay intact, and Admin can restore it.</p>
         <form method="POST" action="" data-remove-form>
             @csrf @method('DELETE')
-            <label class="field"><span>Reason for removal <em aria-hidden="true">*</em></span><textarea name="reason" rows="3" maxlength="2000" required placeholder="Enter a brief reason for the project record"></textarea></label>
             <div class="project-remove-dialog-actions"><button class="btn secondary" type="button" data-remove-close>Keep project</button><button class="btn danger" type="submit">Move to Deleted Projects</button></div>
         </form>
     </div>

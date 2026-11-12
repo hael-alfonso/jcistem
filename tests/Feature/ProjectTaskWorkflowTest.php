@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{BodDecision, Notification, Project, Task, User};
+use App\Models\{AuditLog, BodDecision, Notification, Project, Task, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -22,6 +22,40 @@ class ProjectTaskWorkflowTest extends TestCase
     private function payload(User $member, array $extra = []): array
     {
         return $extra + ['title' => 'Prepare kits', 'assignees' => [$member->id], 'priority' => 'High', 'status' => 'To Do', 'deadline' => '2026-11-10'];
+    }
+
+    public function test_admin_can_remove_and_restore_active_tasks_without_breaking_dependencies_or_history(): void
+    {
+        [$project, $chair, $member] = $this->workspace();
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $url = '/projects/'.$project->id.'/tasks';
+        $this->actingAs($chair)->post($url, $this->payload($member))->assertSessionHasNoErrors();
+        $prerequisite = $project->tasks()->firstOrFail();
+        $this->post($url, $this->payload($member, ['title' => 'Distribute kits', 'dependencies' => [$prerequisite->id]]))->assertSessionHasNoErrors();
+        $removable = $project->tasks()->latest('id')->firstOrFail();
+
+        $this->delete(route('tasks.destroy', [$project, $removable]))->assertForbidden();
+        $this->actingAs($member)->delete(route('tasks.destroy', [$project, $removable]))->assertForbidden();
+        $this->actingAs($admin)->get(route('tasks'))->assertOk()
+            ->assertSee('aria-label="Remove task: Distribute kits"', false)
+            ->assertDontSee('aria-label="Remove task: Prepare kits"', false);
+        $this->delete(route('tasks.destroy', [$project, $prerequisite]))->assertSessionHasErrors('task');
+        $this->assertSame(2, $project->tasks()->count());
+
+        $this->delete(route('tasks.destroy', [$project, $removable]))->assertSessionHasNoErrors();
+        $this->assertNull(Task::find($removable->id));
+        $this->assertTrue(Task::withTrashed()->findOrFail($removable->id)->trashed());
+        $this->assertSame(1, $project->tasks()->count());
+        $this->assertTrue(AuditLog::where('action', 'task_removed')->where('object_id', $removable->id)->exists());
+        $this->get(route('projects.show', $project))->assertOk()->assertSee('Removed tasks')->assertSee('Restore task');
+
+        $this->post(route('tasks.restore', [$project, $removable->id]))->assertSessionHasNoErrors();
+        $this->assertSame(2, $project->tasks()->count());
+        $this->assertTrue(AuditLog::where('action', 'task_restored')->where('object_id', $removable->id)->exists());
+
+        $project->update(['status' => 'Completion Review']);
+        $this->delete(route('tasks.destroy', [$project, $removable]))->assertForbidden();
+        $this->assertSame(2, $project->tasks()->count());
     }
 
     public function test_task_board_only_offers_completion_when_prerequisites_and_plan_are_ready(): void

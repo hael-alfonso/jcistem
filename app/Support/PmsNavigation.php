@@ -11,6 +11,7 @@ final class PmsNavigation
         $canReviewProposals = in_array($user->role, ['admin', 'treasurer', 'bod'], true);
         $canManageMembers = Permissions::allows($user, Permissions::MEMBERS_MANAGE);
         $canManageSystem = Permissions::allows($user, Permissions::ACCOUNTS_MANAGE);
+        $canManageFinance = Permissions::allows($user, Permissions::FINANCE_MANAGE);
 
         $menus = [
             'PROJECTS' => [
@@ -25,9 +26,13 @@ final class PmsNavigation
             ],
             'FINANCE' => [
                 ['finance', 'Project Finances', 'chart', []],
-                ['expense-claims.index', $user->role === 'treasurer' ? 'Claims to Review' : 'My Expense Claims', 'receipt', []],
-                [$user->role === 'treasurer' ? 'dues.manage' : 'dues', $user->role === 'treasurer' ? 'Member Dues' : 'My Dues', 'receipt', []],
-                ...($user->role === 'treasurer' ? [['ledger', 'Treasurer Ledger', 'wallet', []]] : []),
+                ['expense-claims.index', 'My Expense Claims', 'receipt', $canManageFinance ? ['status' => 'all', 'mine' => 1] : []],
+                ['dues', 'My Member Dues', 'receipt', []],
+                ...($canManageFinance ? [
+                    ['expense-claims.index', 'Claims to Review', 'receipt', ['status' => 'pending']],
+                    ['dues.manage', 'Member Dues', 'receipt', []],
+                    ['ledger', 'Treasurer Ledger', 'wallet', []],
+                ] : []),
             ],
             'MEMBERS' => [
                 ...($canManageMembers ? [
@@ -41,7 +46,7 @@ final class PmsNavigation
                 ['documents', 'File Library', 'folder', []],
                 ['templates', 'Forms & Templates', 'folder', []],
                 ...($user->role === 'admin' ? [['records', 'Completion Report Review', 'checklist', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']]] : []),
-                ...($user->role === 'treasurer' ? [['records', 'Liquidation Report Review', 'checklist', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']]] : []),
+                ...($canManageFinance ? [['records', 'Liquidation Report Review', 'checklist', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']]] : []),
             ],
             'PARTNERSHIPS' => [
                 ['partners.index', 'Partner Directory', 'users', []],

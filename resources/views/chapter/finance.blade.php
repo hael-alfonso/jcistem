@@ -1,16 +1,17 @@
 @extends('layouts.chapter')
 @section('title', 'Project Finances')
 @section('content')
-<div class="page-heading">
+<div class="page-heading no-print">
     <div>
         <div class="eyebrow">PROJECT FINANCES</div>
         <h1>Project Finances</h1>
         <p>Monitor approved allocations, posted expenses, and available chapter funds for the projects you can access.</p>
     </div>
     @if(auth()->user()->role === 'treasurer')
-        <a class="btn primary" href="{{ route('ledger') }}"><x-icon name="receipt" /> Open Treasurer Ledger</a>
+        <div class="heading-actions"><button class="btn secondary" type="button" data-print><x-icon name="print" /> Print / save PDF</button><a class="btn primary" href="{{ route('ledger') }}"><x-icon name="receipt" /> Open Treasurer Ledger</a></div>
     @endif
 </div>
+<header class="project-letterhead finance-print-header"><img src="{{ asset('assets/images/brand/logo.png') }}" alt="JCI Carmona logo" width="96" height="56"><div><strong>JCI Carmona</strong><span>Project finance summary · Generated {{ now()->format('F j, Y g:i A') }}</span></div></header>
 
 @php
     $allocated = $charts['allocated'];
@@ -27,10 +28,10 @@
     @include('chapter.partials.budget-expense-chart', ['summary' => false])
     @include('chapter.partials.monthly-expense-chart')
 </div>
-<section class="panel">
+<section class="panel project-budget-use-panel">
     <div class="panel-heading"><div><h2>Project Budget Use</h2><p>Proposed budgets, approved allocations, and posted expenses by project</p></div></div>
     <div class="table-wrap">
-        <table>
+        <table class="finance-budget-table">
             <caption class="sr-only">Project budgets and recorded use</caption>
             <thead><tr><th>Project</th><th>Proposed</th><th>Allocated</th><th>Spent</th><th>Allocation balance</th><th>Utilization</th></tr></thead>
             <tbody>

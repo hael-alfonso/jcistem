@@ -67,34 +67,21 @@ class ProposalWorkflowService
                 case 'budget_review': case 'revise_budget':
                     abort_unless($treasurer && $independent && $from === 'Treasurer Review', 403);
                     $this->comments($comments);
-                    $project->status = $action === 'budget_review' ? 'BOD Agenda' : 'Needs Revision';
+                    $project->status = $action === 'budget_review' ? 'Endorsed for Development' : 'Needs Revision';
                     $project->budget_reviewed_at = $action === 'budget_review' ? now() : null;
                     $project->budget_reviewed_by = $action === 'budget_review' ? $user->id : null;
+                    if ($action === 'budget_review') $project->chair_id = $project->created_by;
                     break;
-                case 'approve': case 'reject': case 'defer':
-                    abort_unless($admin && $from === 'BOD Agenda', 403);
+                case 'advance_concept':
+                    // Existing concepts may still be waiting in the former BOD queue.
+                    // Advance them to proposal preparation without recording a concept verdict.
+                    abort_unless($admin && $from === 'BOD Agenda' && $project->budget_reviewed_at, 403);
                     $this->comments($comments);
-                    if (empty($decision['meeting_date']) || empty($decision['evidence_path'])) {
-                        $this->invalid('Record the meeting date and signed BOD decision evidence.');
-                    }
-                    if (!Storage::disk('local')->exists($decision['evidence_path'])) $this->invalid('The signed BOD evidence file is missing.');
-                    if (!$project->budget_reviewed_at) $this->invalid('Treasurer review is required for every proposal.');
-                    BodDecision::create([
-                        'project_id' => $project->id, 'recorded_by' => $user->id,
-                        'stage' => 'concept',
-                        'meeting_date' => $decision['meeting_date'],
-                        'evidence_path' => $decision['evidence_path'], 'comments' => $comments,
-                        'decision' => ['approve' => 'approved', 'reject' => 'rejected', 'defer' => 'deferred'][$action],
-                    ]);
-                    $project->status = ['approve' => 'Approved', 'reject' => 'Not Approved', 'defer' => 'BOD Agenda'][$action];
-                    if ($action === 'reject') $project->archived_at = now();
-                    if ($action === 'approve') {
-                        $project->chair_id = $project->created_by;
-                        $project->plan_locked_at = null;
-                    }
+                    $project->chair_id = $project->created_by;
+                    $project->status = 'Endorsed for Development';
                     break;
                 case 'submit_full_proposal':
-                    abort_unless($chair && $from === 'Approved' && !$project->proposal_reviewed_at, 403);
+                    abort_unless($chair && in_array($from, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true) && !$project->proposal_reviewed_at, 403);
                     if ($issues = ProjectSubmission::issues($project, 'proposal')) throw ValidationException::withMessages($issues);
                     $project->proposal_submitted_revision = $project->revision;
                     $project->proposal_budget_reviewed_at = null;
@@ -114,9 +101,9 @@ class ProposalWorkflowService
                     $project->proposal_submitted_revision = null;
                     $project->proposal_budget_reviewed_at = null;
                     $project->proposal_budget_reviewed_by = null;
-                    $project->status = 'Approved';
+                    $project->status = 'Returned for Revision';
                     break;
-                case 'approve_full_proposal':
+                case 'approve_full_proposal': case 'reject_full_proposal': case 'defer_full_proposal':
                     abort_unless($admin && $from === 'Submitted for Formal Approval', 403);
                     $this->comments($comments);
                     if (!$project->proposal_budget_reviewed_at || $project->proposal_submitted_revision !== $project->revision) $this->invalid('The Treasurer must verify this exact proposal revision before final approval.');
@@ -125,11 +112,17 @@ class ProposalWorkflowService
                     BodDecision::create([
                         'project_id' => $project->id, 'recorded_by' => $user->id, 'stage' => 'proposal',
                         'meeting_date' => $decision['meeting_date'],
-                        'evidence_path' => $decision['evidence_path'], 'comments' => $comments, 'decision' => 'approved',
+                        'evidence_path' => $decision['evidence_path'], 'comments' => $comments,
+                        'decision' => ['approve_full_proposal' => 'approved', 'reject_full_proposal' => 'rejected', 'defer_full_proposal' => 'deferred'][$action],
                     ]);
-                    $project->proposal_reviewed_at = now();
-                    $project->proposal_reviewed_by = $user->id;
-                    $project->status = 'Approved';
+                    if ($action === 'approve_full_proposal') {
+                        $project->proposal_reviewed_at = now();
+                        $project->proposal_reviewed_by = $user->id;
+                        $project->status = 'Approved';
+                    } elseif ($action === 'reject_full_proposal') {
+                        $project->status = 'Not Approved';
+                        $project->archived_at = now();
+                    }
                     break;
                 case 'lock_plan':
                     abort_unless($chair && $from === 'Approved' && !$project->plan_locked_at, 403);
@@ -161,9 +154,16 @@ class ProposalWorkflowService
             $project->save();
             ProjectReview::create(['project_id' => $project->id, 'user_id' => $user->id, 'action' => $action, 'from_status' => $from, 'to_status' => $project->status, 'comments' => $comments, 'snapshot' => $before]);
             ChapterService::audit($action, $project, $before, $comments);
-            $roles = match ($project->status) { 'Admin Review' => ['admin'], 'Treasurer Review' => ['treasurer'], 'BOD Agenda' => ['admin', 'bod', 'treasurer'], 'Submitted for Formal Approval' => $action === 'review_full_budget' ? ['admin'] : ['admin', 'treasurer'], default => [] };
+            $roles = match ($project->status) {
+                'Admin Review' => ['admin'],
+                'Treasurer Review' => ['treasurer'],
+                'BOD Agenda' => ['admin'],
+                'Submitted for Formal Approval' => $action === 'review_full_budget' ? ['admin', 'bod'] : ['admin', 'treasurer'],
+                'Approved', 'Not Approved' => ['bod'],
+                default => [],
+            };
             $assignees = $action === 'cancel' ? $project->tasks()->get()->flatMap(fn ($task) => $task->assignees ?? [])->all() : [];
-            ChapterService::notify(array_merge([$project->created_by, $project->chair_id], $assignees, User::where('status', 'active')->whereIn('role', $roles)->pluck('id')->all()), $project->title, 'Project status: '.ProjectFlow::statusLabel($project), $project->status === 'Cancelled' ? null : route('projects.show', $project, false), in_array($project->status, ['Admin Review', 'Treasurer Review', 'BOD Agenda', 'Submitted for Formal Approval', 'Not Approved', 'Returned for Revision', 'Completion Review', 'Cancelled'], true));
+            ChapterService::notify(array_merge([$project->created_by, $project->chair_id], $assignees, User::where('status', 'active')->whereIn('role', $roles)->pluck('id')->all()), $project->title, 'Project status: '.ProjectFlow::statusLabel($project), $project->status === 'Cancelled' ? null : route('projects.show', $project, false), in_array($project->status, ['Admin Review', 'Treasurer Review', 'BOD Agenda', 'Endorsed for Development', 'Submitted for Formal Approval', 'Approved', 'Not Approved', 'Returned for Revision', 'Completion Review', 'Cancelled'], true));
             return $project;
         });
     }

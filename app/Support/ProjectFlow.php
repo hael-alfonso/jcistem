@@ -13,7 +13,7 @@ final class ProjectFlow
             'Needs Revision', 'Returned for Revision' => 'Needs changes',
             'Admin Review', 'Submitted for President Review' => 'In review',
             'Treasurer Review' => 'Budget review',
-            'BOD Agenda' => 'Board review',
+            'BOD Agenda' => 'Admin routing',
             'Approved' => $project->proposal_reviewed_at ? 'Proposal approved' : 'Concept approved',
             'Endorsed for Development' => 'Proposal preparation',
             'Full Proposal Draft' => 'Proposal draft',
@@ -44,11 +44,11 @@ final class ProjectFlow
             ],
             'Treasurer Review' => [
                 'title' => 'Check funding feasibility', 'actor' => 'Treasurer',
-                'detail' => 'Review the proposed budget before the concept reaches the Board.', 'anchor' => 'budget',
+                'detail' => 'Review the concept budget before the project moves to full proposal preparation.', 'anchor' => 'budget',
             ],
             'BOD Agenda' => [
-                'title' => 'Record the concept decision', 'actor' => 'Admin after the Board meeting',
-                'detail' => 'Record the official decision with the meeting date and signed evidence.', 'anchor' => 'project-actions',
+                'title' => 'Move the legacy concept to proposal preparation', 'actor' => 'Admin',
+                'detail' => 'Concepts no longer receive a BOD verdict here. The formal Board decision belongs to the completed proposal.', 'anchor' => 'project-actions',
             ],
             'Approved' => $project->proposal_reviewed_at
                 ? ['title' => 'Lock the approved plan', 'actor' => 'Project Chair', 'detail' => 'Confirm the final PPF before task assignments and delivery begin.', 'anchor' => 'project-actions']
@@ -123,7 +123,7 @@ final class ProjectFlow
         $reviewDetail = match ($status) {
             'Admin Review', 'Submitted for President Review' => 'Admin is checking the concept.',
             'Treasurer Review' => 'Treasurer is checking the concept budget.',
-            'BOD Agenda' => 'The Board is deciding on the concept.',
+            'BOD Agenda' => 'This legacy concept is being routed to full proposal preparation.',
             'Approved' => $project->proposal_reviewed_at
                 ? 'The full proposal is approved. The Chair can lock the plan.'
                 : 'The concept is approved. The Chair prepares the full proposal.',

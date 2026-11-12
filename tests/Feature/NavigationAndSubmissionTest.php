@@ -36,7 +36,8 @@ class NavigationAndSubmissionTest extends TestCase
             $labels = collect($navigation)->flatten(1)->pluck(1);
             $this->assertTrue($labels->contains('Project Finances'));
             $this->assertTrue($labels->contains($role === 'treasurer' ? 'Claims to Review' : 'My Expense Claims'));
-            $this->assertTrue($labels->contains($role === 'treasurer' ? 'Member Dues' : 'My Dues'));
+            $this->assertTrue($labels->contains('My Member Dues'));
+            $this->assertSame($role === 'treasurer', $labels->contains('Member Dues'));
             $this->assertFalse($labels->contains('Completed Project Library'));
             $this->assertFalse($labels->contains('Archived Projects'));
             $this->assertFalse($labels->contains('My Chairmanships'));
@@ -277,6 +278,31 @@ class NavigationAndSubmissionTest extends TestCase
         $zip->close();
         $this->assertIsString($xml);
         return $xml;
+    }
+
+    public function test_concept_sdg_choice_sets_the_official_name_and_rejects_unknown_goals(): void
+    {
+        $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $this->actingAs($member)->get(route('projects.create'))->assertOk()
+            ->assertSee('SDG 4 - Quality Education')
+            ->assertSee('SDG 17 - Partnerships for the Goals');
+
+        $details = [
+            'title' => 'SDG selection test',
+            'area' => 'Community Impact',
+            'proposed_budget' => '0.00',
+            'no_budget' => '1',
+            'concept_submission_method' => 'online',
+        ];
+        $this->actingAs($member)->post(route('projects.store'), $details + [
+            'concept' => ['sdg_number' => '18', 'sdg_name' => 'Made up goal'],
+        ])->assertSessionHasErrors('concept.sdg_number');
+        $this->assertSame(0, Project::count());
+
+        $this->actingAs($member)->post(route('projects.store'), $details + [
+            'concept' => ['sdg_number' => '4', 'sdg_name' => 'Incorrect name'],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('Quality Education', Project::firstOrFail()->concept['sdg_name']);
     }
 
     public function test_uploaded_concept_and_proposal_forms_use_the_normal_workflow_and_keep_versions(): void
@@ -548,7 +574,11 @@ class NavigationAndSubmissionTest extends TestCase
         $this->assertTrue(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));
         $page->assertSee('Account menu')->assertSee('account-dropdown')->assertDontSee('tracker-steps');
 
-        $this->get(route('projects.archived'))->assertOk()->assertSee('Archive · Completed');
+        $archivePage = $this->get(route('projects.archived'))->assertOk()
+            ->assertSee('Project Archive')->assertSee('Completed')->assertSee('Cancelled &amp; Closed', false)
+            ->assertSee(route('projects.archived', ['archive' => 'completed']), false)
+            ->assertSee(route('projects.archived', ['archive' => 'cancelled']), false);
+        $this->assertSame(1, substr_count($archivePage->getContent(), '<strong>Archive</strong>'));
         $this->get(route('projects.completed'))->assertOk()
             ->assertSee('Completed Projects')->assertSee('aria-current="page"', false);
         $this->assertTrue(PmsNavigation::active(['projects', 'All Projects', 'briefcase', []]));

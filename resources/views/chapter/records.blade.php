@@ -26,6 +26,9 @@
         <a class="{{ request('type','') === $type ? 'selected' : '' }}" href="{{ route('records', array_filter(['kind' => 'reports', 'type' => $type] + request()->only(['q', 'status', 'from', 'to', 'mine']))) }}" @if(request('type','') === $type) aria-current="page" @endif>{{ $label }}</a>
     @endforeach
 </nav>
+@if(auth()->user()->role === 'admin')
+    <div class="notice reports-inbox-note"><strong>Admin report inbox.</strong> Submitted reports are retained here. Admin approves Completion and chapter financial reports; liquidation copies remain visible here while the Treasurer makes the approval.</div>
+@endif
 @endif
 <form class="list-filters" method="GET" action="{{ route('records', $kind) }}">
     @if(request()->boolean('mine'))<input type="hidden" name="mine" value="1">@endif
@@ -40,7 +43,7 @@
     <thead><tr><th>Document</th><th>Project</th><th>Prepared by</th><th>Status</th><th>Version</th><th></th></tr></thead>
     <tbody>
         @forelse($records as $record)
-            <tr><td><strong>{{ $record->title }}</strong><small>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : ($record->type === 'Completion' ? 'Completion Report' : $record->type) }}</small></td><td>{{ $record->project?->title ?? 'Chapter finances' }}</td><td>{{ $record->author?->name }}</td><td><x-status-badge :status="$record->status" /></td><td>v{{ $record->version }}</td><td><a class="text-link" href="{{ route('records.show', [$kind, $record->id]) }}"><x-icon name="eye" /> Open</a></td></tr>
+            <tr><td><strong>{{ $record->title }}</strong><small>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : ($record->type === 'Completion' ? 'Completion Report' : $record->type) }}@if($kind === 'reports' && $record->type === 'Liquidation' && auth()->user()->role === 'admin') · Admin copy; Treasurer approval @endif</small></td><td>{{ $record->project?->title ?? 'Chapter finances' }}</td><td>{{ $record->author?->name }}</td><td><x-status-badge :status="$record->status" /></td><td>v{{ $record->version }}</td><td><a class="text-link" href="{{ route('records.show', [$kind, $record->id]) }}"><x-icon name="eye" /> Open</a></td></tr>
         @empty
             <tr><td colspan="6"><div class="empty-state"><h3>No matching {{ $kind === 'letters' ? 'LOIs' : 'reports' }}.</h3><p>Try another filter. New documents appear here after they are saved.</p><a class="btn secondary" href="{{ route('records', $kind) }}"><x-icon name="close" /> Show all</a></div></td></tr>
         @endforelse

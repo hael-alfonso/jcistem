@@ -15,8 +15,6 @@
         'letter_date' => 'Use the date that should appear on the official internal letter.',
         'president_name' => 'Enter the full name of the current JCI Carmona Local Organization President.',
         'chapter_address' => 'Enter the chapter mailing address shown beneath the recipient.',
-        'sdg_number' => 'Example: 4',
-        'sdg_name' => 'Example: Quality Education',
         'objective' => 'State the core project goal in one clear, action-focused statement.',
         'beneficiaries' => 'Identify the target group and expected number of participants or recipients.',
         'committee_size' => 'Enter the number of active JCI members needed for the committee.',
@@ -54,9 +52,6 @@
     </div>
     @if($proposal && $project->exists && $project->proposal)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View &amp; print proposal</a>@endif
 </div>
-<div class="project-entry-steps" aria-label="Form progress">
-    <span data-project-step-label="0"><b>1</b> Project details</span><span data-project-step-label="1"><b>2</b> Choose a method</span><span data-project-step-label="2"><b>3</b> Complete the {{ $proposal ? 'proposal' : 'letter' }}</span><span data-project-step-label="3"><b>4</b> Review &amp; confirm</span>
-</div>
 <div class="notice project-entry-notice">You can save an unfinished draft. Submission checks the required answers and uploaded form. {{ $proposal ? 'After submission, the Treasurer verifies the budget, Admin records the signed Board decision, then the Chair finalizes the plan.' : 'After submission, Admin and Treasurer review the concept before the Board decision; the full proposal and implementation follow.' }}</div>
 <form class="project-entry-form" method="POST" enctype="multipart/form-data" action="{{ $project->exists ? route('projects.update', $project) : route('projects.store') }}" data-project-submission-form>
     @csrf
@@ -83,23 +78,16 @@
             <label><input type="radio" name="{{ $submissionField }}" value="upload" @checked($submissionMethod === 'upload')> <span><strong>Upload completed template</strong><small>Upload a completed DOCX or PDF while keeping the project details searchable.</small></span></label>
         </div>
     </section>
-    <div data-submission-panel="online" @if($submissionMethod !== 'online') hidden @endif>
+    <div data-submission-panel="online">
     <div class="online-document-tools no-print">
         <div><span class="eyebrow">OFFICIAL WORD FORMAT</span><strong>Your answers download in the official {{ $proposal ? 'Project Proposal Form' : 'Internal Project Proposal Letter' }} layout.</strong><small>Save the draft first, then download a filled editable DOCX. You can also download the blank template at any time.</small></div>
         <div><a class="btn secondary" href="{{ route('templates.reference.download', $proposal ? 'project-proposal-form' : 'internal-project-letter') }}"><x-icon name="download" /> Blank template</a>@if($project->exists && filled($proposal ? $project->proposal : $project->concept))<a class="btn primary" href="{{ route('projects.word', [$project, $proposal ? 'proposal' : 'concept']) }}"><x-icon name="filePlus" /> Download filled Word copy</a>@endif</div>
     </div>
     @if($proposal)
-        <nav class="proposal-form-toc" aria-label="Proposal form sections">
-            <strong>FORM SECTIONS</strong>
-            @foreach(\App\Support\ChapterForms::PROPOSAL_SECTIONS as $heading => $keys)
-                <a href="#proposal-section-{{ $loop->iteration }}">{{ $loop->iteration }}. {{ $heading }}</a>
-            @endforeach
-        </nav>
         @foreach(\App\Support\ChapterForms::PROPOSAL_SECTIONS as $heading => $keys)
             @php
                 $primaryKeys = array_values(array_intersect($keys, array_keys(\App\Support\ChapterForms::PROPOSAL_REQUIRED)));
                 $supportingKeys = array_values(array_diff($keys, $primaryKeys));
-                $hasSupportingValues = collect($supportingKeys)->contains(fn ($key) => filled(old('proposal.'.$key, $proposalData[$key] ?? null)));
             @endphp
             <section class="panel form-panel chapter-form-section proposal-form-section" id="proposal-section-{{ $loop->iteration }}">
                 <div class="section-heading"><span>{{ str_pad((string) ($loop->iteration + 2), 2, '0', STR_PAD_LEFT) }}</span><div><small>OFFICIAL FORM - SECTION {{ $loop->iteration }}</small><h2>{{ $heading }}</h2><p>{{ $sectionLabels[$heading] }}</p></div></div>
@@ -109,11 +97,11 @@
                     @endforeach
                 </div>
                 @if($supportingKeys)
-                    <details class="proposal-supporting-fields" @if($hasSupportingValues) open @endif><summary>Additional planning details <span>Optional</span></summary><div class="form-grid">
+                    <div class="proposal-supporting-fields proposal-supporting-fields-visible"><div class="project-module-heading"><span><strong>Additional planning details</strong><small>Optional details that make the plan easier to review and deliver.</small></span></div><div class="form-grid">
                         @foreach($supportingKeys as $key)
-                            <div class="full"><x-field :name="'proposal['.$key.']'" :label="\App\Support\ChapterForms::PROPOSAL[$key]" type="textarea" :value="$proposalData[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
+                            <div><x-field :name="'proposal['.$key.']'" :label="\App\Support\ChapterForms::PROPOSAL[$key]" type="textarea" :value="$proposalData[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
                         @endforeach
-                    </div></details>
+                    </div></div>
                 @endif
                 @if($heading === 'Estimated budget and funding source')
                     <div class="proposal-finance-grid">
@@ -155,6 +143,15 @@
                             $conceptTextarea = in_array($key, ['objective', 'beneficiaries', 'resources', 'request'], true);
                             $conceptType = $key === 'letter_date' ? 'date' : ($conceptTextarea ? 'textarea' : 'text');
                         @endphp
+                        @if($key === 'sdg_name') @continue @endif
+                        @if($key === 'sdg_number')
+                            <div class="full"><x-field name="concept[sdg_number]" label="United Nations Sustainable Development Goal" type="select" :options="collect(\App\Support\ChapterForms::SDGS)->mapWithKeys(fn ($name, $number) => [$number => 'SDG '.$number.' - '.$name])->all()" :value="($project->concept ?? [])['sdg_number'] ?? ''"/></div>
+                            @continue
+                        @endif
+                        @if($key === 'committee_size')
+                            <div><x-field name="concept[committee_size]" label="Required number of active JCI members" type="number" min="1" step="1" :value="($project->concept ?? [])['committee_size'] ?? ''" placeholder="Number of members"/></div>
+                            @continue
+                        @endif
                         <div class="{{ $conceptTextarea ? 'full' : '' }}"><x-field :name="'concept['.$key.']'" :label="\App\Support\ChapterForms::CONCEPT[$key]" :type="$conceptType" :value="($project->concept ?? [])[$key] ?? ''" :placeholder="$fieldHints[$key] ?? ''" maxlength="15000"/></div>
                     @endforeach
                 </div>
@@ -162,7 +159,7 @@
         @endforeach
     @endif
     </div>
-    <section class="panel form-panel chapter-form-section" data-submission-panel="upload" @if($submissionMethod !== 'upload') hidden @endif>
+    <section class="panel form-panel chapter-form-section" data-submission-panel="upload">
         <div class="section-heading"><span>03</span><div><h2>Completed template</h2><p>Use the official form from Form Templates. New uploads are retained as a version history.</p></div></div>
         <a class="btn secondary proposal-template-download" href="{{ route('templates.reference.download', $proposal ? 'project-proposal-form' : 'internal-project-letter') }}"><x-icon name="download" /> Download {{ $proposal ? 'Project Proposal Form' : 'Internal Project Letter' }}</a>
         <div class="form-grid">
@@ -180,7 +177,7 @@
             <p class="hint">You can save this draft now. Upload the completed template before submitting it for review.</p>
         @endif
     </section>
-    <section class="panel form-panel chapter-form-section" data-project-review hidden><div class="section-heading"><span>04</span><div><h2>Review your project details</h2><p>Check each answer, budget line, and uploaded file before saving. You can return to any step to make changes.</p></div></div><div data-project-review-summary></div><label class="field"><span><input type="checkbox" data-project-review-confirm> I reviewed the details above and confirm they are ready to save.</span></label></section>
+    <section class="panel form-panel chapter-form-section" data-project-review hidden><div class="section-heading"><span>04</span><div><h2>Review your project details</h2><p>All project details are shown above for review before saving.</p></div></div><div data-project-review-summary></div></section>
     <div class="form-footer project-entry-actions"><span data-project-step-hint>Complete each step, then review all details before saving.</span><div><a class="btn secondary" href="{{ $project->exists ? route('projects.show', $project) : route('projects') }}"><x-icon name="close" /> Cancel</a><button class="btn secondary" type="button" data-project-step-prev hidden>Previous</button><button class="btn primary" type="button" data-project-step-next hidden>Continue</button><button class="btn primary" data-project-save><x-icon name="save" /> Save {{ $proposal ? 'proposal' : 'concept' }} draft</button></div></div>
 </form>
 </div>

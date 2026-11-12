@@ -20,6 +20,11 @@ class User extends Authenticatable
         $this->notify(new JciPasswordReset($token));
     }
 
+    public function memberDues()
+    {
+        return $this->hasMany(MemberDue::class, 'member_id');
+    }
+
     /**
      * The attributes that are mass assignable.
      *

@@ -5,10 +5,10 @@
     $importantItems = $items->getCollection()->where('requires_open', true);
     $routineGroups = $items->getCollection()->where('requires_open', false)->groupBy(fn ($item) => $item->created_at->isToday() ? 'Today' : ($item->created_at->isYesterday() ? 'Yesterday' : 'Earlier'));
 @endphp
-<div class="page-heading">
+<div class="page-heading notification-page-heading">
     <div><div class="eyebrow">WORKSPACE UPDATES</div><h1>Notifications</h1><p>Review decisions and keep up with chapter activity.</p></div>
     @if($unreadCount)
-        <form method="POST" action="{{ route('notifications.read') }}">@csrf<button class="btn secondary notification-mark-all {{ $importantCount ? 'caution' : '' }}" type="submit" aria-label="Mark all notifications as read" title="Mark all notifications as read" @if($importantCount) data-confirm="Mark all notifications as read, including {{ $importantCount }} important {{ \Illuminate\Support\Str::plural('update', $importantCount) }}? You can still review them later." @endif><x-icon name="check" /></button></form>
+        <form class="notification-mark-all-form" method="POST" action="{{ route('notifications.read') }}">@csrf<button class="notification-mark-all {{ $importantCount ? 'caution' : '' }}" type="submit" aria-label="Mark all notifications as read" title="Mark all notifications as read" @if($importantCount) data-confirm="Mark all notifications as read, including {{ $importantCount }} important {{ \Illuminate\Support\Str::plural('update', $importantCount) }}? You can still review them later." @endif><span>Mark all as read</span><x-icon name="check" /></button></form>
     @endif
 </div>
 <nav class="notification-filters" aria-label="Notification filters">

@@ -5,7 +5,7 @@
     $start = max(2, $current - 1);
     $end = min($last - 1, $current + 1);
 @endphp
-<nav class="pagination workspace-pagination" aria-label="Pagination">
+<nav class="pagination workspace-pagination" aria-label="{{ $label ?? 'Pagination' }}">
     <span>Showing {{ number_format($items->firstItem()) }}–{{ number_format($items->lastItem()) }} of {{ number_format($items->total()) }}</span>
     @if($last > 1)
     <div class="pagination-pages">

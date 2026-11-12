@@ -1,0 +1,52 @@
+/* Shared empty states use the same comfortable scale across every workspace. */
+.empty-state:not(.compact):not(.task-empty-state) {
+  min-height: 220px;
+  padding: 40px 28px;
+}
+
+.empty-state.compact {
+  min-height: 180px;
+  padding: 30px 24px;
+}
+
+.empty-state.compact h2,
+.empty-state.compact h3,
+.empty-state.compact strong {
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.empty-state.compact p,
+.empty-state.compact span {
+  max-width: 440px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.empty-panel {
+  min-height: 220px;
+  padding: 52px 30px;
+  border: 1px solid #dce9ef;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.empty-panel strong {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.empty-panel span {
+  max-width: 520px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .empty-state:not(.compact):not(.task-empty-state),
+  .empty-state.compact,
+  .empty-panel {
+    min-height: 190px;
+    padding: 36px 20px;
+  }
+}

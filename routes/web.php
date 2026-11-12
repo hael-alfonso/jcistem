@@ -64,6 +64,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/projects/{project}/transition', [ChapterController::class, 'transition'])->name('projects.transition');
     Route::post('/projects/{project}/tasks', [ChapterController::class, 'taskSave'])->name('tasks.store');
     Route::put('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskSave'])->name('tasks.update');
+    Route::delete('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskRemove'])->name('tasks.destroy');
+    Route::post('/projects/{project}/tasks/{taskId}/restore', [ChapterController::class, 'taskRestore'])->whereNumber('taskId')->name('tasks.restore');
     Route::post('/projects/{project}/tasks/{task}/complete', [ChapterController::class, 'taskComplete'])->name('tasks.complete');
     Route::post('/projects/{project}/tasks/{task}/respond', [ChapterController::class, 'taskRespond'])->name('tasks.respond');
     Route::get('/tasks', [ChapterController::class, 'tasks'])->name('tasks');
@@ -119,6 +121,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/ledger/{entry}/receipt', [FinanceController::class, 'receipt'])->name('ledger.receipt');
     Route::get('/dues', [FinanceController::class, 'dues'])->name('dues');
     Route::get('/dues/manage', [FinanceController::class, 'dues'])->middleware('permission:finance.manage')->name('dues.manage');
+    Route::get('/dues/manage/assessments', [FinanceController::class, 'dues'])->middleware('permission:finance.manage')->name('dues.assessments');
     Route::post('/dues', [FinanceController::class, 'openDues'])->middleware('permission:finance.manage')->name('dues.store');
     Route::post('/dues/{due}/payment', [FinanceController::class, 'payDues'])->middleware('permission:finance.manage')->name('dues.payment');
     Route::get('/records/{kind}', [RecordController::class, 'index'])->name('records');

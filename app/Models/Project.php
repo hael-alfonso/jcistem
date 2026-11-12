@@ -58,8 +58,27 @@ class Project extends ChapterRecord
         return !$this->trashed() && !$this->archived_at && !in_array($this->status, ['Completed', 'Archived', 'Cancelled', 'Declined', 'Not Approved'], true) && $user->status === 'active'
             && ($user->role === 'admin' || ($this->chair_id === $user->id && $this->decisions()->where('decision', 'approved')->exists()));
     }
-    public function isChair(User $user): bool { return $user->status === 'active' && $this->chair_id === $user->id && in_array($this->status, self::APPROVED, true) && $this->decisions()->where('decision', 'approved')->exists(); }
+    public function isChair(User $user): bool
+    {
+        if ($user->status !== 'active' || $this->chair_id !== $user->id) return false;
+
+        // Concept endorsement grants proposal-preparation access only.
+        if (in_array($this->status, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Submitted for Formal Approval'], true)) return true;
+
+        $proposalApproved = $this->decisions()->where('stage', 'proposal')->where('decision', 'approved')->exists();
+        $legacyConceptApproved = $this->status === 'Approved' && !$this->proposal_reviewed_at
+            && $this->decisions()->where('stage', 'concept')->where('decision', 'approved')->exists();
+
+        return in_array($this->status, self::APPROVED, true) && ($proposalApproved || $legacyConceptApproved);
+    }
     public function canManage(User $user): bool { return $this->isChair($user) && $this->plan_locked_at && in_array($this->status, ['Plan Locked', 'Ongoing'], true); }
     public function canReport(User $user): bool { return $this->isChair($user) && $this->status === 'Completion Review'; }
-    public function canEdit(User $user): bool { return $user->status === 'active' && (($this->created_by === $user->id && in_array($this->status, ['Draft Concept', 'Needs Revision'], true)) || ($this->isChair($user) && $this->status === 'Approved' && !$this->proposal_reviewed_at && !$this->plan_locked_at)); }
+    public function canEdit(User $user): bool
+    {
+        $proposalPreparation = ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Approved'];
+
+        return $user->status === 'active'
+            && (($this->created_by === $user->id && in_array($this->status, ['Draft Concept', 'Needs Revision'], true))
+                || ($this->isChair($user) && in_array($this->status, $proposalPreparation, true) && !$this->proposal_reviewed_at && !$this->plan_locked_at));
+    }
 }

@@ -129,6 +129,12 @@ tr:hover td { background: #fbfdff; }
 .empty-state > .ico, .empty-state > .empty-icon { display: grid; place-items: center; width: 38px; height: 38px; margin: 0 0 8px; color: #176a9b; background: transparent; }
 .empty-state > .ico svg, .empty-state > .empty-icon svg { width: 25px; height: 25px; }
 .empty-state .btn { margin-top: 12px; }
+.panel.empty-state:not(.compact), .panel > .empty-state:not(.compact) { width: 100%; max-width: none; min-height: 270px; margin: 0 0 24px; padding: 54px 32px; border-radius: 16px; }
+.panel.empty-state:not(.compact) > .ico, .panel.empty-state:not(.compact) > .empty-icon, .panel > .empty-state:not(.compact) > .ico, .panel > .empty-state:not(.compact) > .empty-icon { width: 52px; height: 52px; margin-bottom: 10px; color: #176a9b; }
+.panel.empty-state:not(.compact) > .ico svg, .panel.empty-state:not(.compact) > .empty-icon svg, .panel > .empty-state:not(.compact) > .ico svg, .panel > .empty-state:not(.compact) > .empty-icon svg { width: 32px; height: 32px; }
+.panel.empty-state:not(.compact) h2, .panel.empty-state:not(.compact) h3, .panel > .empty-state:not(.compact) h2, .panel > .empty-state:not(.compact) h3 { font-size: 21px; }
+.panel.empty-state:not(.compact) p, .panel > .empty-state:not(.compact) p { max-width: 560px; font-size: 14px; }
+.panel.empty-state:not(.compact) .btn, .panel > .empty-state:not(.compact) .btn { min-height: 44px; padding-inline: 20px; }
 .profile-membership-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
 .profile-membership-summary > div { min-width: 0; padding: 14px; border-radius: 10px; background: #f2f8fb; }
 .profile-membership-summary span, .profile-membership-summary strong { display: block; overflow-wrap: anywhere; }
@@ -229,6 +235,28 @@ progress::-moz-progress-bar { background: var(--teal); }
 .chart-fill.teal { background: #268b99; }
 .chart-note { margin: auto 24px 20px; padding-top: 12px; border-top: 1px solid #edf2f6; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .finance-chart-grid { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.project-budget-use-panel > .table-wrap { padding: 0 18px 18px; overflow-x: auto; }
+.finance-budget-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; table-layout: fixed; }
+.finance-budget-table > thead th { padding: 8px 10px 4px; border: 0; background: transparent; color: #5f7a8a; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) { background: #f7fbfc; box-shadow: 0 1px 0 #e6eef1; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row):hover { background: #eef8fb; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) > td { padding: 15px 10px; border: 0; color: #29485c; font-size: 11px; vertical-align: middle; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) > td:first-child { border-radius: 10px 0 0 10px; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) > td:last-child { border-radius: 0 10px 10px 0; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) > td:nth-child(n+2):nth-child(-n+5) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) > td:first-child a { display: grid; gap: 4px; color: #102d49; text-decoration: none; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) > td:first-child a:hover strong { color: var(--blue); }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) > td:first-child small { color: #77909d; font-size: 10px; }
+.finance-budget-table > tbody > tr.finance-breakdown-row > td { padding: 0 10px 2px; border: 0; background: transparent; }
+.finance-budget-table > tbody > tr.finance-breakdown-row details { padding: 0 12px; border: 0; border-radius: 8px; background: #edf7f9; }
+.finance-budget-table > tbody > tr.finance-breakdown-row summary { padding: 9px 0; color: #27657a; font-size: 10px; font-weight: 700; }
+.finance-budget-table > tbody > tr.finance-breakdown-row .table-wrap { padding: 0 0 10px; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) progress { display: block; width: 100%; height: 7px; margin-bottom: 6px; accent-color: #1476a5; }
+.finance-budget-table > tbody > tr:not(.finance-breakdown-row) td:last-child { color: #35566a; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .project-budget-use-panel > .table-wrap { padding-inline: 12px; }
+  .finance-budget-table { min-width: 860px; }
+}
 .chart-key { display: flex; gap: 18px; flex-wrap: wrap; padding: 0 24px 10px; color: var(--muted); font-size: 11px; }
 .chart-key span { display: inline-flex; align-items: center; gap: 7px; }
 .chart-key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
@@ -2496,14 +2524,14 @@ body.workspace-theme-navy .app-sidebar nav:hover::-webkit-scrollbar-thumb, body.
 }
 
 /* Compact project cards; one bar compares completed tasks with elapsed schedule time. */
-.modern-project-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 275px), 1fr)); gap: 14px; }
-.modern-project-card { padding: 16px; border-radius: 12px; }
+.modern-project-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 275px), 1fr)); grid-auto-rows: 1fr; gap: 14px; align-items: stretch; }
+.modern-project-card { height: 100%; min-height: 340px; padding: 16px; border-radius: 12px; }
 .modern-project-card .project-card-heading { min-height: 0; margin-bottom: 8px; align-items: center; }
 .modern-project-card .project-card-icon { width: 32px; height: 32px; border-radius: 9px; }
 .modern-project-card .project-card-icon .ico { width: 17px; height: 17px; }
 .modern-project-card .project-status { margin: 0; }
 .modern-project-card .project-reference { font-size: 9px; }
-.modern-project-card h2 { min-height: 2.7em; margin: 3px 0 4px; font-size: 15px; line-height: 1.35; }
+.modern-project-card h2 { display: -webkit-box; min-height: 2.7em; max-height: 2.7em; margin: 3px 0 4px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 15px; line-height: 1.35; }
 .modern-project-card .project-focus { min-height: 0; margin: 0; font-size: 10px; line-height: 1.4; -webkit-line-clamp: 1; }
 .modern-project-card .project-card-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 11px 0; padding: 0; background: transparent; }
 .modern-project-card .project-card-facts strong { min-height: 0; margin-top: 1px; -webkit-line-clamp: 1; font-size: 11px; line-height: 1.45; }
@@ -2785,11 +2813,8 @@ body.workspace-theme-navy .app-sidebar .sidebar-account { background: #f4f7fb; b
 .dues-summary > div { min-width: 0; padding: 16px 18px; }
 .dues-summary strong { overflow-wrap: anywhere; font-size: clamp(17px, 2vw, 24px); }
 .dues-help { margin: 0 0 16px; border: 1px solid #dce9ef; border-radius: 10px; background: #fff; }
-.dues-help summary { display: flex; align-items: center; gap: 9px; padding: 12px 16px; color: #24536d; font-size: 12px; font-weight: 700; cursor: pointer; list-style: none; }
-.dues-help summary::-webkit-details-marker { display: none; }
-.dues-help summary .ico:last-child { margin-left: auto; transition: transform .2s; }
-.dues-help[open] summary .ico:last-child { transform: rotate(90deg); }
-.dues-help p { margin: 0; padding: 0 16px 15px; color: #60788a; font-size: 12px; line-height: 1.6; }
+.dues-help-note { display: block; padding: 14px 17px; background: #eef8f8; border-color: #52b8bb; color: #315f6d; }
+.dues-help-note strong { color: #173f58; }
 .due-payment-table { width: 100%; min-width: 520px; }
 .due-payment-table th, .due-payment-table td { padding: 10px 12px; }
 .due-no-payments { color: #718696; text-align: center; }

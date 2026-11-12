@@ -22,13 +22,31 @@ class ProjectLibraryTest extends TestCase
 
         $this->actingAs($viewer)->get(route('projects'))->assertOk()
             ->assertSee($current->title)->assertDontSee($completed->title)->assertDontSee($archived->title)->assertDontSee($cancelled->title)
-            ->assertSee(route('projects.completed'), false)->assertSee(route('projects.archived'), false);
+            ->assertSee(route('projects.completed'), false)->assertSee(route('projects.archived'), false)
+            ->assertDontSee(route('projects.cancelled'), false)
+            ->assertSee('Project status')->assertDontSee('Current project views');
+        $this->get(route('projects', ['filter' => 'Draft Concept']))->assertOk()->assertSee($current->title);
+        $this->get(route('projects', ['filter' => 'Ongoing']))->assertOk()->assertDontSee($current->title);
         $this->get(route('projects.completed'))->assertOk()
             ->assertSee($completed->title)->assertDontSee($archived->title)->assertDontSee($current->title)
             ->assertSee('Chapter project records')->assertDontSee('?filter=completed', false)
             ->assertDontSee('Stale online objective');
-        $this->get(route('projects.archived'))->assertOk()->assertSee($archived->title)->assertDontSee($completed->title);
-        $this->get(route('projects.cancelled'))->assertOk()->assertSee($cancelled->title)->assertDontSee($completed->title);
+        $completedArchive = route('projects.archived', ['archive' => 'completed']);
+        $cancelledArchive = route('projects.archived', ['archive' => 'cancelled']);
+        $archivePage = $this->get($completedArchive)->assertOk()
+            ->assertSee('Project Archive')->assertSee('Completed')->assertSee('Cancelled &amp; Closed', false)
+            ->assertSee($completedArchive, false)->assertSee($cancelledArchive, false)
+            ->assertSee($archived->title)->assertDontSee($completed->title)->assertDontSee($cancelled->title);
+        $this->assertSame(1, substr_count($archivePage->getContent(), '<strong>Archive</strong>'));
+
+        $filteredCancelledArchive = route('projects.archived', ['archive' => 'cancelled', 'q' => 'Cancelled']);
+        $this->get($filteredCancelledArchive)->assertOk()
+            ->assertSee('name="archive" value="cancelled"', false)
+            ->assertSee(route('projects.archived', ['q' => 'Cancelled', 'archive' => 'completed']))
+            ->assertSee(route('projects.archived', ['q' => 'Cancelled', 'archive' => 'cancelled']))
+            ->assertSee($cancelled->title)->assertDontSee($completed->title)->assertDontSee($archived->title);
+        $this->get(route('projects.cancelled', ['q' => 'Cancelled']))
+            ->assertRedirect(route('projects.archived', ['q' => 'Cancelled', 'archive' => 'cancelled']));
         $this->get(route('projects.show', $completed))->assertOk()->assertSee($completed->title);
         $this->get(route('projects.show', $archived))->assertOk()->assertSee($archived->title);
         $this->get(route('projects.removed'))->assertForbidden();

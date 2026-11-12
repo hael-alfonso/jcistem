@@ -43,6 +43,9 @@ class ProjectFundReleaseTest extends TestCase
     public function test_chair_confirmation_posts_exactly_one_debit_and_reduces_available_funds(): void
     {
         [$project, $chair, $treasurer, $member, $budgetItemId] = $this->workspace();
+        $this->actingAs($treasurer)->get(route('projects.show', $project))->assertOk()
+            ->assertSee('id="project-allocation-dialog"', false)
+            ->assertSee('id="fund-release-dialog"', false);
         $this->actingAs($treasurer)->post('/projects/'.$project->id.'/fund-releases', $this->releasePayload($budgetItemId))->assertSessionHasNoErrors();
         $release = ProjectFundRelease::firstOrFail();
         $this->assertSame('Pending', $release->status);
@@ -101,7 +104,7 @@ class ProjectFundReleaseTest extends TestCase
             ->assertSee('Project Process')
             ->assertDontSee('project-journey-details', false)
             ->assertDontSee('<details class="project-record-details"', false);
-        $this->get('/tasks')->assertOk()->assertSee('More filters')->assertSee('task-list-table', false)
+        $this->get('/tasks')->assertOk()->assertSee('Task status')->assertDontSee('More filters')->assertSee('task-list-table', false)
             ->assertSee('task-assignee-avatar', false)->assertSee('id="task-preview-dialog"', false);
     }
 }

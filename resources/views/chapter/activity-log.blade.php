@@ -10,9 +10,10 @@
             @foreach($actions as $option)<option value="{{ $option }}" @selected($action === $option)>{{ \Illuminate\Support\Str::headline($option) }}</option>@endforeach
         </select></label>
         <label for="activity-actor"><span>Person</span><select id="activity-actor" name="actor"><option value="">Everyone</option>@foreach($actors as $person)<option value="{{ $person->id }}" @selected((string) $actor === (string) $person->id)>{{ $person->name }}</option>@endforeach</select></label>
+        <label for="activity-from"><span>From date</span><input id="activity-from" name="from" type="date" value="{{ request('from') }}"></label>
+        <label for="activity-to"><span>To date</span><input id="activity-to" name="to" type="date" value="{{ request('to') }}"></label>
         <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
         @if($action || $actor || $search || $hasActivityDates)<a class="text-link" href="{{ route('activity-log') }}"><x-icon name="close" /> Clear filters</a>@endif
-        <details class="task-advanced-filters full" @if($hasActivityDates) open @endif><summary><x-icon name="calendar" /> Date filters @if($hasActivityDates)<span>Active</span>@endif <x-icon name="chevron" class="disclosure-icon" /></summary><div class="task-advanced-filter-grid"><label for="activity-from"><span>From date</span><input id="activity-from" name="from" type="date" value="{{ request('from') }}"></label><label for="activity-to"><span>To date</span><input id="activity-to" name="to" type="date" value="{{ request('to') }}"></label></div></details>
 </form>
 <div class="collection-results"><span>{{ number_format($records->total()) }} {{ \Illuminate\Support\Str::plural('entry', $records->total()) }}</span><span>Newest activity first</span></div>
 <section class="activity-feed" aria-label="Recorded activity">

@@ -8,7 +8,7 @@
     $familyName = $profile['family_name'] ?? ($nameParts[1] ?? '');
     $isAdmin = auth()->user()->role === 'admin';
 @endphp
-<div class="page-heading"><div><span class="eyebrow">JCI CARMONA MEMBERSHIP</span><h1>{{ $member->exists ? 'Manage member' : 'Register member' }}</h1><p>Record the member's application details, interests, and chapter access in one place.</p></div><a class="btn secondary" href="{{ route('members') }}"><x-icon name="arrowLeft" /> Member directory</a></div>
+<div class="page-heading"><div><span class="eyebrow">JCI CARMONA MEMBERSHIP</span><h1>{{ $member->exists ? 'Manage member' : 'Register member' }}</h1><p>Record the member's application details, interests, and chapter access in one place.</p></div><a class="btn secondary" href="{{ route('members') }}" data-history-back><x-icon name="arrowLeft" /> Member directory</a></div>
 <form class="membership-form" method="POST" action="{{ $member->exists ? route('members.update', $member) : route('members.store') }}" enctype="multipart/form-data">
     @csrf @if($member->exists) @method('PUT') @endif
     <input type="hidden" name="name" value="{{ old('name', $member->name) }}">

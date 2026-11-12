@@ -27,10 +27,43 @@ class ChapterService
 
     public static function notify(iterable $users, string $title, string $body, ?string $url, bool $important = false): void
     {
-        $url = $url === null ? null : preg_replace('#^/workspaces/[a-f0-9-]{36}(?=/|$)#', '', $url);
-        foreach (collect($users)->filter()->unique()->values() as $id) {
+        $url = self::notificationUrl($url);
+        $ids = collect($users)
+            ->map(static function ($recipient) {
+                if ($recipient instanceof User) return $recipient->getKey();
+                if (is_object($recipient) && method_exists($recipient, 'getKey')) return $recipient->getKey();
+                return $recipient;
+            })
+            ->filter(static fn ($id) => is_numeric($id) && (int) $id > 0)
+            ->map(static fn ($id) => (int) $id)
+            ->unique()->values();
+
+        if ($ids->isEmpty()) return;
+
+        // Resolve against the users table so deleted/stale recipient ids never
+        // make notification creation fail or appear to vanish silently.
+        foreach (User::query()->whereKey($ids)->pluck('id') as $id) {
             Notification::create(['user_id' => $id, 'title' => $title, 'body' => $body, 'url' => $url, 'requires_open' => $important]);
         }
+    }
+
+    private static function notificationUrl(?string $url): ?string
+    {
+        if ($url === null || trim($url) === '') return null;
+
+        $url = trim($url);
+        $parsed = parse_url($url);
+        if ($parsed === false) return null;
+
+        // Controllers may pass either route(..., false) or an absolute route.
+        // Store one safe, app-relative path so the open action works in every
+        // workspace and never redirects to an unrelated host.
+        $path = $parsed['path'] ?? (str_starts_with($url, '/') ? $url : null);
+        if ($path === null || $path === '') return null;
+        if (isset($parsed['query'])) $path .= '?'.$parsed['query'];
+        if (isset($parsed['fragment'])) $path .= '#'.$parsed['fragment'];
+
+        return preg_replace('#^/workspaces/[a-f0-9-]{36}(?=/|$)#i', '', $path) ?: '/';
     }
 
     public static function canView(Project $project, User $user): bool

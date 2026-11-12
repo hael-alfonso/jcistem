@@ -6,6 +6,8 @@
         ? ['External Partner Letter' => 'External partnership LOI']
         : ['JCI LOI' => 'External partnership LOI'];
     $letterData = $record->data ?? [];
+    $reportMethod = old('data.submission_method', $record->data['submission_method'] ?? 'digital');
+    $supportsReportUpload = $kind === 'reports' && $project && in_array($record->type, ['Completion', 'Liquidation'], true);
 @endphp
 <div class="page-heading">
     <div>
@@ -73,6 +75,15 @@
             </div>
         </section>
         @if($project)
+            @if($supportsReportUpload)
+                <div class="report-input-options" data-report-submission-form data-report-has-file="{{ !empty($record->data['attachment_path']) ? '1' : '0' }}">
+                    <fieldset class="report-submission-choice">
+                        <legend>How would you like to prepare this report?</legend>
+                        <label><input type="radio" name="data[submission_method]" value="digital" @checked($reportMethod === 'digital')><span><strong>Fill out digital form</strong><small>Enter the report details here.</small></span></label>
+                        <label><input type="radio" name="data[submission_method]" value="upload" @checked($reportMethod === 'upload')><span><strong>Upload completed report</strong><small>Use your signed PCR or liquidation file instead.</small></span></label>
+                    </fieldset>
+                    <div data-report-digital-fields>
+            @endif
             @if($record->type === 'Liquidation')
                 <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>02</span><div><h2>Cash and voucher details</h2><p>Expense rows and actual totals come from posted project ledger entries and their receipts.</p></div></div><div class="form-grid">
                     @foreach(\App\Support\ChapterForms::LIQUIDATION as $key => $label)<div class="{{ in_array($key, ['receipt_notes', 'reconciliation_notes']) ? 'full' : '' }}"><x-field :name="'data['.$key.']'" :label="$label" :type="$key === 'report_date' ? 'date' : ($key === 'cash_received' ? 'number' : (in_array($key, ['receipt_notes', 'reconciliation_notes']) ? 'textarea' : 'text'))" :value="$record->data[$key] ?? ($key === 'report_date' ? now()->format('Y-m-d') : '')"/></div>@endforeach
@@ -84,13 +95,22 @@
                 </div></section>
             @endforeach
             @endif
-            <div class="notice">When submitted, the report captures the project's projected and posted income and expenses, plus pending liquidation and missing-evidence counts. The Treasurer confirms liquidation in the ledger.</div>
+            <div class="notice">When submitted, the report captures the project's projected and posted income and expenses, plus pending liquidation and missing-evidence counts. The Treasurer verifies linked expenses during Liquidation Report Review.</div>
+            @if($supportsReportUpload)
+                    </div>
+                    <section class="panel form-panel chapter-form-section report-upload-card">
+                        <div class="section-heading"><span>03</span><div><h2>Report file</h2><p>In digital-form mode, this is optional supporting evidence. In upload mode, attach the completed report here instead.</p></div></div>
+                        @if(!empty($record->data['attachment_path']))<p class="hint">Current file: <a class="text-link" href="{{ route('records.attachment', ['kind' => $kind, 'id' => $record->id]) }}">{{ $record->data['attachment_name'] ?? 'Download current report' }}</a>. Upload a replacement to create a new version.</p>@endif
+                        <div class="form-grid"><div class="full"><x-field name="attachment" label="Completed report / supporting file (PDF, DOC, DOCX, JPG, or PNG; max 10 MB)" type="file" :required="$reportMethod === 'upload' && empty($record->data['attachment_path'])"/></div></div>
+                    </section>
+                </div>
+            @endif
         @else
             <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>02</span><div><h2>Financial period and reconciliation</h2><p>Report only on the stated date range. The submitted report captures posted ledger totals.</p></div></div><div class="form-grid">
                 @foreach(\App\Support\ChapterForms::FINANCIAL_REPORT as $key => $label)<div class="full"><x-field :name="'data['.$key.']'" :label="$label" :type="str_starts_with($key, 'period_') ? 'date' : 'textarea'" :value="$record->data[$key] ?? ''"/></div>@endforeach
             </div></section>
+            <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>03</span><div><h2>Supporting file</h2><p>Add an approved supporting document if needed.</p></div></div><div class="form-grid"><div class="full"><x-field name="attachment" label="Supporting report file (optional; max 10 MB)" type="file"/></div></div></section>
         @endif
-        <section class="panel form-panel chapter-form-section"><div class="section-heading"><span>{{ $project ? '04' : '03' }}</span><div><h2>Supporting file</h2><p>Add project photographs, attendance records, receipts, or another approved supporting document.</p></div></div><div class="form-grid"><div class="full"><x-field name="attachment" label="Supporting report file (optional; max 10 MB)" type="file"/></div></div></section>
     @endif
     <div class="form-footer"><a class="btn secondary" href="{{ $record->exists ? route('records.show', [$kind, $record->id]) : ($project ? route('projects.show', $project).'#completion' : route('records', $kind)) }}"><x-icon name="close" /> Cancel</a><button class="btn primary"><x-icon name="save" /> Save draft</button></div>
 </form>

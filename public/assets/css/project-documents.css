@@ -61,6 +61,46 @@
 .letter-address { margin: 0 0 24px; font-size: 12px; font-style: normal; line-height: 1.55; }
 .letter-subject { padding: 10px 0; margin: 0 0 22px; border-top: 1px solid #dce5eb; border-bottom: 1px solid #dce5eb; font-size: 12px; }
 .external-loi-document, .financial-document { max-width: 850px; }
+.report-document { width: min(100%, 1180px); max-width: 1180px; padding: clamp(24px, 3vw, 38px); border-radius: 14px; }
+.report-document .project-letterhead { gap: 14px; padding-bottom: 14px; margin-bottom: 20px; }
+.report-document .project-letterhead img { width: 96px; max-height: 60px; }
+.report-document .project-letterhead > div { padding-left: 14px; }
+.report-document .project-letterhead strong { font-size: 20px; }
+.report-document .report-title { margin: 2px 0 4px; color: #102b47; font: 800 clamp(23px, 2.4vw, 29px)/1.2 'Manrope', sans-serif; letter-spacing: -.035em; }
+.report-document .budget-summary-meta { margin-bottom: 18px; }
+.report-table-wrap { width: 100%; overflow-x: auto; border: 1px solid #dce7ed; border-radius: 10px; }
+.report-register-table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.report-register-table thead th { padding: 11px 12px; border-bottom: 1px solid #dce7ed; background: #f2f7fa; color: #31556e; font-size: 9px; font-weight: 800; letter-spacing: .07em; line-height: 1.35; text-align: left; text-transform: uppercase; }
+.report-register-table tbody td { padding: 13px 12px; border-top: 1px solid #e8eef2; color: #29465d; line-height: 1.5; vertical-align: middle; overflow-wrap: anywhere; }
+.report-register-table tbody tr:first-child td { border-top: 0; }
+.report-register-table tbody td strong { display: block; color: #102b47; font-size: 11px; line-height: 1.45; }
+.report-register-table tbody td small { display: block; margin-top: 4px; color: #72889a; font-size: 9px; line-height: 1.45; }
+.report-register-table .report-money { white-space: nowrap; font-size: 10px; font-variant-numeric: tabular-nums; }
+.project-register-table .col-project { width: 26%; }
+.project-register-table .col-status { width: 15%; }
+.project-register-table .col-chair { width: 15%; }
+.project-register-table .col-dates { width: 18%; }
+.project-register-table .col-money { width: 13%; }
+.project-register-table .report-date-range { display: inline-block; max-width: 100%; }
+.budget-summary-table-report .col-project { width: 28%; }
+.budget-summary-table-report .col-chair { width: 17%; }
+.budget-summary-table-report .col-money { width: 18.33%; }
+.report-document .document-note { margin: 15px 0 0; line-height: 1.55; }
+.finance-print-header { display: none; }
+.ledger-pdf-table { min-width: 1080px; font-size: 10px; }
+.ledger-report-totals, .dues-report-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 15px 0; }
+.dues-report-totals { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ledger-report-totals > div, .dues-report-totals > div { display: grid; gap: 4px; padding: 11px 13px; border: 1px solid #dce7ed; border-radius: 9px; background: #f6fafc; }
+.ledger-report-totals span, .dues-report-totals span { color: #5d7789; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.ledger-report-totals strong, .dues-report-totals strong { color: #102b47; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ledger-report-totals small { grid-column: 1 / -1; color: #607587; font-size: 9px; }
+.dues-report-payment-history { margin-top: 22px; }
+.dues-report-payment-history > h2 { margin: 0 0 10px; color: #102b47; font: 800 17px/1.3 'Manrope', sans-serif; }
+.dues-payment-report-block { margin-top: 14px; break-inside: avoid; }
+.dues-payment-report-block h3 { margin: 0; padding: 7px 9px; border-bottom: 1px solid #dce7ed; background: #f2f7fa; color: #31556e; font-size: 10px; }
+.dues-payment-report-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+.dues-payment-report-table th, .dues-payment-report-table td { padding: 6px 9px; border-bottom: 1px solid #e8eef2; text-align: left; }
+.dues-payment-report-table th { color: #5d7789; font-size: 8px; text-transform: uppercase; }
 @media (max-width: 760px) {
     .chapter-form-heading { align-items: start; }
     .document-page, .external-loi-document, .financial-document { padding: 28px 22px; }
@@ -73,6 +113,21 @@
     .project-letterhead > div { padding-left: 12px; }
     .project-letterhead strong { font-size: 17px; }
     .document-routing > div, .document-facts > div { grid-template-columns: 65px 1fr; gap: 8px; }
+}
+@media screen and (max-width: 760px) {
+    .report-document { padding: 22px 16px; }
+    .report-document .project-letterhead img { width: 76px; }
+    .report-register-table { min-width: 0; table-layout: auto; }
+    .report-register-table thead { display: none; }
+    .report-register-table, .report-register-table tbody, .report-register-table tr, .report-register-table td { display: block; width: 100%; }
+    .report-register-table tbody { display: grid; gap: 10px; padding: 10px; }
+    .report-register-table tbody tr { padding: 10px 12px; border: 1px solid #dce7ed; border-radius: 9px; }
+    .report-register-table tbody td { display: grid; grid-template-columns: minmax(105px, .8fr) minmax(0, 1.2fr); gap: 12px; padding: 7px 0; border: 0; text-align: right; }
+    .report-register-table tbody td::before { content: attr(data-label); color: #5d7789; font-size: 10px; font-weight: 700; text-align: left; }
+    .report-register-table tbody td:first-child { display: block; padding: 0 0 9px; border-bottom: 1px solid #e8eef2; text-align: left; }
+    .report-register-table tbody td:first-child::before { display: none; }
+    .report-register-table tbody td.report-money { white-space: normal; }
+    .ledger-report-totals, .dues-report-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media print {
     @page { size: A4; margin: 17mm 16mm; }
@@ -88,4 +143,28 @@
     .proposal-document-section > h3 { break-after: avoid; }
     .proposal-document-field, .proposal-document-budget, .document-signature, .proposal-signatures { break-inside: avoid; }
     .document-page-footer { margin-top: 20px; }
+    .report-document { width: 100%; max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+    .report-document .project-letterhead { margin-bottom: 14px; }
+    .report-document .project-letterhead img { width: 82px; max-height: 54px; }
+    .report-document .report-title { font-size: 22px; }
+    .report-table-wrap { overflow: visible; border-radius: 0; }
+    .report-register-table { min-width: 0; font-size: 9px; }
+    .report-register-table thead { display: table-header-group; }
+    .report-register-table thead th { padding: 7px 6px; font-size: 8px; }
+    .report-register-table tbody tr { display: table-row; break-inside: avoid; }
+    .report-register-table tbody td { display: table-cell; width: auto; padding: 8px 6px; font-size: 9px; text-align: left; }
+    .report-register-table tbody td::before { display: none; }
+    .report-register-table tbody td strong { font-size: 9px; }
+    .report-register-table tbody td small { font-size: 8px; }
+    .report-register-table .report-money { white-space: nowrap; font-size: 8.5px; }
+    .finance-print-header { display: flex; }
+    .ledger-pdf-table { min-width: 0; table-layout: fixed; font-size: 7.5px; }
+    .ledger-pdf-table thead th { padding: 6px 4px; font-size: 7px; }
+    .ledger-pdf-table tbody td { padding: 6px 4px; font-size: 7.5px; }
+    .ledger-pdf-table tbody td strong { font-size: 8px; }
+    .ledger-pdf-table tbody td small { font-size: 7px; }
+    .ledger-pdf-table .report-money { font-size: 7px; }
+    .ledger-report-totals, .dues-report-totals { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .ledger-report-totals strong, .dues-report-totals strong { font-size: 11px; }
+    .dues-report-payment-history { break-before: page; }
 }

@@ -17,7 +17,7 @@ class PmsWorkflowTest extends TestCase
     private function actor(string $role = 'member'): User { return User::factory()->create(['role' => $role, 'status' => 'active']); }
     private function draft(User $owner, array $extra = []): Project
     {
-        return Project::create($extra + ['created_by' => $owner->id, 'title' => 'Community action', 'area' => 'Community Impact', 'status' => 'Draft Concept', 'starts_on' => '2026-11-01', 'venue' => 'Carmona', 'proposed_budget' => '5000.00', 'concept' => array_fill_keys(array_keys(ChapterForms::CONCEPT), 'Community need and response'), 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Measurable plan and budget')]);
+        return Project::create($extra + ['created_by' => $owner->id, 'title' => 'Community action', 'area' => 'Community Impact', 'status' => 'Draft Concept', 'starts_on' => '2026-11-01', 'venue' => 'Carmona', 'proposed_budget' => '5000.00', 'concept' => array_merge(array_fill_keys(array_keys(ChapterForms::CONCEPT), 'Community need and response'), ['sdg_number' => '4']), 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Measurable plan and budget')]);
     }
     private function approved(User $chair, string $status = 'Ongoing'): Project
     {
@@ -215,6 +215,38 @@ class PmsWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors();
         $this->assertSame('Posted', $claim->fresh()->status);
         $this->assertSame('90.00', LedgerEntry::firstOrFail()->amount);
+    }
+
+    public function test_treasurer_personal_claims_stay_personal_when_filters_are_applied(): void
+    {
+        $treasurer = $this->actor('treasurer');
+        $chair = $this->actor();
+        $project = $this->approved($chair);
+        $claim = [
+            'project_id' => $project->id,
+            'budget_item_id' => (string) \Illuminate\Support\Str::uuid(),
+            'spent_on' => today()->toDateString(),
+            'payee' => 'Local supplier',
+            'amount' => '100.00',
+            'receipt_path' => 'expense-claims/example.pdf',
+            'receipt_name' => 'example.pdf',
+            'status' => 'Pending',
+        ];
+        ExpenseClaim::create($claim + ['submitted_by' => $chair->id, 'description' => 'Chair claim']);
+        ExpenseClaim::create($claim + ['submitted_by' => $treasurer->id, 'description' => 'Treasurer own claim']);
+
+        $this->actingAs($treasurer)->get(route('expense-claims.index', ['status' => 'all']))
+            ->assertOk()->assertSee('Chair claim')->assertSee('Treasurer own claim');
+        $this->get(route('expense-claims.index', ['status' => 'all', 'mine' => 1, 'q' => 'claim']))
+            ->assertOk()->assertSee('Treasurer own claim')->assertDontSee('Chair claim')
+            ->assertSee('name="mine" value="1"', false);
+    }
+
+    public function test_active_admin_can_open_user_accounts_while_other_roles_cannot(): void
+    {
+        $this->actingAs($this->actor('admin'))->get(route('accounts'))->assertOk();
+        $this->actingAs($this->actor('treasurer'))->get(route('accounts'))->assertForbidden();
+        $this->actingAs($this->actor())->get(route('accounts'))->assertForbidden();
     }
 
     public function test_legacy_allocation_and_expense_can_be_reconciled_without_changing_totals(): void

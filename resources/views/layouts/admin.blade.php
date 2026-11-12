@@ -11,10 +11,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/theme-ui.css') }}?v={{ filemtime(public_path('assets/css/theme-ui.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/admin-ui.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/empty-state-ui.css') }}?v={{ filemtime(public_path('assets/css/empty-state-ui.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/overlay-ui.css') }}?v={{ filemtime(public_path('assets/css/overlay-ui.css')) }}">
 </head>
-<body>
+@php
+    $adminTheme = auth()->user()?->profile['preferences']['color_theme'] ?? \Illuminate\Support\Facades\Cache::remember('jci.workspace_theme', 300, fn () => \App\Models\ChapterSetting::where('key', 'workspace_theme')->value('value') ?? 'light');
+    $adminTheme = in_array($adminTheme, ['dark', 'navy'], true) ? 'dark' : 'light';
+@endphp
+<body class="workspace-theme-{{ $adminTheme }}">
 @php
     $nav = [
         ['group' => 'Overview', 'items' => [
@@ -145,6 +151,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="{{ asset('assets/js/admin.js') }}"></script>
+<script src="{{ asset('assets/js/back-navigation.js') }}?v={{ filemtime(public_path('assets/js/back-navigation.js')) }}" defer></script>
 @stack('scripts')
 </body>
 </html>

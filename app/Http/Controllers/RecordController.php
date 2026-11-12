@@ -31,8 +31,17 @@ class RecordController extends Controller
 
     private function visible($record, Request $request): bool
     {
-        if (!$record->project_id) return Permissions::allows($request->user(), Permissions::FINANCE_MANAGE);
-        if ($record instanceof ProjectReport && $record->type === 'Liquidation') return $record->project->isChair($request->user()) || Permissions::allows($request->user(), Permissions::FINANCE_MANAGE);
+        if (!$record->project_id) {
+            return $request->user()->role === 'admin'
+                || Permissions::allows($request->user(), Permissions::FINANCE_MANAGE);
+        }
+        // Admin receives a read/review copy of every report, including liquidation;
+        // only the Treasurer can decide the liquidation itself.
+        if ($record instanceof ProjectReport && $record->type === 'Liquidation') {
+            return $request->user()->role === 'admin'
+                || $record->project->isChair($request->user())
+                || Permissions::allows($request->user(), Permissions::FINANCE_MANAGE);
+        }
         return ChapterService::canView($record->project, $request->user()) && ($record->project->chair_id === $request->user()->id || in_array($request->user()->role, ['admin', 'bod']) || in_array($record->status, ['Reviewed', 'Approved for Sending', 'Sent', 'Archived']));
     }
 
@@ -41,15 +50,16 @@ class RecordController extends Controller
         $class = $this->model($kind);
         $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Completion', 'Liquidation', 'Overall Financial'])], 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $user = $request->user();
-        $query = $class::with(['project', 'author'])->where(function ($q) use ($user, $kind) {
-            if ($user->role === 'treasurer') $q->whereNull('project_id')->orWhereNotNull('project_id');
-            else $q->whereNotNull('project_id');
-        })->where(function ($q) use ($user) {
+        $query = $class::with(['project', 'author'])
+            ->when($user->role !== 'treasurer' && !($user->role === 'admin' && $kind === 'reports'), fn ($q) => $q->whereNotNull('project_id'))
+            ->where(function ($q) use ($user) {
             $q->whereNull('project_id')->orWhereHas('project', function ($p) use ($user) {
                 if ($user->role === 'member') $p->where(fn ($v) => $v->whereIn('status', Project::APPROVED)->orWhere('created_by', $user->id)->orWhere('chair_id', $user->id));
             });
         })->where(function ($q) use ($user, $kind) {
-            if (in_array($user->role, ['admin', 'bod'])) {
+            if ($user->role === 'admin') {
+                // The Admin inbox is the retained chapter copy of every report.
+            } elseif ($user->role === 'bod') {
                 if ($kind === 'reports') $q->where('type', '!=', 'Liquidation')->orWhereHas('project', fn ($p) => $p->where('chair_id', $user->id));
             } elseif ($user->role !== 'treasurer') {
                 $q->whereHas('project', fn ($p) => $p->where('chair_id', $user->id))->orWhere(function ($v) use ($kind) {
@@ -117,10 +127,20 @@ class RecordController extends Controller
         if ($project) abort_unless($project->canManage($request->user()) || $project->canReport($request->user()), 403);
         else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
         $reportType = $record?->type ?? $request->input('type');
+        $supportsReportUpload = $kind === 'reports' && $project && in_array($reportType, ['Completion', 'Liquidation'], true);
+        $submissionMethod = $supportsReportUpload
+            ? $request->input('data.submission_method', $record?->data['submission_method'] ?? 'digital')
+            : 'digital';
         $labels = $kind === 'letters' ? ChapterForms::LETTER : ($project ? ($reportType === 'Liquidation' ? ChapterForms::LIQUIDATION : ChapterForms::REPORT) : ChapterForms::FINANCIAL_REPORT);
         $rules = ['title' => 'required|string|max:200', 'type' => ['required', Rule::in($kind === 'letters' ? ['JCI LOI', 'External Partner Letter'] : ($project ? ['Completion', 'Liquidation'] : ['Overall Financial']))], 'attachment' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png|max:10240'];
         if ($record) $rules['type'][] = Rule::in([$record->type]);
         foreach ($labels as $key => $label) $rules['data.'.$key] = 'nullable|string|max:20000';
+        if ($supportsReportUpload) {
+            $rules['data.submission_method'] = ['required', Rule::in(['digital', 'upload'])];
+            if ($submissionMethod === 'upload' && empty(data_get($record?->data, 'attachment_path'))) {
+                $rules['attachment'] = 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240';
+            }
+        }
         if ($kind === 'letters') $rules['data.letter_date'] = 'nullable|date_format:Y-m-d';
         if ($kind === 'letters') $rules['partner_id'] = 'nullable|integer|exists:partners,id';
         if ($kind === 'reports' && $reportType === 'Liquidation') {
@@ -193,7 +213,13 @@ class RecordController extends Controller
                     if ($record->project->tasks()->where('status', '!=', 'Completed')->exists()) throw ValidationException::withMessages(['action' => 'Complete project tasks before submitting reports.']);
                     if ($record->type === 'Liquidation' && $record->project->transactions()->where('status', 'Posted')->where('direction', 'debit')->whereNull('document_path')->exists()) throw ValidationException::withMessages(['action' => 'Every posted expense needs a receipt before liquidation submission.']);
                 }
-                ChapterService::requireFields($record->data ?? [], $kind === 'letters' ? ChapterForms::LETTER_REQUIRED : ($record->project_id ? ($record->type === 'Liquidation' ? ['report_date' => 'Report date', 'voucher_reference' => 'Voucher reference', 'cash_received' => 'Cash advanced or received'] : ChapterForms::REPORT) : ChapterForms::FINANCIAL_REPORT), 'data');
+                $uploadedProjectReport = $kind === 'reports' && $record->project_id
+                    && in_array($record->type, ['Completion', 'Liquidation'], true)
+                    && ($record->data['submission_method'] ?? 'digital') === 'upload';
+                if ($uploadedProjectReport && (!isset($record->data['attachment_path']) || !Storage::disk('local')->exists($record->data['attachment_path']))) {
+                    throw ValidationException::withMessages(['attachment' => 'Attach the completed report file before submitting.']);
+                }
+                ChapterService::requireFields($record->data ?? [], $uploadedProjectReport ? [] : ($kind === 'letters' ? ChapterForms::LETTER_REQUIRED : ($record->project_id ? ($record->type === 'Liquidation' ? ['report_date' => 'Report date', 'voucher_reference' => 'Voucher reference', 'cash_received' => 'Cash advanced or received'] : ChapterForms::REPORT) : ChapterForms::FINANCIAL_REPORT)), 'data');
                 if (!$record->project_id) {
                     $body = $record->data;
                     $entries = LedgerEntry::where('status', 'Posted')->whereBetween('transaction_date', [$body['period_start'], $body['period_end']])->get();
@@ -218,12 +244,32 @@ class RecordController extends Controller
                     $record->data = $body;
                 }
                 $record->status = $kind === 'letters' ? 'For Review' : 'Submitted';
-                ChapterService::notify(User::where('role', $kind === 'reports' && in_array($record->type, ['Liquidation', 'Overall Financial']) ? 'treasurer' : 'admin')->where('status', 'active')->pluck('id'), $kind === 'letters' ? 'JCI LOI for review' : 'Report submitted', $record->title, route('records.show', [$kind, $id], false), true);
+                $recipients = User::where('role', 'admin')->where('status', 'active')->pluck('id');
+                if ($kind === 'reports' && $record->type === 'Liquidation') {
+                    $recipients = $recipients->merge(User::where('role', 'treasurer')->where('status', 'active')->pluck('id'));
+                }
+                $notificationTitle = $kind === 'letters'
+                    ? 'JCI LOI for review'
+                    : ($record->type === 'Liquidation' ? 'Liquidation submitted: Treasurer review, Admin copy' : 'Report submitted for Admin review');
+                ChapterService::notify($recipients, $notificationTitle, $record->title, route('records.show', [$kind, $record->id], false), true);
             } elseif (in_array($action, ['return', 'approve'])) {
-                $reviewRole = $kind === 'reports' && in_array($record->type, ['Liquidation', 'Overall Financial']) ? 'treasurer' : 'admin';
+                $reviewRole = $kind === 'reports' && $record->type === 'Liquidation' ? 'treasurer' : 'admin';
                 abort_unless($request->user()->role === $reviewRole && in_array($record->status, ['For Review', 'Submitted']), 403);
                 abort_if($record->created_by === $request->user()->id || $record->project?->chair_id === $request->user()->id, 403, 'An independent authorized officer must review this submission.');
                 if (!trim($data['comments'] ?? '')) throw \Illuminate\Validation\ValidationException::withMessages(['comments' => 'Review comments are required.']);
+                if ($action === 'approve' && $kind === 'reports' && $record->type === 'Liquidation' && $record->project_id) {
+                    $expenses = LedgerEntry::where('project_id', $record->project_id)->where('status', 'Posted')
+                        ->where('direction', 'debit')->lockForUpdate()->get();
+                    if ($expenses->contains(fn ($expense) => !$expense->document_path)) {
+                        throw ValidationException::withMessages(['action' => 'Every posted project expense needs a receipt before the liquidation report can be reviewed.']);
+                    }
+                    foreach ($expenses as $expense) {
+                        if ($expense->liquidation_status === 'Liquidated') continue;
+                        $expenseBefore = $expense->toArray();
+                        $expense->update(['liquidation_status' => 'Liquidated']);
+                        ChapterService::audit('transaction_liquidate', $expense, $expenseBefore, $data['comments']);
+                    }
+                }
                 $record->status = $action === 'return' ? 'Returned' : ($kind === 'letters' ? 'Approved for Sending' : 'Reviewed');
                 $record->review_comments = $data['comments'];
                 if ($kind === 'reports') { $record->reviewed_by = $action === 'approve' ? $request->user()->id : null; $record->reviewed_at = $action === 'approve' ? now() : null; }
@@ -521,6 +567,9 @@ class RecordController extends Controller
                     'interface_density' => 'comfortable',
                     'navigation_mode' => 'accordion',
                     'reduce_motion' => false,
+                    // "system" is retained as a compatibility value for
+                    // accounts created before the two-choice selector. It
+                    // resolves to the administrator's Light/Dark default.
                     'color_theme' => 'system',
                 ];
                 $user->profile = $profile;
@@ -534,7 +583,9 @@ class RecordController extends Controller
             'profile.preferences.interface_density' => ['required', Rule::in(['comfortable', 'compact'])],
             'profile.preferences.navigation_mode' => ['required', Rule::in(['accordion', 'expanded'])],
             'profile.preferences.reduce_motion' => 'required|boolean',
-            'profile.preferences.color_theme' => ['nullable', Rule::in(['system', 'jci', 'teal', 'navy'])],
+            // Older clients may not send the newly added theme field. Keep
+            // their saved preference while the current form always sends it.
+            'profile.preferences.color_theme' => ['sometimes', 'nullable', Rule::in(['light', 'dark', 'system', 'jci', 'teal', 'navy'])],
         ]);
         $user = $request->user();
 

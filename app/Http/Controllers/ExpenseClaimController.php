@@ -13,8 +13,10 @@ class ExpenseClaimController extends Controller
 {
     public function index(Request $request)
     {
-        $treasurer = $request->user()->role === 'treasurer';
-        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])], 'project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'state' => 'nullable|in:Pending,Posted,Returned,Rejected,Void', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        // Treasurers review the chapter queue by default, while `mine=1`
+        // opens the same personal claims view available to every user.
+        $treasurer = $request->user()->role === 'treasurer' && ! $request->boolean('mine');
+        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])], 'project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'state' => 'nullable|in:Pending,Posted,Returned,Rejected,Void', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''), 'mine' => 'nullable|boolean']);
         $filter = $request->query('status', $treasurer ? 'pending' : 'all');
         $selectedProject = $request->filled('project') ? Project::withTrashed()->findOrFail($request->integer('project')) : null;
         if ($selectedProject) abort_unless($treasurer || ChapterService::canView($selectedProject, $request->user()), 403);

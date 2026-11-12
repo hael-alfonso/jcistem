@@ -56,10 +56,10 @@
                         <label class="field"><span>Receipt note (optional)</span><textarea name="chair_note" rows="2" maxlength="2000" placeholder="Example: Cash counted and received in full"></textarea></label>
                         <button class="btn primary" type="submit" data-confirm="Confirm receipt of PHP {{ number_format((float) $release->amount, 2) }}? This will post one debit to the project ledger and reduce available funds."><x-icon name="check" /> Confirm money received</button>
                     </form>
-                    <details class="fund-release-decline"><summary>Amount or payment is incorrect</summary><form method="POST" action="{{ route('fund-releases.respond', $release) }}">@csrf<input type="hidden" name="action" value="decline"><label class="field"><span>Reason for declining <em aria-hidden="true">*</em></span><textarea name="chair_note" rows="2" maxlength="2000" required></textarea></label><button class="btn danger" type="submit" data-confirm="Decline this fund release? No ledger transaction will be created.">Decline release</button></form></details>
+                    <section class="fund-release-decline" aria-labelledby="fund-release-decline-title-{{ $release->id }}"><div class="project-record-heading"><div><strong id="fund-release-decline-title-{{ $release->id }}">Amount or payment is incorrect</strong><small>Decline this handover without creating a ledger transaction.</small></div></div><form method="POST" action="{{ route('fund-releases.respond', $release) }}">@csrf<input type="hidden" name="action" value="decline"><label class="field"><span>Reason for declining <em aria-hidden="true">*</em></span><textarea name="chair_note" rows="2" maxlength="2000" required></textarea></label><button class="btn danger" type="submit" data-confirm="Decline this fund release? No ledger transaction will be created.">Decline release</button></form></section>
                 </div>
                 @elseif($release->status === 'Pending' && $u->role === 'treasurer')
-                <details class="fund-release-cancel no-print"><summary>Cancel pending release</summary><form method="POST" action="{{ route('fund-releases.cancel', $release) }}">@csrf<label class="field"><span>Cancellation reason <em aria-hidden="true">*</em></span><textarea name="cancel_note" rows="2" maxlength="2000" required></textarea></label><button class="btn danger" type="submit" data-confirm="Cancel this pending fund release? No ledger transaction will be created.">Cancel release</button></form></details>
+                <section class="fund-release-cancel no-print" aria-labelledby="fund-release-cancel-title-{{ $release->id }}"><div class="project-record-heading"><div><strong id="fund-release-cancel-title-{{ $release->id }}">Cancel pending release</strong><small>Close this handover before the Chair confirms receipt.</small></div></div><form method="POST" action="{{ route('fund-releases.cancel', $release) }}">@csrf<label class="field"><span>Cancellation reason <em aria-hidden="true">*</em></span><textarea name="cancel_note" rows="2" maxlength="2000" required></textarea></label><button class="btn danger" type="submit" data-confirm="Cancel this pending fund release? No ledger transaction will be created.">Cancel release</button></form></section>
                 @endif
             </article>
         @empty
@@ -68,9 +68,9 @@
     </div>
 
     @if($canInitiateRelease && $releaseOptions->isNotEmpty())
-    <details class="record-detail fund-release-create no-print" @if($errors->hasAny(['release_date', 'account', 'payment_method', 'purpose'])) open @endif>
-        <summary><x-icon name="wallet" /> Record money prepared for the Project Chair<x-icon name="chevron" class="disclosure-icon" /></summary>
-        <form method="POST" action="{{ route('fund-releases.store', $project) }}" class="form-grid">@csrf
+    <div class="project-finance-form-action no-print"><div><strong>Prepare a fund release</strong><small>Create a pending handover for Chair confirmation.</small></div><button class="btn secondary" type="button" data-finance-dialog-open="fund-release-dialog"><x-icon name="plus" /> Record fund release</button></div>
+    <dialog class="finance-dialog" id="fund-release-dialog" aria-labelledby="fund-release-create-title"><div class="finance-dialog-header"><div><span class="eyebrow">PROJECT FUNDS</span><h2 id="fund-release-create-title">Record money prepared for the Project Chair</h2><p>{{ $project->title }}</p></div><button class="finance-dialog-close" type="button" data-finance-dialog-close aria-label="Close fund release form"><x-icon name="close" /></button></div><div class="finance-dialog-body">@if(old('_finance_dialog') === 'fund-release-dialog' && $errors->any())<div class="alert error">{{ $errors->first() }}</div>@endif
+        <form method="POST" action="{{ route('fund-releases.store', $project) }}" class="form-grid">@csrf<input type="hidden" name="_finance_dialog" value="fund-release-dialog">
             <p class="full hint">This creates a pending handover only. The budget is reserved now, while the official debit is posted after the Chair confirms receipt.</p>
             <x-field name="budget_item_id" label="Approved expense line" type="select" :options="$releaseOptions->all()" required/>
             <x-field name="amount" label="Amount prepared (PHP)" type="number" step="0.01" min="0.01" required/>
@@ -79,9 +79,9 @@
             <x-field name="account" label="Source account or cash fund" required placeholder="Example: Chapter operating fund"/>
             <x-field name="transfer_reference" label="Cheque / transfer reference (optional)"/>
             <div class="full"><x-field name="purpose" label="Purpose and handover details" type="textarea" required/></div>
-            <div class="full"><button class="btn primary"><x-icon name="send" /> Send for Chair confirmation</button></div>
+            <div class="finance-dialog-actions"><button class="btn secondary" type="button" data-finance-dialog-close>Cancel</button><button class="btn primary"><x-icon name="send" /> Send for Chair confirmation</button></div>
         </form>
-    </details>
+    </div></dialog>@if(old('_finance_dialog') === 'fund-release-dialog')<span hidden data-finance-dialog-reopen="fund-release-dialog"></span>@endif
     @elseif($canInitiateRelease && $releaseOptions->isEmpty())
         <p class="project-finance-alert">No allocation is currently available for a new release. Check posted spending, pending claims, releases awaiting confirmation, and line allocations.</p>
     @endif

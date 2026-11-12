@@ -35,7 +35,7 @@ class ProjectCreationFlowTest extends TestCase
             'title' => $project->title, 'area' => $project->area,
             'starts_on' => '2026-11-20', 'venue' => 'Carmona',
             'no_budget' => '1', 'proposed_budget' => '0.00', 'concept_submission_method' => 'online',
-            'concept' => array_fill_keys(array_keys(ChapterForms::CONCEPT_REQUIRED), 'Volunteer-led community activity'),
+            'concept' => array_merge(array_fill_keys(array_keys(ChapterForms::CONCEPT_REQUIRED), 'Volunteer-led community activity'), ['sdg_number' => '4']),
         ])->assertSessionHasNoErrors();
         $this->post(route('projects.transition', $project), ['action' => 'submit_concept'])
             ->assertSessionHasNoErrors();

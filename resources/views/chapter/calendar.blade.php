@@ -7,18 +7,18 @@
     $calendarEntryCount = collect($calendarItems)->sum(fn ($items) => count($items));
     $scheduledDayCount = collect($calendarItems)->filter()->count();
 @endphp
-<div class="page-heading"><div><div class="eyebrow">PLAN THE CHAPTER'S WORK</div><h1>Calendar</h1><p>Projects, meetings, task deadlines, and member dues in one month view.</p></div></div>
+<div class="page-heading calendar-page-heading"><div><div class="eyebrow">PLAN THE CHAPTER'S WORK</div><h1>Calendar</h1><p>Projects, meetings, task deadlines, and member dues in one month view.</p></div></div>
 <div class="calendar-shell">
     <section class="calendar-board" aria-label="{{ $month->format('F Y') }} calendar">
         <header class="calendar-toolbar">
             <div class="calendar-period"><span class="eyebrow">CHAPTER SCHEDULE</span><h2>{{ $month->format('F Y') }}</h2><small>{{ $calendarEntryCount }} {{ \Illuminate\Support\Str::plural('entry', $calendarEntryCount) }} across {{ $scheduledDayCount }} scheduled {{ \Illuminate\Support\Str::plural('day', $scheduledDayCount) }}</small></div>
             <div class="calendar-controls">
                 <div class="calendar-month-nav" aria-label="Calendar navigation">
-                    <a class="calendar-step" href="{{ route('calendar', array_filter(['month' => $month->subMonth()->format('Y-m'), 'type' => $calendarFilter])) }}" aria-label="Previous month"><x-icon name="arrowLeft"/></a>
+                    <a class="calendar-step" href="{{ route('calendar', array_filter(['month' => $month->copy()->subMonth()->format('Y-m'), 'type' => $calendarFilter])) }}" aria-label="Previous month"><x-icon name="arrowLeft"/></a>
                     <a class="calendar-today" href="{{ route('calendar', array_filter(['type' => $calendarFilter])) }}">Today</a>
-                    <a class="calendar-step" href="{{ route('calendar', array_filter(['month' => $month->addMonth()->format('Y-m'), 'type' => $calendarFilter])) }}" aria-label="Next month"><x-icon name="arrow"/></a>
+                    <a class="calendar-step" href="{{ route('calendar', array_filter(['month' => $month->copy()->addMonth()->format('Y-m'), 'type' => $calendarFilter])) }}" aria-label="Next month"><x-icon name="arrow"/></a>
                 </div>
-                <form method="GET" action="{{ route('calendar') }}" class="calendar-jump">@if($calendarFilter)<input type="hidden" name="type" value="{{ $calendarFilter }}">@endif<label class="sr-only" for="calendar-month">Jump to month</label><input id="calendar-month" type="month" name="month" value="{{ $month->format('Y-m') }}"><button type="submit"><x-icon name="arrow" /> Go</button></form>
+                <form method="GET" action="{{ route('calendar') }}" class="calendar-jump">@if($calendarFilter)<input type="hidden" name="type" value="{{ $calendarFilter }}">@endif<label class="sr-only" for="calendar-month">Jump to month</label><input id="calendar-month" type="month" name="month" value="{{ $month->format('Y-m') }}"><button class="calendar-jump-submit" type="submit" aria-label="Show selected month" title="Show selected month"><x-icon name="arrow" /></button></form>
                 @if(auth()->user()->role === 'admin')<button class="btn primary calendar-add-button" type="button" data-calendar-dialog-open><x-icon name="calendar"/>Add activity</button>@endif
             </div>
         </header>

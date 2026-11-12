@@ -1,0 +1,226 @@
+/* Shared theme layer. Keep one token set so every PMS module stays consistent. */
+body.workspace-theme-light { color-scheme: light; }
+
+body.workspace-theme-dark {
+    color-scheme: dark;
+    --canvas: #17191c;
+    --white: #24282d;
+    --ink: #f1f3f5;
+    --muted: #b7c0c9;
+    --line: #3d454d;
+    --navy: #f1f3f5;
+    --blue: #18a0d8;
+    --blue-bright: #43b9e7;
+    --teal: #66c7c3;
+    background: var(--canvas);
+    color: var(--ink);
+}
+
+body.workspace-theme-dark h1,
+body.workspace-theme-dark h2,
+body.workspace-theme-dark h3,
+body.workspace-theme-dark h4,
+body.workspace-theme-dark strong,
+body.workspace-theme-dark .empty-state h2,
+body.workspace-theme-dark .empty-state h3,
+body.workspace-theme-dark .topbar-context a,
+body.workspace-theme-dark .topbar-context strong,
+body.workspace-theme-dark .notification-link,
+body.workspace-theme-dark .settings-theme-choice strong,
+body.workspace-theme-dark .settings-choice-list strong,
+body.workspace-theme-dark .settings-option-grid strong,
+body.workspace-theme-dark .settings-toggle strong,
+body.workspace-theme-dark .sidebar-account-identity strong { color: var(--ink); }
+
+body.workspace-theme-dark .app-sidebar,
+body.workspace-theme-dark .sidebar {
+    background: #111315;
+    border-color: #30363c;
+}
+body.workspace-theme-dark .app-main,
+body.workspace-theme-dark .main,
+body.workspace-theme-dark .shell { background: var(--canvas); color: var(--ink); }
+body.workspace-theme-dark .app-topbar,
+body.workspace-theme-dark .topbar,
+body.workspace-theme-dark .footer {
+    background: #1d2024;
+    border-color: var(--line);
+    box-shadow: none;
+}
+
+body.workspace-theme-dark .app-sidebar .brand-word,
+body.workspace-theme-dark .app-sidebar .brand-name,
+body.workspace-theme-dark .sidebar .brand strong,
+body.workspace-theme-dark .sidebar .workspace strong,
+body.workspace-theme-dark .sidebar .account-chip strong,
+body.workspace-theme-dark .app-sidebar .sidebar-account strong { color: #f8fafb; }
+body.workspace-theme-dark .app-sidebar .brand-name { border-color: #ffffff2e; }
+body.workspace-theme-dark .app-sidebar .brand-name small,
+body.workspace-theme-dark .sidebar-account small,
+body.workspace-theme-dark .sidebar .brand span,
+body.workspace-theme-dark .sidebar .workspace span,
+body.workspace-theme-dark .sidebar .workspace small,
+body.workspace-theme-dark .sidebar .account-chip small,
+body.workspace-theme-dark .nav-label { color: var(--muted); }
+body.workspace-theme-dark .workspace-label { color: var(--muted); border-color: #ffffff24; }
+body.workspace-theme-dark .side-link,
+body.workspace-theme-dark .nav-link { color: #c3cbd2; }
+body.workspace-theme-dark .side-link svg { color: #69c7e9; }
+body.workspace-theme-dark .side-link:hover,
+body.workspace-theme-dark .nav-link:hover { background: #272d33; color: #fff; }
+body.workspace-theme-dark .side-link.is-active,
+body.workspace-theme-dark .nav-link.active,
+body.workspace-theme-dark .nav-section:has(.side-link.is-active) > summary {
+    background: #0d78aa;
+    color: #fff;
+}
+body.workspace-theme-dark .side-link.is-active svg { color: #fff; }
+body.workspace-theme-dark .sidebar-account { border-color: #343b42; }
+body.workspace-theme-dark .app-sidebar .sidebar-account { background: #181b1f; border-top-color: #343b42; }
+body.workspace-theme-dark .sidebar-profile-link { color: #dce2e7; }
+body.workspace-theme-dark .sidebar-profile-link:hover,
+body.workspace-theme-dark .sidebar-profile-link:focus-visible,
+body.workspace-theme-dark .sidebar-profile-link.is-active { background: #2b3238; }
+body.workspace-theme-dark .sidebar-profile-link .sidebar-account-identity small { color: var(--muted); }
+
+body.workspace-theme-dark .topbar-context,
+body.workspace-theme-dark .today,
+body.workspace-theme-dark .muted,
+body.workspace-theme-dark .page-heading p,
+body.workspace-theme-dark .section-heading p,
+body.workspace-theme-dark .panel-heading p,
+body.workspace-theme-dark .project-summary,
+body.workspace-theme-dark .stat-card > span,
+body.workspace-theme-dark .stat-card small,
+body.workspace-theme-dark .empty-state p,
+body.workspace-theme-dark .app-footer,
+body.workspace-theme-dark .content,
+body.workspace-theme-dark .page-head p,
+body.workspace-theme-dark .top-title .top-context,
+body.workspace-theme-dark .top-eyebrow { color: var(--muted); }
+body.workspace-theme-dark .notification-link:hover { background: #2b3238; color: #79d2ed; }
+
+body.workspace-theme-dark .panel,
+body.workspace-theme-dark .project-card,
+body.workspace-theme-dark .stat-card,
+body.workspace-theme-dark .settings-card,
+body.workspace-theme-dark .table-wrap,
+body.workspace-theme-dark .filter-panel,
+body.workspace-theme-dark .calendar-shell,
+body.workspace-theme-dark .notification-action,
+body.workspace-theme-dark .empty-panel,
+body.workspace-theme-dark .card,
+body.workspace-theme-dark .modal {
+    background: #24282d;
+    border-color: var(--line);
+    color: var(--ink);
+    box-shadow: 0 8px 24px #090a0c66;
+}
+body.workspace-theme-dark .panel-heading,
+body.workspace-theme-dark .section-heading,
+body.workspace-theme-dark .project-card .card-bottom,
+body.workspace-theme-dark th,
+body.workspace-theme-dark td,
+body.workspace-theme-dark .notification-row,
+body.workspace-theme-dark .activity-card header,
+body.workspace-theme-dark .record-detail,
+body.workspace-theme-dark .ledger-row,
+body.workspace-theme-dark .journey,
+body.workspace-theme-dark .activity-card,
+body.workspace-theme-dark .calendar-day-panel { border-color: var(--line); }
+body.workspace-theme-dark th { background: #2d3339; color: #c7cdd3; }
+body.workspace-theme-dark td { color: #c5ccd3; }
+body.workspace-theme-dark tr:hover td,
+body.workspace-theme-dark .project-row:hover,
+body.workspace-theme-dark .attention-row:hover { background: #2b3035; }
+
+body.workspace-theme-dark input:not([type=checkbox]),
+body.workspace-theme-dark select,
+body.workspace-theme-dark textarea,
+body.workspace-theme-dark .field input,
+body.workspace-theme-dark .field select,
+body.workspace-theme-dark .field textarea {
+    background: #1b1e22;
+    border-color: #4a535c;
+    color: var(--ink);
+}
+body.workspace-theme-dark input::placeholder,
+body.workspace-theme-dark textarea::placeholder { color: #929ca5; }
+body.workspace-theme-dark .btn.secondary { background: #30363c; border-color: #515b64; color: #edf1f4; }
+body.workspace-theme-dark .btn.secondary:hover { background: #3a424a; }
+body.workspace-theme-dark .topbar-menu-panel { background: #252a2f; border-color: #4a535c; color: var(--ink); }
+body.workspace-theme-dark .topbar-menu-panel a,
+body.workspace-theme-dark .topbar-menu-panel button { color: #dce2e7; }
+body.workspace-theme-dark .topbar-notification-item { border-color: var(--line); }
+body.workspace-theme-dark .topbar-notification-body,
+body.workspace-theme-dark .topbar-notification-item small { color: var(--muted); }
+body.workspace-theme-dark progress,
+body.workspace-theme-dark progress::-webkit-progress-bar { background: #3a4148; }
+
+body.workspace-theme-dark .settings-theme-choice,
+body.workspace-theme-dark .settings-choice-list > label,
+body.workspace-theme-dark .settings-option-grid > label,
+body.workspace-theme-dark .settings-toggle {
+    background: #2a2f34;
+    border-color: #4a535c;
+    color: var(--ink);
+}
+body.workspace-theme-dark .settings-theme-choice:has(input:checked),
+body.workspace-theme-dark .settings-choice-list > label:has(input:checked),
+body.workspace-theme-dark .settings-option-grid input:checked + span {
+    background: #323a41;
+    border-color: #5ec9ec;
+    box-shadow: inset 0 0 0 1px #5ec9ec;
+}
+body.workspace-theme-dark .settings-theme-choice small,
+body.workspace-theme-dark .settings-choice-list small,
+body.workspace-theme-dark .settings-option-grid small,
+body.workspace-theme-dark .settings-toggle small,
+body.workspace-theme-dark .settings-save-bar p { color: var(--muted); }
+body.workspace-theme-dark .settings-save-bar {
+    background: #252a2f;
+    border-color: #4a535c;
+    box-shadow: 0 12px 32px #090a0c88;
+}
+body.workspace-theme-dark .section-heading > span,
+body.workspace-theme-dark .membership-section-heading > span,
+body.workspace-theme-dark .task-form-section-heading > span,
+body.workspace-theme-dark .task-assignee-fieldset legend > span {
+    background: #343b42;
+    color: #79d2ed;
+}
+body.workspace-theme-dark .theme-swatch { background: #1b1e22; border-color: #5b6670; }
+body.workspace-theme-dark .theme-swatch-light { --swatch-dark: #e5e7eb; --swatch-pale: #f6f7f8; --swatch-accent: #18a0d8; }
+body.workspace-theme-dark .theme-swatch-dark { --swatch-dark: #343b42; --swatch-pale: #59636d; --swatch-accent: #18a0d8; }
+
+body.workspace-theme-dark .chapter-form-section,
+body.workspace-theme-dark .project-entry-form .chapter-form-section,
+body.workspace-theme-dark .task-assignee-fieldset,
+body.workspace-theme-dark .proposal-supporting-fields,
+body.workspace-theme-dark .membership-photo-row,
+body.workspace-theme-dark .report-type-value,
+body.workspace-theme-dark .audit-json,
+body.workspace-theme-dark .auth-recovery-input-card {
+    background: #292e33;
+    border-color: #46505a;
+    color: #dce2e7;
+}
+body.workspace-theme-dark .task-assignee-fieldset legend,
+body.workspace-theme-dark .task-form-section-heading h3,
+body.workspace-theme-dark .project-entry-form .chapter-form-section .section-heading h2,
+body.workspace-theme-dark .membership-section-heading h2 { color: var(--ink); }
+body.workspace-theme-dark .task-assignee-fieldset > p,
+body.workspace-theme-dark .task-form-section-heading p,
+body.workspace-theme-dark .project-entry-form .chapter-form-section .section-heading p,
+body.workspace-theme-dark .membership-section-heading p { color: var(--muted); }
+body.workspace-theme-dark .empty-state { color: #c5ccd3; }
+body.workspace-theme-dark .empty-state > .ico,
+body.workspace-theme-dark .empty-state > .empty-icon { color: #69cde1; }
+body.workspace-theme-dark .notice,
+body.workspace-theme-dark .workspace-notice { background: #2b3338; border-color: #62c7c9; color: #d4e9ea; }
+
+@media (max-width: 760px) {
+    body.workspace-theme-dark .app-topbar,
+    body.workspace-theme-dark .topbar { background: #1d2024; }
+    body.workspace-theme-dark .topbar-menu-panel { max-width: calc(100vw - 24px); }
+}

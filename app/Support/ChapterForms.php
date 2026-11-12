@@ -4,6 +4,25 @@ namespace App\Support;
 class ChapterForms
 {
     public const AREAS = ['Community Impact', 'Individual Development', 'Business & Entrepreneurship', 'International Cooperation'];
+    public const SDGS = [
+        '1' => 'No Poverty',
+        '2' => 'Zero Hunger',
+        '3' => 'Good Health and Well-Being',
+        '4' => 'Quality Education',
+        '5' => 'Gender Equality',
+        '6' => 'Clean Water and Sanitation',
+        '7' => 'Affordable and Clean Energy',
+        '8' => 'Decent Work and Economic Growth',
+        '9' => 'Industry, Innovation and Infrastructure',
+        '10' => 'Reduced Inequalities',
+        '11' => 'Sustainable Cities and Communities',
+        '12' => 'Responsible Consumption and Production',
+        '13' => 'Climate Action',
+        '14' => 'Life Below Water',
+        '15' => 'Life on Land',
+        '16' => 'Peace, Justice and Strong Institutions',
+        '17' => 'Partnerships for the Goals',
+    ];
     public const MEMBERSHIP_INTERESTS = ['Debate', 'Public speaking', 'Training as participant', 'Training as facilitator', 'Charity', 'Starting a business', 'Growing a business', 'Business networking', 'Project management', 'International events'];
     public const CONCEPT = [
         'letter_date' => 'Letter date',
@@ -54,7 +73,7 @@ class ChapterForms
         'evaluation' => 'Monitoring and evaluation plan',
         'indicators' => 'Success indicators / KPIs',
         'documentation' => 'Documentation requirements',
-        'letters' => 'JCI LOI / partnership requirements',
+        'letters' => 'Partner commitments and supporting letters',
         'sustainability' => 'Sustainability / follow-up plan',
     ];
     public const PROPOSAL_SECTIONS = [

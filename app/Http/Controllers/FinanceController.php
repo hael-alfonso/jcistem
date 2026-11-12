@@ -68,6 +68,10 @@ class FinanceController extends Controller
         $this->treasurer($request);
         $request->validate(['project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'status' => 'nullable|in:Posted,Void', 'direction' => 'nullable|in:credit,debit', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''), 'filter' => 'nullable|in:liquidation']);
         $selectedProject = $request->filled('project') ? Project::withTrashed()->findOrFail($request->integer('project')) : null;
+        if ($request->boolean('print')) {
+            $entries = $this->filteredLedger($request)->with(['project', 'member'])->orderBy('transaction_date')->orderBy('id')->get();
+            return view('chapter.ledger-report', compact('entries', 'selectedProject'));
+        }
         $entries = $this->filteredLedger($request)->with(['project', 'member'])->latest('transaction_date')->latest('id')->paginate(30)->withQueryString();
         $projects = Project::whereIn('status', ['Plan Locked', 'Ongoing'])->orderBy('title')->get();
         $filterProjects = Project::withTrashed()->whereHas('transactions')->orderBy('title')->get(['id', 'title']);
@@ -78,6 +82,7 @@ class FinanceController extends Controller
     public function store(Request $request)
     {
         $this->treasurer($request);
+        $receiptRule = in_array($request->input('type'), ['Expense', 'Disbursement', 'Adjustment debit'], true) ? 'required|' : 'nullable|';
         $data = $request->validate([
             'reference' => 'required|string|max:100|unique:ledger_entries,reference',
             'project_id' => 'nullable|integer|exists:projects,id', 'member_id' => 'nullable|integer|exists:users,id', 'budget_item_id' => 'nullable|uuid',
@@ -85,7 +90,7 @@ class FinanceController extends Controller
             'category' => 'required|string|max:100', 'account' => 'required|string|max:150', 'counterparty' => 'required|string|max:200',
             'payment_method' => ['required', Rule::in(['Cash', 'Bank transfer', 'GCash', 'Cheque', 'Other'])],
             'description' => 'required|string|max:5000', 'amount' => 'required|numeric|decimal:0,2|min:0.01|max:999999999.99',
-            'remarks' => 'nullable|string|max:5000', 'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+            'remarks' => 'nullable|string|max:5000', 'receipt' => $receiptRule.'file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
         $data['direction'] = in_array($data['type'], ['Expense', 'Disbursement', 'Adjustment debit']) ? 'debit' : 'credit';
         $data['liquidation_status'] = $data['direction'] === 'debit' ? 'Pending' : 'Not required';
@@ -119,14 +124,15 @@ class FinanceController extends Controller
     public function update(Request $request, LedgerEntry $entry)
     {
         $this->treasurer($request);
-        $data = $request->validate(['action' => ['required', Rule::in(['void', 'liquidate'])], 'remarks' => 'required|string|max:5000', 'receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240']);
+        $data = $request->validate(['action' => ['required', Rule::in(['void', 'liquidate', 'attach_receipt'])], 'remarks' => 'required|string|max:5000', 'receipt' => 'required_if:action,attach_receipt|nullable|file|mimes:pdf,jpg,jpeg,png|max:10240']);
         $path = $request->hasFile('receipt') ? $request->file('receipt')->store('financial-documents', 'local') : null;
         try {
             DB::transaction(function () use ($entry, $data, $path, $request) {
                 if ($entry->project_id) {
+                    abort_if($data['action'] === 'liquidate', 403, 'Project expenses are verified through Liquidation Report Review.');
                     $project = Project::lockForUpdate()->findOrFail($entry->project_id);
                     abort_if(in_array($project->status, ['Archived', 'Completed', 'Cancelled']), 403, 'Closed project finances are locked.');
-                    if ($data['action'] === 'liquidate') abort_if($project->chair_id === $request->user()->id, 403, 'An independent Treasurer must verify liquidation.');
+                    if ($data['action'] === 'attach_receipt') abort_unless(in_array($project->status, ['Plan Locked', 'Ongoing', 'Completion Review'], true), 403, 'Receipts can only be attached while the project is active or under final review.');
                     abort_if($project->status === 'Completion Review' && $data['action'] === 'void', 403, 'Financial corrections require return to implementation.');
                     abort_if($project->reports()->where('type', 'Liquidation')->latest('id')->first()?->status === 'Reviewed', 403, 'Approved liquidation evidence is locked.');
                 }
@@ -136,10 +142,13 @@ class FinanceController extends Controller
                 $before = $entry->toArray();
                 if ($data['action'] === 'void') {
                     $entry->status = 'Void'; $entry->void_reason = $data['remarks'];
-                } else {
-                    abort_unless($entry->direction === 'debit', 422);
+                } elseif ($data['action'] === 'liquidate') {
+                    abort_unless($entry->direction === 'debit' && $entry->liquidation_status !== 'Liquidated', 422, 'Only pending expenses may be liquidated.');
                     if (!$path && !$entry->document_path) throw ValidationException::withMessages(['receipt' => 'A receipt or supporting document is required for liquidation.']);
                     $entry->liquidation_status = 'Liquidated'; $entry->remarks = $data['remarks'];
+                } else {
+                    abort_unless($entry->project_id && $entry->direction === 'debit' && !$entry->document_path, 422, 'Only project expenses missing receipt evidence can use this action.');
+                    $entry->remarks = $data['remarks'];
                 }
                 if ($path) { $entry->document_path = $path; $entry->document_name = $request->file('receipt')->getClientOriginalName(); }
                 $entry->save();
@@ -179,23 +188,46 @@ class FinanceController extends Controller
 
     public function dues(Request $request)
     {
-        $all = $request->routeIs('dues.manage');
+        $all = $request->routeIs('dues.manage', 'dues.assessments');
+        $assessmentPage = $request->routeIs('dues.assessments');
         if ($all) $this->treasurer($request);
-        $request->validate(['q' => 'nullable|string|max:200', 'member' => 'nullable|integer|exists:users,id', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
-        $dues = MemberDue::with(['member', 'payments'])->when(!$all, fn ($q) => $q->where('member_id', $request->user()->id))
+        $request->validate(['q' => 'nullable|string|max:200', 'member' => 'nullable|integer|exists:users,id', 'status' => 'nullable|in:all,paid,unpaid,waived', 'period' => 'nullable|date_format:Y-m', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $postedPaymentsSql = "(SELECT COALESCE(SUM(ledger_entries.amount), 0) FROM ledger_entries WHERE ledger_entries.member_due_id = member_dues.id AND ledger_entries.status = ?)";
+        $duesQuery = $all && !$assessmentPage ? null : MemberDue::with(['member', 'payments'])->when(!$all, fn ($q) => $q->where('member_id', $request->user()->id))
+            ->when($assessmentPage && $request->query('status') === 'paid', fn ($q) => $q->where('member_dues.amount', '>', 0)->whereRaw('member_dues.amount <= '.$postedPaymentsSql, ['Posted']))
+            ->when($assessmentPage && $request->query('status') === 'unpaid', fn ($q) => $q->where('member_dues.amount', '>', 0)->whereRaw('member_dues.amount > '.$postedPaymentsSql, ['Posted']))
+            ->when($assessmentPage && $request->query('status') === 'waived', fn ($q) => $q->where('member_dues.amount', 0))
+            ->when($assessmentPage && $request->filled('period'), fn ($q) => $q->where('period', $request->query('period')))
             ->when($all && $request->filled('member'), fn ($q) => $q->where('member_id', $request->integer('member')))
-            ->when($all && $request->filled('q'), fn ($q) => $q->whereHas('member', fn ($member) => $member->where('name', 'like', '%'.$request->string('q').'%')->orWhere('member_no', 'like', '%'.$request->string('q').'%')))
+            ->when($all && $request->filled('q'), fn ($q) => $q->whereHas('member', fn ($member) => $member->where(function ($account) use ($request) {
+                $term = '%'.$request->string('q').'%';
+                $account->where('name', 'like', $term)->orWhere('member_no', 'like', $term)
+                    ->orWhere('email', 'like', $term)->orWhere('username', 'like', $term);
+            })))
             ->when($request->filled('from'), fn ($q) => $q->whereDate('due_date', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('due_date', '<=', $request->query('to')))
-            ->latest('period')->paginate(30)->withQueryString();
-        $members = $all ? User::where('status', 'active')->orderBy('name')->get() : collect();
-        return view('chapter.dues', compact('dues', 'members', 'all'));
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('due_date', '<=', $request->query('to')));
+        $selectedMember = $all && $request->filled('member') ? User::find($request->integer('member')) : null;
+        if ($request->boolean('print') && $duesQuery) {
+            $printedDues = (clone $duesQuery)->latest('period')->get();
+            return view('chapter.dues-report', compact('printedDues', 'selectedMember', 'all', 'assessmentPage'));
+        }
+        $dues = $duesQuery?->latest('period')->paginate(15)->withQueryString()->fragment('dues-records');
+        $assessableMembers = $all ? User::where('status', 'active')->orderBy('name')->get(['id', 'name', 'member_no']) : collect();
+        $accountRecords = $all && !$assessmentPage ? User::query()->withCount('memberDues')
+            ->when($request->filled('member'), fn ($q) => $q->whereKey($request->integer('member')))
+            ->when($request->filled('q'), fn ($q) => $q->where(function ($account) use ($request) {
+                $term = '%'.$request->string('q').'%';
+                $account->where('name', 'like', $term)->orWhere('member_no', 'like', $term)
+                    ->orWhere('email', 'like', $term)->orWhere('username', 'like', $term);
+            }))
+            ->orderBy('name')->paginate(15, ['*'], 'accounts_page')->withQueryString()->fragment('member-accounts') : null;
+        return view('chapter.dues', compact('dues', 'selectedMember', 'assessableMembers', 'accountRecords', 'all', 'assessmentPage'));
     }
 
     public function openDues(Request $request)
     {
         $this->treasurer($request);
-        $data = $request->validate(['period' => 'required|date_format:Y-m', 'due_date' => 'required|date', 'amount' => 'required|numeric|decimal:0,2|min:0|max:9999999.99', 'member_id' => 'nullable|integer|exists:users,id', 'remarks' => 'required|string|max:5000']);
+        $data = $request->validate(['period' => 'required|date_format:Y-m', 'due_date' => 'required|date', 'amount' => 'required|numeric|decimal:0,2|min:0|max:9999999.99', 'member_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('status', 'active')->whereNull('deleted_at')], 'remarks' => 'required|string|max:5000']);
         DB::transaction(function () use ($data, $request) {
             $members = User::where('status', 'active')->when(!empty($data['member_id']), fn ($q) => $q->whereKey($data['member_id']))->lockForUpdate()->get();
             foreach ($members as $member) {
@@ -207,7 +239,8 @@ class FinanceController extends Controller
                 ChapterService::notify([$member->id], 'Member dues: '.$due->period, 'Amount due: PHP '.number_format($due->balance, 2).'. Due '.$due->due_date->format('M d, Y').'.', route('dues', [], false));
             }
         });
-        return back()->with('success', 'Dues period saved. Members have been notified.');
+        return redirect()->route('dues.assessments', !empty($data['member_id']) ? ['member' => $data['member_id']] : [])
+            ->with('success', 'Dues assessment saved. Members have been notified.');
     }
 
     public function payDues(Request $request, MemberDue $due)
@@ -235,11 +268,22 @@ class FinanceController extends Controller
         $request->validate(['project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'status' => 'nullable|in:Posted,Void', 'direction' => 'nullable|in:credit,debit', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''), 'filter' => 'nullable|in:liquidation']);
         return response()->streamDownload(function () use ($request) {
             $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['JCI CARMONA - TREASURER LEDGER']);
+            fputcsv($out, ['Generated', now()->format('Y-m-d H:i:s T')]);
+            $filters = collect(['project' => $request->query('project'), 'search' => $request->query('q'), 'status' => $request->query('status'), 'direction' => $request->query('direction'), 'from' => $request->query('from'), 'to' => $request->query('to')])->filter(fn ($value) => filled($value));
+            fputcsv($out, ['Filters', $filters->isEmpty() ? 'All ledger records' : $filters->map(fn ($value, $key) => $key.': '.$value)->implode(' | ')]);
+            fputcsv($out, ['Only posted entries count toward credit/debit totals; void records remain listed when included by selected filters.']);
+            fputcsv($out, []);
             fputcsv($out, ['Reference', 'Date', 'Type', 'Project', 'Description', 'Credit', 'Debit', 'Status']);
+            $totals = ['credit' => 0.0, 'debit' => 0.0];
+            $safe = static fn ($value) => preg_match('/^[=+@\-]/', (string) $value) ? "'".$value : $value;
             foreach ($this->filteredLedger($request)->with('project')->orderBy('transaction_date')->orderBy('id')->cursor() as $entry) {
-                $safe = fn ($s) => preg_match('/^[=+@\\-]/', (string) $s) ? "'".$s : $s;
-                fputcsv($out, array_map($safe, [$entry->reference, $entry->transaction_date?->format('Y-m-d'), $entry->type, $entry->project?->reference, $entry->description, $entry->direction === 'credit' ? $entry->amount : '', $entry->direction === 'debit' ? $entry->amount : '', $entry->status]));
+                if ($entry->status === 'Posted') $totals[$entry->direction] += (float) $entry->amount;
+                fputcsv($out, [$safe($entry->reference), $entry->transaction_date?->format('Y-m-d'), $safe($entry->type), $safe($entry->project?->reference), $safe($entry->description), $entry->direction === 'credit' ? number_format((float) $entry->amount, 2, '.', '') : '', $entry->direction === 'debit' ? number_format((float) $entry->amount, 2, '.', '') : '', $entry->status]);
             }
+            fputcsv($out, []);
+            fputcsv($out, ['POSTED TOTALS', '', '', '', '', number_format($totals['credit'], 2, '.', ''), number_format($totals['debit'], 2, '.', ''), '']);
             fclose($out);
         }, 'jci-carmona-ledger.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
@@ -256,7 +300,8 @@ class FinanceController extends Controller
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($match) => $match->where('reference', 'like', '%'.$request->string('q').'%')
                 ->orWhere('description', 'like', '%'.$request->string('q').'%')
                 ->orWhere('counterparty', 'like', '%'.$request->string('q').'%')
-                ->orWhereHas('project', fn ($project) => $project->where('title', 'like', '%'.$request->string('q').'%'))
+                ->orWhereHas('project', fn ($project) => $project->where('title', 'like', '%'.$request->string('q').'%')
+                    ->orWhere('reference', 'like', '%'.$request->string('q').'%'))
                 ->orWhereHas('member', fn ($member) => $member->where('name', 'like', '%'.$request->string('q').'%'))));
     }
 }

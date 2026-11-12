@@ -97,7 +97,7 @@ class ChapterChartsTest extends TestCase
             if ($role === 'treasurer') {
                 foreach (['My task status', 'Projects by status'] as $absent) $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
             } elseif ($role === 'member') {
-                foreach (['My next steps', 'My task status'] as $present) $this->assertTrue(str_contains($markup, $present), "$role dashboard is missing $present");
+                foreach (['My next steps', 'My task status'] as $absent) $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
                 foreach (['Budget utilization', 'Budget vs. expenses', 'Projects by status'] as $absent) $this->assertFalse(str_contains($markup, $absent), "$role dashboard unexpectedly shows $absent");
             } else {
                 $this->assertFalse(str_contains($markup, 'My task status'), "$role dashboard unexpectedly shows My task status");
@@ -167,8 +167,7 @@ class ChapterChartsTest extends TestCase
             if ($role === 'treasurer') {
                 $dashboard->assertSee('Projects at a glance')->assertSee('Project funds at a glance');
             } elseif ($role === 'member') {
-                $dashboard->assertSee('My next steps')->assertSee('No assigned tasks yet')
-                    ->assertSee("You're all caught up.", false)->assertDontSee('Budget vs. expenses');
+                $dashboard->assertDontSee('My task status')->assertDontSee('No assigned tasks yet')->assertDontSee('Budget vs. expenses');
             } else {
                 $dashboard->assertSee('No projects awaiting review');
             }

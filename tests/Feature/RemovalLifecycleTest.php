@@ -26,11 +26,11 @@ class RemovalLifecycleTest extends TestCase
         $this->assertSoftDeleted($completed);
         $this->assertNotNull($entry->fresh());
         $this->get(route('projects.removed'))->assertOk()->assertSee('Completed chapter project');
-        $this->post(route('projects.restore', $completed->id))->assertRedirect(route('projects.archived'));
+        $this->post(route('projects.restore', $completed->id))->assertRedirect(route('projects.archived', ['archive' => 'completed']));
         $this->assertNotNull($completed->fresh());
     }
 
-    public function test_archived_and_cancelled_folder_projects_can_be_removed_and_restored(): void
+    public function test_completed_and_cancelled_archive_sections_support_removal_and_restoration(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
@@ -39,29 +39,30 @@ class RemovalLifecycleTest extends TestCase
         $declined = Project::create(['created_by' => $owner->id, 'title' => 'Declined chapter project', 'status' => 'Declined', 'archived_at' => now()]);
         $notApproved = Project::create(['created_by' => $owner->id, 'title' => 'Unapproved chapter project', 'status' => 'Not Approved', 'archived_at' => now()]);
 
-        $this->actingAs($owner)->get(route('projects.archived'))
+        $this->actingAs($owner)->get(route('projects.archived', ['archive' => 'completed']))
             ->assertOk()->assertSee($archived->title)->assertDontSee('data-project-remove');
         $this->delete(route('projects.delete', $cancelled), ['reason' => 'No authority'])->assertForbidden();
-        $this->actingAs($admin)->get(route('projects.archived'))
+        $this->actingAs($admin)->get(route('projects.archived', ['archive' => 'completed']))
             ->assertOk()->assertSee($archived->title)->assertSee('data-project-remove')->assertSee('id="project-remove-dialog"', false);
-        $this->get(route('projects.cancelled'))
+        $this->get(route('projects.archived', ['archive' => 'cancelled']))
             ->assertOk()->assertSee($cancelled->title)->assertSee('data-project-remove');
 
-        foreach ([[$archived, 'projects.archived'], [$cancelled, 'projects.cancelled'], [$declined, 'projects.cancelled'], [$notApproved, 'projects.cancelled']] as [$project, $folder]) {
+        foreach ([[$archived, 'completed'], [$cancelled, 'cancelled'], [$declined, 'cancelled'], [$notApproved, 'cancelled']] as [$project, $archiveSection]) {
+            $archiveRoute = route('projects.archived', ['archive' => $archiveSection]);
             $this->delete(route('projects.delete', $project), ['reason' => 'Duplicate chapter record'])
                 ->assertRedirect(route('projects.removed'));
             $this->assertSoftDeleted($project);
-            $this->get(route($folder))->assertOk()->assertDontSee($project->title);
+            $this->get($archiveRoute)->assertOk()->assertDontSee($project->title);
             $this->get(route('projects.removed'))->assertOk()->assertSee($project->title);
             $this->assertDatabaseHas('audit_logs', [
                 'action' => 'project_removed',
                 'object_id' => $project->id,
-                'remarks' => 'Duplicate chapter record',
+                'remarks' => 'Removed by Admin from Deleted Projects.',
             ]);
 
-            $this->post(route('projects.restore', $project->id))->assertRedirect(route($folder));
+            $this->post(route('projects.restore', $project->id))->assertRedirect($archiveRoute);
             $this->assertNotNull($project->fresh());
-            $this->get(route($folder))->assertOk()->assertSee($project->title);
+            $this->get($archiveRoute)->assertOk()->assertSee($project->title);
         }
     }
 
@@ -85,7 +86,7 @@ class RemovalLifecycleTest extends TestCase
         ]);
 
         $this->actingAs($admin)->delete(route('projects.delete', $project), ['reason' => 'Close duplicate'])
-            ->assertSessionHasErrors('reason');
+            ->assertSessionHasErrors('project_removal');
         $this->assertNotNull($project->fresh());
 
         $release->update(['status' => 'Cancelled']);
