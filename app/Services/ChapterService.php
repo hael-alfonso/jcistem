@@ -11,6 +11,7 @@ class ChapterService
 {
     public static function audit(string $action, Model $record, array $before = [], ?string $remarks = null, bool $system = false): void
     {
+        if (!$system && app()->bound('request')) request()->attributes->set('chapter_domain_audited', true);
         AuditLog::create([
             'user_id' => $system ? null : auth()->id(), 'action' => $action,
             'object_type' => class_basename($record), 'object_id' => $record->getKey(),
@@ -68,8 +69,7 @@ class ChapterService
 
     public static function canView(Project $project, User $user): bool
     {
-        return in_array($project->status, Project::APPROVED, true)
-            || ($project->status === 'Cancelled' && $project->decisions()->where('decision', 'approved')->exists())
+        return !in_array($project->status, Project::DRAFT_STATUSES, true)
             || $project->created_by === $user->id
             || $project->chair_id === $user->id
             || in_array($user->role, ['admin', 'bod', 'treasurer'], true);
@@ -77,10 +77,18 @@ class ChapterService
 
     public static function visibleProjects(User $user)
     {
-        return Project::query()->when($user->role === 'member', fn ($q) => $q->where(fn ($q) =>
-            $q->whereIn('status', Project::APPROVED)
-                ->orWhere(fn ($cancelled) => $cancelled->where('status', 'Cancelled')->whereHas('decisions', fn ($decision) => $decision->where('decision', 'approved')))
+        return Project::query()->when($user->role === 'member', fn ($q) => $q->where(fn ($visible) =>
+            $visible->whereNotIn('status', Project::DRAFT_STATUSES)
                 ->orWhere('created_by', $user->id)->orWhere('chair_id', $user->id)));
+    }
+
+    public static function canViewProjectFiles(Project $project, User $user): bool
+    {
+        return in_array($project->status, Project::APPROVED, true)
+            || ($project->status === 'Cancelled' && $project->decisions()->where('decision', 'approved')->exists())
+            || $project->created_by === $user->id
+            || $project->chair_id === $user->id
+            || in_array($user->role, ['admin', 'bod', 'treasurer'], true);
     }
 
     public static function requireFields(array $data, array $labels, string $prefix): void

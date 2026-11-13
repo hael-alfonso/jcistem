@@ -163,7 +163,7 @@ class ProposalWorkflowService
                 default => [],
             };
             $assignees = $action === 'cancel' ? $project->tasks()->get()->flatMap(fn ($task) => $task->assignees ?? [])->all() : [];
-            ChapterService::notify(array_merge([$project->created_by, $project->chair_id], $assignees, User::where('status', 'active')->whereIn('role', $roles)->pluck('id')->all()), $project->title, 'Project status: '.ProjectFlow::statusLabel($project), $project->status === 'Cancelled' ? null : route('projects.show', $project, false), in_array($project->status, ['Admin Review', 'Treasurer Review', 'BOD Agenda', 'Endorsed for Development', 'Submitted for Formal Approval', 'Approved', 'Not Approved', 'Returned for Revision', 'Completion Review', 'Cancelled'], true));
+            ChapterService::notify(array_merge([$project->created_by, $project->chair_id], $assignees, User::where('status', 'active')->whereIn('role', $roles)->pluck('id')->all()), $project->title, 'Project status: '.ProjectFlow::statusLabel($project), route('projects.show', $project, false), in_array($project->status, ['Admin Review', 'Treasurer Review', 'BOD Agenda', 'Endorsed for Development', 'Submitted for Formal Approval', 'Approved', 'Not Approved', 'Returned for Revision', 'Completion Review', 'Cancelled'], true));
             return $project;
         });
     }

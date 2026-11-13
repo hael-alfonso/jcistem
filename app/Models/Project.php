@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Project extends ChapterRecord
 {
     use SoftDeletes;
+    public const DRAFT_STATUSES = ['Draft Concept', 'Full Proposal Draft'];
     protected $casts = ['concept' => 'array', 'proposal' => 'array', 'budget_items' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'completed_at' => 'datetime', 'archived_at' => 'datetime', 'plan_locked_at' => 'datetime', 'budget_reviewed_at' => 'datetime', 'proposal_budget_reviewed_at' => 'datetime', 'proposal_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
     public const APPROVED = ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed', 'Archived'];
     public static function toneForStatus(string $status): string

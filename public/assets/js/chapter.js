@@ -221,6 +221,21 @@ import { boundedProgress } from './pms-helpers.js';
   const taskReopen = document.querySelector('[data-task-reopen]')?.dataset.taskReopen;
   const taskReopenDialog = taskReopen && document.getElementById(taskReopen);
   if (taskReopenDialog?.showModal && document.querySelector('.alert.error')) taskReopenDialog.showModal();
+  const projectDialogTriggers = new WeakMap();
+  document.querySelectorAll('[data-project-dialog-open]').forEach((button) => button.addEventListener('click', () => {
+    const dialog = document.getElementById(button.dataset.projectDialogOpen);
+    if (!dialog?.showModal) return;
+    projectDialogTriggers.set(dialog, button);
+    dialog.showModal();
+  }));
+  document.querySelectorAll('.project-decision-dialog').forEach((dialog) => {
+    dialog.querySelectorAll('[data-project-dialog-close]').forEach((button) => button.addEventListener('click', () => dialog.close()));
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+    dialog.addEventListener('close', () => projectDialogTriggers.get(dialog)?.focus());
+  });
+  const projectReopen = document.querySelector('[data-project-dialog-reopen]')?.dataset.projectDialogReopen;
+  const projectReopenDialog = projectReopen && document.getElementById(projectReopen);
+  if (projectReopenDialog?.showModal && document.querySelector('.alert.error')) projectReopenDialog.showModal();
   document.querySelectorAll('.ledger-row').forEach((row) => {
     const header = row.querySelector('.ledger-row-header');
     const oldTrigger = row.querySelector('.ledger-detail-trigger');

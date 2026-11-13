@@ -45,7 +45,7 @@ class NavigationAndSubmissionTest extends TestCase
             $this->assertFalse($labels->contains('User Accounts & Roles'));
             $this->assertSame($role === 'treasurer', $labels->contains('Treasurer Ledger'));
             $this->assertSame(in_array($role, ['admin', 'bod'], true), $labels->contains('Manage Member Records'));
-            $this->assertSame(in_array($role, ['admin', 'bod', 'treasurer'], true), $labels->contains('Project Reviews'));
+            $this->assertSame($role !== 'member', $labels->contains('Project Reviews'));
             $this->assertSame($role === 'admin', $labels->contains('System Controls'));
             $page = $this->actingAs($user)->get(route('dashboard'))->assertOk()->getContent();
             $this->assertSame(2, substr_count($page, 'href="'.route('account').'"'));
@@ -267,7 +267,7 @@ class NavigationAndSubmissionTest extends TestCase
 
         $versions = ProjectDocument::where('submission_stage', 'partnership')->orderBy('version')->get();
         $this->assertSame($versions[0]->id, $versions[1]->replaces_document_id);
-        $this->get(route('projects.show', $project))->assertOk()->assertSee('External partnership letters')->assertSee('Version 2');
+        $this->get(route('projects.show', $project))->assertOk()->assertSee('Partner commitments and letters')->assertSee('Version 2');
     }
 
     private function wordXml(string $path): string
@@ -344,8 +344,7 @@ class NavigationAndSubmissionTest extends TestCase
         $this->assertSame($first->id, $second->replaces_document_id);
 
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
-        $project->update(['status' => 'Approved', 'chair_id' => $member->id]);
-        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $admin->id, 'meeting_date' => '2026-11-01', 'decision' => 'approved', 'resolution_number' => 'RES-UPLOAD-1', 'evidence_path' => 'bod-evidence.pdf', 'comments' => 'Approved']);
+        $project->update(['status' => 'Endorsed for Development', 'chair_id' => $member->id, 'budget_reviewed_at' => now()]);
         $this->actingAs($member)->put('/projects/'.$project->id, [
             'title' => $project->title,
             'area' => $project->area,
@@ -441,18 +440,13 @@ class NavigationAndSubmissionTest extends TestCase
     {
         $chair = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $project = Project::create([
-            'created_by' => $chair->id, 'chair_id' => $chair->id, 'status' => 'Approved',
+            'created_by' => $chair->id, 'chair_id' => $chair->id, 'status' => 'Endorsed for Development',
             'title' => 'Community skills workshop', 'area' => 'Community Impact',
             'starts_on' => '2026-11-10', 'ends_on' => '2026-11-12',
             'venue' => 'Carmona City', 'proposed_budget' => '2500.00',
         ]);
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
-        BodDecision::create([
-            'project_id' => $project->id, 'recorded_by' => $admin->id,
-            'meeting_date' => '2026-11-01', 'decision' => 'approved',
-            'resolution_number' => 'RES-PPF-1', 'evidence_path' => 'bod-evidence.pdf',
-            'comments' => 'Approved',
-        ]);
+        $project->update(['budget_reviewed_at' => now()]);
 
         $this->actingAs($chair)->get('/projects/'.$project->id.'/edit')->assertOk()
             ->assertSee('Background and rationale')
@@ -482,10 +476,10 @@ class NavigationAndSubmissionTest extends TestCase
         $project->update(['budget_items' => \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Workshop materials', 'quantity' => 1, 'unit_cost' => 2500]])]);
         $treasurer = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
         Storage::fake('local');
-        $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
-        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/transition', ['action' => 'review_full_budget', 'comments' => 'Detailed budget verified'])->assertSessionHasNoErrors();
-        $this->actingAs($admin)->post('/projects/'.$project->id.'/transition', ['action' => 'approve_full_proposal', 'comments' => 'Approved at meeting', 'meeting_date' => '2026-11-01', 'resolution_number' => 'RES-PPF-2', 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
-        $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'lock_plan'])->assertSessionHasNoErrors();
+        $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($treasurer)->post('/projects/'.$project->id.'/transition', ['action' => 'review_full_budget', 'comments' => 'Detailed budget verified'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/projects/'.$project->id.'/transition', ['action' => 'approve_full_proposal', 'comments' => 'Approved at meeting', 'meeting_date' => '2026-11-01', 'resolution_number' => 'RES-PPF-2', 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'lock_plan'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('Plan Locked', $project->fresh()->status);
     }
 
@@ -538,7 +532,7 @@ class NavigationAndSubmissionTest extends TestCase
         $this->assertSame([], $project->fresh()->budget_items);
     }
 
-    public function test_full_proposal_under_review_is_visible_to_reviewers_but_not_unrelated_members(): void
+    public function test_full_proposal_under_review_is_monitored_by_members_but_original_file_stays_private(): void
     {
         $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $chair = User::factory()->create(['role' => 'member', 'status' => 'active']);
@@ -549,15 +543,16 @@ class NavigationAndSubmissionTest extends TestCase
             'chair_id' => $chair->id, 'area' => 'Community Impact',
             'status' => 'Submitted for Formal Approval',
         ]);
-        ProjectDocument::create([
+        $document = ProjectDocument::create([
             'project_id' => $project->id, 'uploaded_by' => $chair->id,
             'title' => 'Review proposal file', 'category' => 'Project proposal',
             'path' => 'project-submissions/review.docx', 'original_name' => 'review.docx',
         ]);
 
-        $this->actingAs($other)->get(route('projects.show', $project))->assertForbidden();
-        $this->get(route('projects'))->assertOk()->assertDontSee($project->title);
+        $this->actingAs($other)->get(route('projects.show', $project))->assertOk();
+        $this->get(route('projects'))->assertOk()->assertSee($project->title);
         $this->get(route('documents'))->assertOk()->assertDontSee('Review proposal file');
+        $this->get(route('documents.download', $document))->assertForbidden();
         $this->actingAs($chair)->get(route('projects.show', $project))->assertOk()->assertSee($project->title);
         $this->get(route('projects', ['filter' => 'mine']))->assertOk()->assertSee($project->title);
         $this->get(route('documents'))->assertOk()->assertSee('Review proposal file');

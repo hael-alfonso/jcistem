@@ -23,7 +23,7 @@ class WorkspaceFeedbackAndFiltersTest extends TestCase
             ->assertSee('id="feedback-dialog"', false)->assertSee('Please review this change.')->assertDontSee('data-toast-dismiss', false);
     }
 
-    public function test_list_filters_accept_an_end_date_alone_and_reject_reversed_ranges(): void
+    public function test_list_filters_accept_an_end_month_alone_and_reject_reversed_or_day_ranges(): void
     {
         foreach ([
             'admin' => ['/projects', '/tasks', '/documents', '/members', '/activity-log', '/records/reports', '/registrations', '/partner-directory'],
@@ -31,9 +31,10 @@ class WorkspaceFeedbackAndFiltersTest extends TestCase
         ] as $role => $paths) {
             $this->actingAs(User::factory()->create(['role' => $role, 'status' => 'active']));
             foreach ($paths as $path) {
-                $this->get($path.'?to=2026-11-03')->assertOk();
-                $response = $this->get($path.'?from=2026-11-03&to=2026-11-01');
-                $this->assertTrue($response->isRedirect(), $path.' must reject a reversed date range; received HTTP '.$response->status().'.');
+                $this->get($path.'?to=2026-11')->assertOk();
+                $response = $this->get($path.'?from=2026-12&to=2026-11');
+                $this->assertTrue($response->isRedirect(), $path.' must reject a reversed month range; received HTTP '.$response->status().'.');
+                $this->get($path.'?to=2026-11-03')->assertRedirect();
             }
         }
     }

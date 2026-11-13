@@ -1,59 +1,66 @@
-/* Shared filter toolbars follow the Projects pattern: find first, filters next, actions last. */
-.list-filters:not(.collection-toolbar) {
-  display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr)) auto auto;
+/* Keep fields in place when Clear filters appears. */
+.list-filters,
+.list-filters:not(.collection-toolbar),
+.list-filters.collection-toolbar,
+.activity-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
   align-items: end;
   gap: 12px;
 }
 
-.list-filters:not(.collection-toolbar) label,
-.list-filters:not(.collection-toolbar) label:first-child {
+/* Legacy task styles use an important grid declaration. */
+.list-filters.task-toolbar { display: flex !important; }
+
+.list-filters > label,
+.list-filters > label:first-child,
+.list-filters > label:first-of-type,
+.list-filters.collection-toolbar > label,
+.list-filters.collection-toolbar > label:first-of-type {
+  flex: 1 1 158px;
   min-width: 0;
   display: grid;
   gap: 6px;
 }
 
-.list-filters:not(.collection-toolbar) input,
-.list-filters:not(.collection-toolbar) select { min-width: 0; }
-.list-filters:not(.collection-toolbar) .btn { white-space: nowrap; }
-.list-filters:not(.collection-toolbar) .text-link {
+.list-filters > label:first-of-type,
+.list-filters.collection-toolbar > label:first-of-type { flex: 2 1 250px; }
+.list-filters input,
+.list-filters select { min-width: 0; width: 100%; }
+
+.list-filters .filter-actions,
+.list-filters .task-filter-actions {
+  flex: 0 0 260px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 40px;
+}
+
+.list-filters .filter-actions .btn,
+.list-filters .task-filter-actions .btn { flex: 0 0 auto; width: auto; white-space: nowrap; }
+.list-filters .filter-actions .text-link,
+.list-filters .task-filter-actions .text-link {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 39px;
-  padding: 10px 4px;
+  min-height: 40px;
+  padding: 8px 0;
   white-space: nowrap;
 }
 
-.activity-filter-toolbar {
-  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr)) auto auto;
-}
-
 @media (max-width: 1100px) {
-  .list-filters:not(.collection-toolbar),
-  .activity-filter-toolbar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .list-filters:not(.collection-toolbar) > label:first-of-type,
-  .activity-filter-toolbar > label:first-of-type {
-    grid-column: 1 / -1;
-  }
-
-  .list-filters:not(.collection-toolbar) .btn,
-  .list-filters:not(.collection-toolbar) .text-link {
-    justify-self: start;
-  }
+  .list-filters .filter-actions,
+  .list-filters .task-filter-actions { flex-basis: 100%; }
 }
 
 @media (max-width: 640px) {
-  .list-filters:not(.collection-toolbar),
-  .activity-filter-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .list-filters:not(.collection-toolbar) > label:first-of-type,
-  .activity-filter-toolbar > label:first-of-type { grid-column: auto; }
-  .list-filters:not(.collection-toolbar) .btn { width: 100%; }
-  .list-filters:not(.collection-toolbar) .text-link { justify-self: center; }
+  .list-filters > label,
+  .list-filters > label:first-of-type,
+  .list-filters.collection-toolbar > label,
+  .list-filters.collection-toolbar > label:first-of-type { flex-basis: 100%; }
+  .list-filters .filter-actions .btn,
+  .list-filters .task-filter-actions .btn { flex: 1 1 auto; }
 }

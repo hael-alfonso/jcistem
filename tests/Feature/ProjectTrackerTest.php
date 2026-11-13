@@ -63,7 +63,7 @@ class ProjectTrackerTest extends TestCase
             ->assertSee('Follow the project from idea to completion.')
             ->assertSee('aria-current="step"', false)
             ->assertSee('project-cancel-wrap', false)
-            ->assertSee('project-cancel-label', false);
+            ->assertSee('id="project-cancel-dialog"', false);
 
         preg_match('/<ol class="project-stage-list".*?<\/ol>/s', $response->getContent(), $trackerMarkup);
         $this->assertNotEmpty($trackerMarkup);

@@ -10,9 +10,9 @@ $memberPageTitle = request('state') === 'archived' ? 'Removed accounts' : (reque
     <label><span>Find a member</span><input name="q" value="{{ request('q') }}" placeholder="Name or member number"></label>
     <label><span>Role</span><select name="role"><option value="">All roles</option>@foreach(['admin'=>'Admin','bod'=>'BOD','treasurer'=>'Treasurer','member'=>'General member'] as $value=>$label)<option value="{{ $value }}" @selected(request('role')===$value)>{{ $label }}</option>@endforeach</select></label>
     @if(auth()->user()->role === 'admin')<label>Account state<select name="state"><option value="">Current accounts</option><option value="active" @selected(request('state') === 'active')>Active</option><option value="inactive" @selected(request('state') === 'inactive')>Inactive</option><option value="archived" @selected(request('state') === 'archived')>Removed</option></select></label>@endif
-    <label>Added from<input type="date" name="from" value="{{ request('from') }}"></label><label>Added to<input type="date" name="to" value="{{ request('to') }}"></label>
-    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
-    @if(request()->filled('q') || request()->filled('role') || request()->filled('state') || request()->filled('from') || request()->filled('to'))<a class="text-link" href="{{ url()->current() }}"><x-icon name="close" /> Clear filters</a>@endif
+    <label>Added from month<input type="month" name="from" value="{{ request('from') }}"></label><label>Added to month<input type="month" name="to" value="{{ request('to') }}"></label>
+    <div class="filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
+    @if(request()->filled('q') || request()->filled('role') || request()->filled('state') || request()->filled('from') || request()->filled('to'))<a class="text-link" href="{{ url()->current() }}"><x-icon name="close" /> Clear filters</a>@endif</div>
 </form>
 <section class="panel member-directory"><div class="table-wrap"><table><thead><tr><th>Member</th><th>JCI Carmona ID</th><th>Role</th><th>Status</th>@if(in_array(auth()->user()->role,['admin','bod']))<th>Review authority</th><th></th>@endif</tr></thead><tbody>
 @forelse($members as $member)

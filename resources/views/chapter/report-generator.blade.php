@@ -8,8 +8,8 @@
 <div class="page-heading no-print"><div><a class="back-link" href="{{ route('records', 'reports') }}"><x-icon name="arrowLeft" /> Reports</a><div class="eyebrow">CHAPTER MONITORING</div><h1>Budget summary</h1><p>Review current approved allocations and posted expenses, then print or save as PDF.</p></div><div class="heading-actions"><button class="btn secondary" type="button" data-print @disabled($shownProjects->isEmpty())><x-icon name="print"/> Print / save PDF</button>@if(auth()->user()->role === 'treasurer')<form method="POST" action="{{ route('reports.export') }}">@csrf<input type="hidden" name="type" value="budgets"><input type="hidden" name="format" value="csv">@if($selectedId)<input type="hidden" name="project_id" value="{{ $selectedId }}">@endif<button class="btn primary" type="submit" @disabled($shownProjects->isEmpty())><x-icon name="download"/> Download Excel-compatible CSV</button></form>@endif</div></div>
 <form class="list-filters no-print" method="GET" action="{{ route('reports.generate') }}">
     <label><span>Projects</span><select name="project_id"><option value="">All approved projects</option>@foreach($projects as $project)<option value="{{ $project->id }}" @selected((string) $selectedId === (string) $project->id)>{{ $project->title }}</option>@endforeach</select></label>
-    <button class="btn secondary" type="submit"><x-icon name="filter"/> View summary</button>
-    @if($selectedId)<a class="text-link" href="{{ route('reports.generate') }}">Show all</a>@endif
+    <div class="filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter"/> View summary</button>
+    @if($selectedId)<a class="text-link" href="{{ route('reports.generate') }}">Show all</a>@endif</div>
 </form>
 @if($shownProjects->isEmpty())
     <section class="panel empty-state"><x-icon name="chart"/><h3>No approved projects yet</h3><p>Budget figures will appear after a project is approved and the Treasurer records allocations.</p></section>

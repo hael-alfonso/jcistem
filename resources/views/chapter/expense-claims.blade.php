@@ -8,8 +8,8 @@
 <label>Find claim<input name="q" value="{{ request('q') }}" placeholder="Payee, project, or receipt"></label>
 <label>Project<select name="project"><option value="">All projects</option>@foreach($claimProjects as $claimProject)<option value="{{ $claimProject->id }}" @selected((string) request('project') === (string) $claimProject->id)>{{ $claimProject->title }}</option>@endforeach</select></label>
 @if($filter === 'all')<label>Decision<select name="state"><option value="">Any decision</option>@foreach(['Pending', 'Posted', 'Returned', 'Rejected', 'Void'] as $state)<option value="{{ $state }}" @selected(request('state') === $state)>{{ $state }}</option>@endforeach</select></label>@endif
-<label>Expense from<input type="date" name="from" value="{{ request('from') }}"></label><label>Expense to<input type="date" name="to" value="{{ request('to') }}"></label>
-<button class="btn secondary" type="submit"><x-icon name="filter"/> Apply filters</button>@if(request()->hasAny(['q', 'project', 'state', 'from', 'to']))<a class="text-link" href="{{ route('expense-claims.index', ['status' => $filter] + array_filter(request()->only('mine'))) }}"><x-icon name="close"/> Clear filters</a>@endif</form>
+<label>Expense from month<input type="month" name="from" value="{{ request('from') }}"></label><label>Expense to month<input type="month" name="to" value="{{ request('to') }}"></label>
+<div class="filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter"/> Apply filters</button>@if(request()->filled('q') || request()->filled('project') || request()->filled('state') || request()->filled('from') || request()->filled('to'))<a class="text-link" href="{{ route('expense-claims.index', ['status' => $filter] + array_filter(request()->only('mine'))) }}"><x-icon name="close"/> Clear filters</a>@endif</div></form>
 <section class="expense-claim-list" aria-label="Expense claims">
 @forelse($claims as $claim)
 @php($budgetLine = collect($claim->project?->budget_items ?? [])->firstWhere('id', $claim->budget_item_id))

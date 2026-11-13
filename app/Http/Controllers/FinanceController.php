@@ -66,7 +66,7 @@ class FinanceController extends Controller
     public function ledger(Request $request)
     {
         $this->treasurer($request);
-        $request->validate(['project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'status' => 'nullable|in:Posted,Void', 'direction' => 'nullable|in:credit,debit', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''), 'filter' => 'nullable|in:liquidation']);
+        $request->validate(['project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'status' => 'nullable|in:Posted,Void', 'direction' => 'nullable|in:credit,debit', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : ''), 'filter' => 'nullable|in:liquidation']);
         $selectedProject = $request->filled('project') ? Project::withTrashed()->findOrFail($request->integer('project')) : null;
         if ($request->boolean('print')) {
             $entries = $this->filteredLedger($request)->with(['project', 'member'])->orderBy('transaction_date')->orderBy('id')->get();
@@ -191,7 +191,7 @@ class FinanceController extends Controller
         $all = $request->routeIs('dues.manage', 'dues.assessments');
         $assessmentPage = $request->routeIs('dues.assessments');
         if ($all) $this->treasurer($request);
-        $request->validate(['q' => 'nullable|string|max:200', 'member' => 'nullable|integer|exists:users,id', 'status' => 'nullable|in:all,paid,unpaid,waived', 'period' => 'nullable|date_format:Y-m', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $request->validate(['q' => 'nullable|string|max:200', 'member' => 'nullable|integer|exists:users,id', 'status' => 'nullable|in:all,paid,unpaid,waived', 'period' => 'nullable|date_format:Y-m', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $postedPaymentsSql = "(SELECT COALESCE(SUM(ledger_entries.amount), 0) FROM ledger_entries WHERE ledger_entries.member_due_id = member_dues.id AND ledger_entries.status = ?)";
         $duesQuery = $all && !$assessmentPage ? null : MemberDue::with(['member', 'payments'])->when(!$all, fn ($q) => $q->where('member_id', $request->user()->id))
             ->when($assessmentPage && $request->query('status') === 'paid', fn ($q) => $q->where('member_dues.amount', '>', 0)->whereRaw('member_dues.amount <= '.$postedPaymentsSql, ['Posted']))
@@ -204,8 +204,8 @@ class FinanceController extends Controller
                 $account->where('name', 'like', $term)->orWhere('member_no', 'like', $term)
                     ->orWhere('email', 'like', $term)->orWhere('username', 'like', $term);
             })))
-            ->when($request->filled('from'), fn ($q) => $q->whereDate('due_date', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('due_date', '<=', $request->query('to')));
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('due_date', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('due_date', '<=', \App\Support\MonthFilter::end($request->query('to'))));
         $selectedMember = $all && $request->filled('member') ? User::find($request->integer('member')) : null;
         if ($request->boolean('print') && $duesQuery) {
             $printedDues = (clone $duesQuery)->latest('period')->get();
@@ -265,7 +265,7 @@ class FinanceController extends Controller
     public function export(Request $request)
     {
         $this->treasurer($request);
-        $request->validate(['project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'status' => 'nullable|in:Posted,Void', 'direction' => 'nullable|in:credit,debit', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''), 'filter' => 'nullable|in:liquidation']);
+        $request->validate(['project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'status' => 'nullable|in:Posted,Void', 'direction' => 'nullable|in:credit,debit', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : ''), 'filter' => 'nullable|in:liquidation']);
         return response()->streamDownload(function () use ($request) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
@@ -295,8 +295,8 @@ class FinanceController extends Controller
             ->when($request->query('filter') === 'liquidation', fn ($q) => $q->where('direction', 'debit')->where('status', 'Posted'))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
             ->when($request->filled('direction'), fn ($q) => $q->where('direction', $request->query('direction')))
-            ->when($request->filled('from'), fn ($q) => $q->whereDate('transaction_date', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('transaction_date', '<=', $request->query('to')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('transaction_date', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('transaction_date', '<=', \App\Support\MonthFilter::end($request->query('to'))))
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($match) => $match->where('reference', 'like', '%'.$request->string('q').'%')
                 ->orWhere('description', 'like', '%'.$request->string('q').'%')
                 ->orWhere('counterparty', 'like', '%'.$request->string('q').'%')

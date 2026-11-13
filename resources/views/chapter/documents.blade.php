@@ -15,9 +15,9 @@
     <form class="list-filters document-search" method="GET" action="{{ route('documents') }}">
         <label><span>Search files</span><input name="q" value="{{ request('q') }}" placeholder="Title, category, or project"></label>
         <label><span>Show</span><select name="type"><option value="all" @selected(request('type', 'all') === 'all')>All project uploads</option><option value="evidence" @selected(request('type') === 'evidence')>Attendance &amp; evaluations</option><option value="attendance" @selected(request('type') === 'attendance')>Attendance photos</option><option value="evaluation" @selected(request('type') === 'evaluation')>Evaluations</option><option value="documents" @selected(request('type') === 'documents')>Documents &amp; letters</option></select></label>
-        <label>Added from<input type="date" name="from" value="{{ request('from') }}"></label><label>Added to<input type="date" name="to" value="{{ request('to') }}"></label>
-        <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
-        @if(request()->filled('q') || request()->filled('type') || request()->filled('from') || request()->filled('to'))<a class="text-link" href="{{ route('documents') }}"><x-icon name="close" /> Clear filters</a>@endif
+        <label>Added from month<input type="month" name="from" value="{{ request('from') }}"></label><label>Added to month<input type="month" name="to" value="{{ request('to') }}"></label>
+        <div class="filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
+        @if(request()->filled('q') || request()->filled('type') || request()->filled('from') || request()->filled('to'))<a class="text-link" href="{{ route('documents') }}"><x-icon name="close" /> Clear filters</a>@endif</div>
     </form>
     <div class="collection-results"><span>{{ number_format($documents->total()) }} {{ \Illuminate\Support\Str::plural('file', $documents->total()) }}</span><span>Private project records</span></div>
     @if($documents->isNotEmpty())

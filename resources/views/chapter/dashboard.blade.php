@@ -22,6 +22,13 @@
     @elseif(in_array($role, ['admin', 'bod']))<a class="btn primary" href="#dashboard-reviews"><x-icon name="fileSignature"/> Review requests</a>
     @else<a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus"/> Create Project</a>@endif
 </div>
+@if($projectAlerts->isNotEmpty())
+<section class="panel project-owner-alerts" aria-labelledby="project-owner-alerts-title"><div class="panel-heading"><div><h2 id="project-owner-alerts-title">Updates to your projects</h2><p>Revisions and closed projects that affect a project you submitted or chair.</p></div></div>
+    @foreach($projectAlerts as $alertProject)
+    <a class="attention-row" href="{{ route('projects.show', $alertProject) }}"><span class="project-mark"><x-icon name="info"/></span><span class="row-main"><strong>{{ $alertProject->title }}</strong><small>{{ in_array($alertProject->status, ['Needs Revision', 'Returned for Revision'], true) ? 'Revision requested - open the project to read the review comments.' : 'Project '.strtolower(\App\Support\ProjectFlow::statusLabel($alertProject)).' - open the record for details.' }}</small></span><span class="badge">{{ \App\Support\ProjectFlow::statusLabel($alertProject) }}</span></a>
+    @endforeach
+</section>
+@endif
 <div class="stats-grid" aria-label="Dashboard summary">
     @if($role === 'treasurer')
         <x-dashboard-stat label="Allocated funds" :value="'PHP '.number_format($financeCharts['allocated'], 2)" note="Approved project allocations · all time" icon="wallet" tone="budget" :money="true" :href="route('finance')"/>
@@ -33,7 +40,7 @@
         @if($role === 'member')
             <x-dashboard-stat label="My dues balance" :value="'PHP '.number_format($myDuesBalance, 2)" note="Outstanding after posted payments" icon="receipt" tone="expenses" :money="true" :href="route('dues')"/>
         @else
-            <x-dashboard-stat :label="$role === 'bod' ? 'Board agenda' : 'Awaiting review'" :value="$pending->count()" :note="$role === 'bod' ? 'Projects awaiting Board deliberation' : 'Requests matching your review role'" icon="fileSignature" tone="reviews" href="#dashboard-reviews"/>
+            <x-dashboard-stat :label="$role === 'bod' ? 'Submitted proposals' : 'Awaiting review'" :value="$pending->count()" :note="$role === 'bod' ? 'Full proposals for Board reading' : 'Requests matching your review role'" icon="fileSignature" tone="reviews" href="#dashboard-reviews"/>
         @endif
         @if($role === 'admin')
             <x-dashboard-stat label="Completed projects" :value="$dashboardProjects->where('status', 'Completed')->whereNull('archived_at')->count()" note="Awaiting archive" icon="check" tone="balance" :href="route('projects.completed')"/>
@@ -53,7 +60,7 @@
         @include('chapter.partials.dashboard-tasks')
     @endif
 @else
-    @if($role === 'bod')<div class="dashboard-role-note"><x-icon name="fileSignature"/><span>Projects on the Board agenda are ready for deliberation. The Admin records the official decision after the meeting.</span></div>@endif
+    @if($role === 'bod')<div class="dashboard-role-note"><x-icon name="fileSignature"/><span>Read submitted proposals before the Board meeting. The Treasurer verifies budgets; Admin records the signed decision after the meeting.</span></div>@endif
     @if($role === 'admin')<section class="panel dashboard-action-panel" aria-labelledby="admin-attention-title"><div class="panel-heading"><div><h2 id="admin-attention-title">Admin actions</h2><p>Requests that need an account or project decision</p></div></div><div class="dashboard-action-grid"><a href="{{ route('registrations') }}"><strong>{{ $adminActions['registrations'] }} membership {{ \Illuminate\Support\Str::plural('application', $adminActions['registrations']) }}</strong><span>Review new members and account access.</span></a><a href="{{ route('projects', ['filter' => 'review']) }}"><strong>{{ $pending->count() }} project {{ \Illuminate\Support\Str::plural('review', $pending->count()) }}</strong><span>Move concepts and formal proposals forward.</span></a><a href="{{ route('records', ['kind' => 'reports']) }}"><strong>{{ $adminActions['reports'] }} completion {{ \Illuminate\Support\Str::plural('report', $adminActions['reports']) }}</strong><span>Check outcomes and submitted evidence.</span></a></div></section>@endif
     @include('chapter.partials.dashboard-review')
     @if($role === 'bod' && $tasks->isNotEmpty())

@@ -31,7 +31,7 @@ Route::middleware('guest')->group(function () {
 });
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-Route::middleware(['auth', 'active'])->group(function () {
+Route::middleware(['auth', 'active', \App\Http\Middleware\TrackUserActivity::class])->group(function () {
     Route::get('/dashboard', [ChapterController::class, 'dashboard'])->name('dashboard');
     Route::get('/reports', [\App\Http\Controllers\PmsToolsController::class, 'reports'])->name('reports.generate');
     Route::post('/reports/export', [\App\Http\Controllers\PmsToolsController::class, 'export'])->name('reports.export');
@@ -62,6 +62,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/projects/{project}/edit', [ChapterController::class, 'edit'])->name('projects.edit');
     Route::put('/projects/{project}', [ChapterController::class, 'save'])->name('projects.update');
     Route::post('/projects/{project}/transition', [ChapterController::class, 'transition'])->name('projects.transition');
+    Route::post('/projects/{project}/appeal', [ChapterController::class, 'projectAppeal'])->name('projects.appeal');
+    Route::post('/projects/{project}/appeal-decision', [ChapterController::class, 'projectAppealDecision'])->name('projects.appeal.decision');
     Route::post('/projects/{project}/tasks', [ChapterController::class, 'taskSave'])->name('tasks.store');
     Route::put('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskSave'])->name('tasks.update');
     Route::delete('/projects/{project}/tasks/{task}', [ChapterController::class, 'taskRemove'])->name('tasks.destroy');
@@ -149,6 +151,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/account', [RecordController::class, 'account'])->name('account');
     Route::get('/account/photo', [RecordController::class, 'accountPhoto'])->name('account.photo');
     Route::put('/account', [RecordController::class, 'accountSave'])->name('account.update');
+    Route::put('/account/password', [RecordController::class, 'accountPassword'])->middleware('throttle:5,1')->name('account.password');
     Route::get('/settings', [RecordController::class, 'settings'])->name('settings');
     Route::put('/settings', [RecordController::class, 'settingsSave'])->name('settings.update');
 

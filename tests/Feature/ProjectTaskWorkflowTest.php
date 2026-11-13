@@ -15,7 +15,7 @@ class ProjectTaskWorkflowTest extends TestCase
         $chair = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $member = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $project = Project::create(['title' => 'Community task workflow', 'area' => 'Community Impact', 'created_by' => $chair->id, 'chair_id' => $chair->id, 'status' => $status, 'plan_locked_at' => now()]);
-        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $chair->id, 'meeting_date' => today(), 'decision' => 'approved', 'evidence_path' => 'signed.pdf', 'comments' => 'Board decision']);
+        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $chair->id, 'stage' => 'proposal', 'meeting_date' => today(), 'decision' => 'approved', 'evidence_path' => 'signed.pdf', 'comments' => 'Board decision']);
         return [$project, $chair, $member];
     }
 

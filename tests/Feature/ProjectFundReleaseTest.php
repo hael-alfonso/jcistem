@@ -22,7 +22,7 @@ class ProjectFundReleaseTest extends TestCase
             'chair_id' => $chair->id, 'status' => 'Plan Locked', 'plan_locked_at' => now(),
             'proposed_budget' => 1000, 'budget_items' => $items,
         ]);
-        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $treasurer->id, 'meeting_date' => today(), 'decision' => 'approved', 'evidence_path' => 'decision.pdf', 'comments' => 'Approved']);
+        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $treasurer->id, 'stage' => 'proposal', 'meeting_date' => today(), 'decision' => 'approved', 'evidence_path' => 'decision.pdf', 'comments' => 'Approved']);
         BudgetAllocation::create([
             'project_id' => $project->id, 'budget_item_id' => $items[0]['id'], 'budget_item_description' => $items[0]['description'],
             'category' => 'Materials and supplies', 'amount' => 1000, 'approved_by' => 'Board', 'approved_on' => today(),

@@ -23,7 +23,7 @@
     <div class="heading-actions">@if(auth()->user()->role === 'admin')<a class="btn secondary" href="{{ route($projectFolder['route'], array_merge($projectFolder['routeParams'], request()->query(), ['print' => 1])) }}"><x-icon name="print"/> Print project report</a>@endif<a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus"/> Create Project</a></div>
 </div>
 <nav class="project-folder-nav" aria-label="Project folders">
-    <a href="{{ route('projects') }}" @if(request()->routeIs('projects')) aria-current="page" @endif><x-icon name="briefcase" /><span><strong>Current</strong><small>Concepts and implementation</small></span><b>{{ $projectFolderCounts['active'] }}</b></a>
+    <a href="{{ route('projects') }}" @if(request()->routeIs('projects')) aria-current="page" @endif><x-icon name="briefcase" /><span><strong>All Projects</strong><small>Submitted and closed records</small></span><b>{{ $projectFolderCounts['active'] }}</b></a>
     <a href="{{ route('projects.completed') }}" @if(request()->routeIs('projects.completed')) aria-current="page" @endif><x-icon name="check" /><span><strong>Completed</strong><small>Awaiting 7-day archive</small></span><b>{{ $projectFolderCounts['completed'] }}</b></a>
     <a href="{{ route('projects.archived') }}" @if($isArchive) aria-current="page" @endif><x-icon name="archive" /><span><strong>Archive</strong><small>Completed and cancelled records</small></span><b>{{ $projectFolderCounts['archived'] + $projectFolderCounts['cancelled'] }}</b></a>
     @if(auth()->user()->role === 'admin')<a href="{{ route('projects.removed') }}" @if(request()->routeIs('projects.removed')) aria-current="page" @endif><x-icon name="trash" /><span><strong>Deleted Projects</strong><small>Restorable records</small></span><b>{{ $projectFolderCounts['removed'] }}</b></a>@endif
@@ -33,9 +33,9 @@
 @endif
 @if($projectFolder['key'] === 'active' && request('filter') === 'review')
 <div class="notice">{{ match(auth()->user()->role) {
-    'admin' => 'Review submitted concepts, record Board decisions with signed evidence, and follow completion reports.',
-    'treasurer' => 'Review concept and full proposal budgets independently, then verify submitted liquidations.',
-    default => 'Review concepts on the Board agenda. Admin records the official Board decision.'
+    'admin' => 'Drafts are visible here for context. Review submitted concepts, record Board decisions with signed evidence, and follow completion reports.',
+    'treasurer' => 'Drafts are visible here for context. Review submitted budgets independently, then verify liquidations.',
+    default => 'Drafts are visible here for context. Read submitted full proposals before the Board meeting; Admin records the official decision.'
 } }}</div>
 @endif
 <div class="project-collection-controls">
@@ -67,10 +67,10 @@
         </select>
     </label>
     @endif
-    <label>Created from<input type="date" name="from" value="{{ request('from') }}"></label>
-    <label>Created to<input type="date" name="to" value="{{ request('to') }}"></label>
-    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply</button>
-    @if(request()->filled('q') || request()->filled('filter') || request()->filled('from') || request()->filled('to') || request('sort', 'newest') !== 'newest')<a class="text-link" href="{{ route($projectFolder['route'], $projectFolder['routeParams']) }}"><x-icon name="close" /> Clear filters</a>@endif
+    <label>Created from month<input type="month" name="from" value="{{ request('from') }}"></label>
+    <label>Created to month<input type="month" name="to" value="{{ request('to') }}"></label>
+    <div class="filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply</button>
+    @if(request()->filled('q') || request()->filled('filter') || request()->filled('from') || request()->filled('to') || request('sort', 'newest') !== 'newest')<a class="text-link" href="{{ route($projectFolder['route'], $projectFolder['routeParams']) }}"><x-icon name="close" /> Clear filters</a>@endif</div>
 </form>
 <div class="collection-results"><span>{{ number_format($projects->total()) }} {{ \Illuminate\Support\Str::plural('project', $projects->total()) }}</span><span>{{ match(request('sort', 'newest')) { 'oldest' => 'Oldest first', 'title' => 'Title A–Z', default => 'Newest first' } }}</span></div>
 <div class="project-grid modern-project-grid">
@@ -126,8 +126,8 @@
                 <h2>No {{ strtolower($projectFolder['title']) }}</h2>
                 <p>This folder is ready when a project reaches this stage.</p>
             @else
-                <h2>No current projects yet</h2>
-                <p>Create a project concept to get started.</p>
+                <h2>No projects here yet</h2>
+                <p>Submitted projects will appear here for chapter monitoring. Your drafts remain in My Projects.</p>
                 <a class="btn primary" href="{{ route('projects.create') }}"><x-icon name="plus" /> Create Project</a>
             @endif
         </div>

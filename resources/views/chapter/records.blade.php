@@ -35,9 +35,9 @@
     @if(request()->filled('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
     <label><span>Search documents</span><input name="q" value="{{ request('q') }}" placeholder="Title, project, or author"></label>
     <label><span>Status</span><select name="status"><option value="">All statuses</option>@foreach($kind === 'reports' ? ['Draft','Submitted','Returned','Reviewed'] : ['Draft','For Review','Returned','Approved for Sending','Sent','Archived'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $status }}</option>@endforeach</select></label>
-    <label>Created from<input type="date" name="from" value="{{ request('from') }}"></label><label>Created to<input type="date" name="to" value="{{ request('to') }}"></label>
-    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
-    @if(request()->hasAny(['q', 'status', 'from', 'to']))<a class="text-link" href="{{ route('records', array_filter(['kind' => $kind, 'type' => request('type'), 'mine' => request('mine')])) }}"><x-icon name="close" /> Clear filters</a>@endif
+    <label>Created from month<input type="month" name="from" value="{{ request('from') }}"></label><label>Created to month<input type="month" name="to" value="{{ request('to') }}"></label>
+    <div class="filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
+    @if(request()->filled('q') || request()->filled('status') || request()->filled('from') || request()->filled('to'))<a class="text-link" href="{{ route('records', array_filter(['kind' => $kind, 'type' => request('type'), 'mine' => request('mine')])) }}"><x-icon name="close" /> Clear filters</a>@endif</div>
 </form>
 <section class="panel"><div class="table-wrap"><table>
     <thead><tr><th>Document</th><th>Project</th><th>Prepared by</th><th>Status</th><th>Version</th><th></th></tr></thead>

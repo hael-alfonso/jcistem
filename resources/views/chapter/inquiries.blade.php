@@ -11,8 +11,8 @@
     <label><span>Search</span><input name="q" value="{{ request('q') }}" placeholder="Reference, sender, email, or subject"></label>
     <label><span>Status</span><select name="status"><option value="">All statuses</option>@foreach($statuses as $value => $label)<option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>@endforeach</select></label>
     <label><span>Topic</span><select name="category"><option value="">All topics</option>@foreach($categories as $value => $label)<option value="{{ $value }}" @selected(request('category') === $value)>{{ $label }}</option>@endforeach</select></label>
-    <button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
-    @if(request()->filled('q') || request()->filled('status') || request()->filled('category'))<a class="text-link" href="{{ route('inquiries') }}"><x-icon name="close" /> Clear filters</a>@endif
+    <div class="filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply filters</button>
+    @if(request()->filled('q') || request()->filled('status') || request()->filled('category'))<a class="text-link" href="{{ route('inquiries') }}"><x-icon name="close" /> Clear filters</a>@endif</div>
 </form>
 <section class="panel"><div class="table-wrap"><table><thead><tr><th>Inquiry</th><th>Sender</th><th>Topic</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>
 @forelse($inquiries as $inquiry)<tr><td><strong>{{ $inquiry->subject }}</strong><small>{{ $inquiry->reference }}</small></td><td>{{ $inquiry->name }}<small>{{ $inquiry->email }}</small></td><td>{{ $categories[$inquiry->category] ?? ucfirst($inquiry->category) }}</td><td>{{ $inquiry->created_at->format('d M Y') }}<small>{{ $inquiry->created_at->format('g:i A') }}</small></td><td><span class="badge">{{ $statuses[$inquiry->status] ?? ucfirst($inquiry->status) }}</span>@if($inquiry->assignee)<small>{{ $inquiry->assignee->name }}</small>@endif</td><td><a class="text-link" href="{{ route('inquiries.show', $inquiry) }}">Review <x-icon name="arrow" /></a></td></tr>

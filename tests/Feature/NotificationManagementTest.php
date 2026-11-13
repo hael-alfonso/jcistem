@@ -100,7 +100,7 @@ class NotificationManagementTest extends TestCase
         $this->assertModelMissing($cancelled);
     }
 
-    public function test_new_project_cancellation_notices_do_not_store_a_project_link(): void
+    public function test_new_project_cancellation_notices_open_the_retained_project_record(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $creator = User::factory()->create(['role' => 'member', 'status' => 'active']);
@@ -111,11 +111,11 @@ class NotificationManagementTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $notice = Notification::where('user_id', $creator->id)->where('body', 'Project status: Cancelled')->firstOrFail();
-        $this->assertNull($notice->url);
+        $this->assertSame('/projects/'.$project->id, $notice->url);
         $this->assertTrue($notice->requires_open);
         $this->actingAs($creator)->get(route('notifications'))->assertOk()
             ->assertSee('Community supply drive')
-            ->assertSee('Mark notification as read: Community supply drive', false)
-            ->assertDontSee('Open notification: Community supply drive', false);
+            ->assertSee('Open notification: Community supply drive', false);
+        $this->post(route('notifications.open', $notice))->assertRedirect('/projects/'.$project->id);
     }
 }

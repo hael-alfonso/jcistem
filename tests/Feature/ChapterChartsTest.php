@@ -171,7 +171,7 @@ class ChapterChartsTest extends TestCase
             } else {
                 $dashboard->assertSee('No projects awaiting review');
             }
-            $this->get('/projects')->assertOk()->assertSee('No current projects yet');
+            $this->get('/projects')->assertOk()->assertSee('No projects here yet');
             $this->get('/tasks')->assertOk()->assertSee($role === 'member' ? 'No tasks assigned to you' : 'No chapter tasks yet')->assertDontSee('tasks-card-grid');
             $this->get('/finance')->assertOk()->assertSee('Budget vs. expenses')
                 ->assertSee('No project budgets yet')->assertSee('Expenses over time');
@@ -181,7 +181,8 @@ class ChapterChartsTest extends TestCase
     {
         $board = User::factory()->create(['role' => 'bod', 'status' => 'active']);
         $concept = Project::create(['created_by' => $board->id, 'title' => 'Admin queue item', 'area' => 'Community Impact', 'status' => 'Admin Review']);
-        $agenda = Project::create(['created_by' => $board->id, 'title' => 'Board agenda item', 'area' => 'Community Impact', 'status' => 'BOD Agenda']);
+        Project::create(['created_by' => $board->id, 'title' => 'Legacy concept queue item', 'area' => 'Community Impact', 'status' => 'BOD Agenda']);
+        $agenda = Project::create(['created_by' => $board->id, 'title' => 'Verified full proposal for Board', 'area' => 'Community Impact', 'status' => 'Submitted for Formal Approval', 'proposal_budget_reviewed_at' => now()]);
         $this->actingAs($board)->get('/dashboard')->assertOk()
             ->assertViewHas('pending', fn ($items) => $items->pluck('id')->all() === [$agenda->id]);
         $this->post('/projects/'.$concept->id.'/transition', ['action' => 'endorse', 'comments' => 'Not authorized'])->assertForbidden();

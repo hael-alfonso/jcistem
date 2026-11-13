@@ -41,4 +41,13 @@
         </div>
     </section>
 </form>
+<section class="panel form-panel profile-password-panel" id="password" aria-labelledby="password-title">
+    <div class="section-heading"><span><x-icon name="shieldCheck"/></span><div><h2 id="password-title">Change password</h2><p>Only you can change your sign-in password. Enter your current password to confirm it is you.</p></div></div>
+    <form method="POST" action="{{ route('account.password') }}" class="form-grid">@csrf @method('PUT')
+        <div class="full profile-password-current"><x-field name="current_password" label="Current password" type="password" required autocomplete="current-password"/></div>
+        <x-field name="password" label="New password" type="password" required autocomplete="new-password" minlength="10"/>
+        <x-field name="password_confirmation" label="Confirm new password" type="password" required autocomplete="new-password" minlength="10"/>
+        <div class="full"><p class="hint">Use at least 10 characters. Your password is never shown in the activity log.</p><button class="btn primary" type="submit">Update password</button></div>
+    </form>
+</section>
 @endsection

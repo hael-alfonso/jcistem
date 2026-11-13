@@ -1,7 +1,7 @@
 <section class="panel form-panel project-overview-panel" id="overview">
     <div class="panel-heading flush">
         <div><span class="eyebrow">PROJECT SUMMARY</span><h2>Project overview</h2><p>Essential details and the official concept record in one clear view.</p></div>
-        @if($project->concept_submission_method !== 'upload' && filled($project->concept))<a class="btn secondary no-print" href="{{ route('projects.word', [$project, 'concept']) }}"><x-icon name="download" /> Download concept letter</a>@endif
+        @if($canViewProjectFiles && $project->concept_submission_method !== 'upload' && filled($project->concept))<a class="btn secondary no-print" href="{{ route('projects.word', [$project, 'concept']) }}"><x-icon name="download" /> Download concept letter</a>@endif
     </div>
     <div class="project-overview-letterhead"><img src="{{ asset('assets/images/brand/jci-primary.webp') }}" alt="JCI logo"><div><strong>JCI Carmona</strong><span>Internal project concept letter</span></div><small>{{ $project->reference ?? 'Project concept' }}</small></div>
 

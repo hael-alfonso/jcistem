@@ -22,7 +22,7 @@ class ChapterSystemTest extends TestCase
         $project = Project::create(array_merge(['created_by' => $owner->id, 'title' => 'Community literacy project', 'area' => 'Community Impact', 'status' => 'Draft Concept', 'starts_on' => '2026-11-15', 'ends_on' => '2026-11-16', 'venue' => 'Carmona', 'proposed_budget' => 10000, 'concept' => array_merge(array_fill_keys(array_keys(ChapterForms::CONCEPT), 'Community literacy support'), ['sdg_number' => '4']), 'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL), 'Complete project plan')], $extra));
         if ($project->chair_id && in_array($project->status, Project::APPROVED)) {
             $project->update(['plan_locked_at' => now()]);
-            \App\Models\BodDecision::create(['project_id' => $project->id, 'recorded_by' => $owner->id, 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'TEST-'.$project->id, 'evidence_path' => 'resolution.pdf', 'comments' => 'Approved fixture']);
+            \App\Models\BodDecision::create(['project_id' => $project->id, 'recorded_by' => $owner->id, 'stage' => 'proposal', 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'TEST-'.$project->id, 'evidence_path' => 'resolution.pdf', 'comments' => 'Approved fixture']);
         }
         return $project;
     }
@@ -93,7 +93,8 @@ class ChapterSystemTest extends TestCase
         $this->actingAs($treasurer)->get(route('projects.show', $project))->assertOk()->assertSee($link, false);
         $this->get(route('records.show', ['reports', $report->id]))->assertOk();
         $this->actingAs($admin)->get(route('projects.show', $project))->assertOk()->assertDontSee($link, false);
-        $this->get(route('records.show', ['reports', $report->id]))->assertForbidden();
+        $this->get(route('records.show', ['reports', $report->id]))->assertOk()->assertDontSee('Approve Liquidation');
+        $this->post(route('records.transition', ['reports', $report->id]), ['action' => 'approve', 'comments' => 'Treasurer-only decision'])->assertForbidden();
     }
 
     public function test_complete_concept_to_archive_flow_enforces_approvals_and_financial_boundaries(): void
@@ -144,13 +145,13 @@ class ChapterSystemTest extends TestCase
         $this->post('/ledger/'.$entry->id, ['action' => 'liquidate', 'remarks' => 'Receipt verified.'])->assertForbidden();
         $this->get('/ledger')->assertOk()->assertDontSee('Confirm liquidation');
         $this->actingAs($member)->post($transition, ['action' => 'request_completion'])->assertSessionHasNoErrors();
-        $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Literacy project completion', 'type' => 'Completion', 'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Completed and documented')])->assertSessionHasNoErrors();
+        $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Literacy project completion', 'type' => 'Completion', 'data' => array_merge(array_fill_keys(array_keys(ChapterForms::REPORT), 'Completed and documented'), ['submission_method' => 'digital'])])->assertSessionHasNoErrors();
         $report = ProjectReport::firstOrFail();
         $this->get('/records/reports/'.$report->id)->assertOk();
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->actingAs($admin)->post('/records/reports/'.$report->id.'/transition', ['action' => 'approve', 'comments' => 'Report reviewed.'])->assertSessionHasNoErrors();
         $this->assertSame('Completion Review', $p->fresh()->status);
-        $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Liquidation', 'type' => 'Liquidation', 'data' => ['report_date' => '2026-11-16', 'voucher_reference' => 'CDV-001', 'cash_received' => 2500, 'reconciliation_notes' => 'Reconciled']])->assertSessionHasNoErrors();
+        $this->actingAs($member)->post('/records/reports', ['project_id' => $p->id, 'title' => 'Liquidation', 'type' => 'Liquidation', 'data' => ['report_date' => '2026-11-16', 'voucher_reference' => 'CDV-001', 'cash_received' => 2500, 'reconciliation_notes' => 'Reconciled', 'submission_method' => 'digital']])->assertSessionHasNoErrors();
         $liquidation = ProjectReport::where('type', 'Liquidation')->firstOrFail();
         $this->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post('/records/reports/'.$liquidation->id.'/transition', ['action' => 'approve', 'comments' => 'Receipts verified'])->assertSessionHasNoErrors();
@@ -260,6 +261,27 @@ class ChapterSystemTest extends TestCase
         $this->get(route('dues.assessments', ['status' => 'waived']))->assertOk()
             ->assertSee('March 2026')->assertDontSee('January 2026')->assertDontSee('February 2026');
         $this->get(route('dues.assessments', ['status' => 'unknown']))->assertSessionHasErrors('status');
+    }
+
+    public function test_ledger_and_member_dues_print_reports_keep_filters_and_private_access(): void
+    {
+        $treasurer = $this->user('treasurer');
+        $member = $this->user('member', ['name' => 'Print Report Member']);
+        $other = $this->user('member', ['name' => 'Other Print Member']);
+        $due = MemberDue::create(['member_id' => $member->id, 'period' => '2026-11', 'due_date' => '2026-11-30', 'amount' => 120]);
+        MemberDue::create(['member_id' => $other->id, 'period' => '2026-11', 'due_date' => '2026-11-30', 'amount' => 90]);
+        LedgerEntry::create(['reference' => 'PRINT-DUES-001', 'member_id' => $member->id, 'member_due_id' => $due->id, 'type' => 'Income', 'direction' => 'credit', 'status' => 'Posted', 'amount' => 120, 'transaction_date' => '2026-11-12']);
+        LedgerEntry::create(['reference' => 'PRINT-VOID-001', 'type' => 'Income', 'direction' => 'credit', 'status' => 'Void', 'amount' => 50, 'transaction_date' => '2026-11-12']);
+
+        $this->actingAs($treasurer)->get(route('ledger', ['q' => 'PRINT-', 'print' => 1]))->assertOk()
+            ->assertSee('Print / save PDF')->assertSee('PRINT-DUES-001')->assertSee('PRINT-VOID-001')
+            ->assertSee('Posted credits')->assertSee('PHP 120.00');
+        $this->get(route('dues.assessments', ['member' => $member->id, 'print' => 1]))->assertOk()
+            ->assertSee('Member dues report')->assertSee('Print Report Member')->assertDontSee('Other Print Member')
+            ->assertSee('PRINT-DUES-001');
+        $this->actingAs($member)->get(route('dues', ['print' => 1]))->assertOk()
+            ->assertSee('My member dues report')->assertSee('PRINT-DUES-001')->assertDontSee('Other Print Member');
+        $this->get(route('ledger', ['print' => 1]))->assertForbidden();
     }
 
     public function test_invalid_dues_payment_reopens_only_its_modal_without_copying_values_to_other_periods(): void
@@ -373,7 +395,7 @@ class ChapterSystemTest extends TestCase
         $project->update(['status' => 'Completion Review']);
         $this->actingAs($chair)->post('/records/reports', [
             'project_id' => $project->id, 'title' => 'Project completion', 'type' => 'Completion',
-            'data' => array_fill_keys(array_keys(ChapterForms::REPORT), 'Completed'),
+            'data' => array_merge(array_fill_keys(array_keys(ChapterForms::REPORT), 'Completed'), ['submission_method' => 'digital']),
         ])->assertSessionHasNoErrors();
         $report = ProjectReport::firstOrFail();
         $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
@@ -397,12 +419,13 @@ class ChapterSystemTest extends TestCase
 
     public function test_expenses_cannot_exceed_allocation_and_voided_entries_stop_counting(): void
     {
+        Storage::fake('local');
         $treasurer = $this->user('treasurer'); $project = $this->project($treasurer, ['status' => 'Ongoing']);
         $project->budget_items = \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Supplies', 'quantity' => 1, 'unit_cost' => 1000], ['category' => 'other', 'description' => 'Other project needs', 'quantity' => 1, 'unit_cost' => 9000]]);
         $project->save();
         $budgetItemId = $project->budget_items[0]['id'];
         $project->allocations()->create(['category' => 'Supplies', 'budget_item_id' => $budgetItemId, 'amount' => 1000]);
-        $payload = ['reference' => 'EXP-002', 'project_id' => $project->id, 'budget_item_id' => $budgetItemId, 'transaction_date' => '2026-10-01', 'type' => 'Expense', 'category' => 'Supplies', 'account' => 'Chapter fund', 'counterparty' => 'Supplier', 'payment_method' => 'Cash', 'description' => 'Supplies', 'amount' => 1001];
+        $payload = ['reference' => 'EXP-002', 'project_id' => $project->id, 'budget_item_id' => $budgetItemId, 'transaction_date' => '2026-10-01', 'type' => 'Expense', 'category' => 'Supplies', 'account' => 'Chapter fund', 'counterparty' => 'Supplier', 'payment_method' => 'Cash', 'description' => 'Supplies', 'amount' => 1001, 'receipt' => UploadedFile::fake()->create('receipt.pdf', 10, 'application/pdf')];
         $this->actingAs($treasurer)->post('/ledger', $payload)->assertSessionHasErrors('amount');
         $this->assertSame(0, LedgerEntry::count());
         $payload['amount'] = 1000;
@@ -425,7 +448,8 @@ class ChapterSystemTest extends TestCase
         $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Print / save PDF');
         LedgerEntry::create(['reference' => 'INC-002', 'direction' => 'credit', 'status' => 'Posted', 'amount' => 5000, 'transaction_date' => '2026-10-10']);
         $this->assertEquals(2000, $report->fresh()->data['financial_snapshot']['income']);
-        $this->actingAs($admin)->get('/records/reports/'.$report->id)->assertForbidden();
+        $this->actingAs($admin)->get('/records/reports/'.$report->id)->assertOk()->assertSee('Admin review and approval');
+        $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'approve', 'comments' => 'Financial report reviewed.'])->assertSessionHasNoErrors();
         $this->actingAs($member)->get('/records/reports/'.$report->id)->assertForbidden();
     }
 

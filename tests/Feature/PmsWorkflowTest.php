@@ -21,8 +21,8 @@ class PmsWorkflowTest extends TestCase
     }
     private function approved(User $chair, string $status = 'Ongoing'): Project
     {
-        $project = $this->draft($chair, ['chair_id' => $chair->id, 'status' => $status, 'plan_locked_at' => now()]);
-        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $this->actor('admin')->id, 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'BOD-'.$project->id, 'evidence_path' => 'evidence.pdf', 'comments' => 'Signed board approval']);
+        $project = $this->draft($chair, ['chair_id' => $chair->id, 'status' => $status, 'plan_locked_at' => now(), 'proposal_reviewed_at' => now()]);
+        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $this->actor('admin')->id, 'stage' => 'proposal', 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'BOD-'.$project->id, 'evidence_path' => 'evidence.pdf', 'comments' => 'Signed board approval']);
         return $project;
     }
 
@@ -45,25 +45,23 @@ class PmsWorkflowTest extends TestCase
             if ($role !== 'admin') $this->actingAs($admin)->post($url, ['action' => 'endorse', 'comments' => 'Compliant'])->assertSessionHasNoErrors();
             $this->assertSame('Treasurer Review', $project->fresh()->status);
             $this->actingAs($treasurer)->post($url, ['action' => 'budget_review', 'comments' => 'Feasible'])->assertSessionHasNoErrors();
-            $this->assertSame('BOD Agenda', $project->fresh()->status);
-            $this->actingAs($admin)->post($url, ['action' => 'approve', 'comments' => 'Approved'])->assertSessionHasErrors(['meeting_date', 'evidence']);
-            $decision = ['action' => 'approve', 'comments' => 'Approved at meeting', 'meeting_date' => '2026-10-01', 'evidence' => UploadedFile::fake()->create('minutes.pdf', 10, 'application/pdf')];
-            $this->actingAs($bod)->post($url, $decision)->assertForbidden();
-            $this->actingAs($admin)->post($url, $decision)->assertSessionHasNoErrors();
+            $this->assertSame('Endorsed for Development', $project->fresh()->status);
             $this->assertSame($owner->id, $project->fresh()->chair_id);
             $this->assertFalse($project->fresh()->canManage($owner));
             $this->actingAs($owner)->post($url, ['action' => 'start'])->assertForbidden();
-            $this->post($url, ['action' => 'lock_plan'])->assertSessionHasErrors('action');
+            $this->post($url, ['action' => 'lock_plan'])->assertForbidden();
             $project->budget_items = [['id' => (string) \Illuminate\Support\Str::uuid(), 'category' => 'materials_supplies', 'description' => 'Community kits', 'quantity' => '1.00', 'unit_cost' => '5000.00', 'amount' => '5000.00']];
             $project->save();
             $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $project->budget_items[0]['id'], 'amount' => '5000.00', 'approved_by' => 'Board', 'approved_on' => '2026-10-02', 'remarks' => 'Premature allocation'])->assertStatus(422);
             $this->actingAs($owner);
-            $this->post($url, ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
-            $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Full budget checked'])->assertSessionHasNoErrors();
+            $this->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+            $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Full budget checked'])->assertRedirect()->assertSessionHasNoErrors();
+            $this->actingAs($admin)->post($url, ['action' => 'approve_full_proposal', 'comments' => 'Approved'])->assertSessionHasErrors(['meeting_date', 'evidence']);
             $formalDecision = ['action' => 'approve_full_proposal', 'comments' => 'Full proposal approved', 'meeting_date' => '2026-10-02', 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')];
-            $this->actingAs($admin)->post($url, $formalDecision)->assertSessionHasNoErrors();
+            $this->actingAs($bod)->post($url, $formalDecision)->assertForbidden();
+            $this->actingAs($admin)->post($url, $formalDecision)->assertRedirect()->assertSessionHasNoErrors();
             $this->actingAs($owner);
-            $this->post($url, ['action' => 'lock_plan'])->assertSessionHasNoErrors();
+            $this->post($url, ['action' => 'lock_plan'])->assertRedirect()->assertSessionHasNoErrors();
             $this->assertTrue($project->fresh()->canManage($owner));
             $this->post($url, ['action' => 'start'])->assertSessionHasNoErrors();
             $this->get('/projects/'.$project->id.'/edit')->assertForbidden();
@@ -97,7 +95,7 @@ class PmsWorkflowTest extends TestCase
             $reportData = $type === 'Liquidation'
                 ? ['report_date' => '2026-10-31', 'voucher_reference' => 'CDV-001', 'cash_received' => '0.00', 'receipt_notes' => 'No posted expenses', 'reconciliation_notes' => 'No cash advanced', 'treasurer_name' => 'LO Treasurer', 'president_name' => 'LO President']
                 : array_fill_keys(array_keys(ChapterForms::REPORT), 'Complete evidence and results');
-            $this->actingAs($chair)->post('/records/reports', ['project_id' => $project->id, 'title' => $type.' report', 'type' => $type, 'data' => $reportData])->assertSessionHasNoErrors();
+            $this->actingAs($chair)->post('/records/reports', ['project_id' => $project->id, 'title' => $type.' report', 'type' => $type, 'data' => $reportData + ['submission_method' => 'digital']])->assertRedirect()->assertSessionHasNoErrors();
             $report = ProjectReport::where('type', $type)->firstOrFail(); $reports[$type] = $report;
             $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
         }
@@ -321,9 +319,12 @@ class PmsWorkflowTest extends TestCase
         $this->actingAs($treasurer)->post($url, ['action' => 'budget_review', 'comments' => 'Skip admin'])->assertForbidden();
         $this->actingAs($admin)->post($url, ['action' => 'endorse', 'comments' => 'Rechecked'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, ['action' => 'budget_review', 'comments' => 'Rechecked'])->assertSessionHasNoErrors();
-        $this->actingAs($admin)->post($url, ['action' => 'reject', 'comments' => 'Board rejected', 'meeting_date' => '2026-10-01', 'evidence' => UploadedFile::fake()->create('minutes.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $project->update(['budget_items' => \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Community kits', 'quantity' => 1, 'unit_cost' => 5000]])]);
+        $this->actingAs($owner)->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Full budget checked'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post($url, ['action' => 'reject_full_proposal', 'comments' => 'Board rejected', 'meeting_date' => '2026-10-01', 'evidence' => UploadedFile::fake()->create('minutes.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('Not Approved', $project->fresh()->status);
-        $this->assertNull($project->fresh()->chair_id);
+        $this->assertFalse($project->fresh()->isChair($owner));
         $this->actingAs($owner)->post($url, ['action' => 'submit_concept'])->assertForbidden();
     }
 
@@ -346,9 +347,10 @@ class PmsWorkflowTest extends TestCase
     {
         $chair = $this->actor(); $treasurer = $this->actor('treasurer'); $project = $this->approved($chair, 'Approved');
         $project->update(['plan_locked_at' => null]);
-        $this->actingAs($chair)->put('/projects/'.$project->id, ['title' => $project->title, 'area' => $project->area, 'proposed_budget' => '6000.00'])->assertSessionHasErrors('proposed_budget');
+        $this->actingAs($chair)->put('/projects/'.$project->id, ['title' => $project->title, 'area' => $project->area, 'proposed_budget' => '6000.00'])->assertForbidden();
         $lineId = (string) \Illuminate\Support\Str::uuid();
         $project->update(['budget_items' => [['id' => $lineId, 'category' => 'materials_supplies', 'description' => 'Supplies', 'quantity' => '1.00', 'unit_cost' => '5000.00', 'amount' => '5000.00']]]);
+        $project->update(['proposal_reviewed_at' => null]);
         $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $lineId, 'amount' => '5000.01', 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Before full-proposal approval'])->assertStatus(422);
         $project->update(['proposal_reviewed_at' => now()]);
         $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $lineId, 'amount' => '5000.01', 'approved_by' => 'Board', 'approved_on' => '2026-10-01', 'remarks' => 'Over budget'])->assertSessionHasErrors('amount');

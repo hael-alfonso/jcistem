@@ -49,8 +49,8 @@
     <label>Project<select name="project"><option value="">All projects</option>@foreach($visibleProjects as $project)<option value="{{ $project->id }}" @selected((string) request('project') === (string) $project->id)>{{ $project->title }}</option>@endforeach</select></label>
     <label>Task status<select name="status">@foreach($statusOptions as $value => $label)<option value="{{ $value }}" @selected((string) request('status', '') === (string) $value)>{{ $label }}</option>@endforeach</select></label>
     @unless($mine)<label>Assigned to<select name="assignee"><option value="">Anyone</option>@foreach($assignableMembers as $person)<option value="{{ $person->id }}" @selected((string) request('assignee') === (string) $person->id)>{{ $person->name }}</option>@endforeach</select></label>@endunless
-    <label>Due from<input type="date" name="from" value="{{ request('from') }}"></label>
-    <label>Due to<input type="date" name="to" value="{{ request('to') }}"></label>
+    <label>Due from month<input type="month" name="from" value="{{ request('from') }}"></label>
+    <label>Due to month<input type="month" name="to" value="{{ request('to') }}"></label>
     <div class="task-filter-actions"><button class="btn secondary" type="submit"><x-icon name="filter" /> Apply</button>
     @if(request()->filled('q') || request()->filled('project') || request()->filled('status') || request()->filled('assignee') || request()->filled('from') || request()->filled('to'))
         <a class="text-link" href="{{ route('tasks', ['mine' => $mine ? 1 : 0]) }}"><x-icon name="close" /> Clear filters</a>

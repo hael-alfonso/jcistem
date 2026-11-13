@@ -26,7 +26,7 @@ class ProjectTaskVisibilityTest extends TestCase
             'ends_on' => '2026-10-20',
             'concept' => ['objective' => $objective],
         ]);
-        \App\Models\BodDecision::create(['project_id' => $project->id, 'recorded_by' => $member->id, 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'VISIBLE-1', 'evidence_path' => 'evidence.pdf', 'comments' => 'Approved fixture']);
+        \App\Models\BodDecision::create(['project_id' => $project->id, 'recorded_by' => $member->id, 'stage' => 'proposal', 'meeting_date' => '2026-10-01', 'decision' => 'approved', 'resolution_number' => 'VISIBLE-1', 'evidence_path' => 'evidence.pdf', 'comments' => 'Approved fixture']);
         $task = Task::create([
             'project_id' => $project->id,
             'title' => 'Prepare volunteer roster',

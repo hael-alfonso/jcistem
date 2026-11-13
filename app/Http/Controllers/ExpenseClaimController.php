@@ -16,7 +16,7 @@ class ExpenseClaimController extends Controller
         // Treasurers review the chapter queue by default, while `mine=1`
         // opens the same personal claims view available to every user.
         $treasurer = $request->user()->role === 'treasurer' && ! $request->boolean('mine');
-        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])], 'project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'state' => 'nullable|in:Pending,Posted,Returned,Rejected,Void', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''), 'mine' => 'nullable|boolean']);
+        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])], 'project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'state' => 'nullable|in:Pending,Posted,Returned,Rejected,Void', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : ''), 'mine' => 'nullable|boolean']);
         $filter = $request->query('status', $treasurer ? 'pending' : 'all');
         $selectedProject = $request->filled('project') ? Project::withTrashed()->findOrFail($request->integer('project')) : null;
         if ($selectedProject) abort_unless($treasurer || ChapterService::canView($selectedProject, $request->user()), 403);
@@ -25,8 +25,8 @@ class ExpenseClaimController extends Controller
             ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
             ->when($filter === 'pending', fn ($query) => $query->where('status', 'Pending'))
             ->when($filter === 'all' && $request->filled('state'), fn ($query) => $query->where('status', $request->query('state')))
-            ->when($request->filled('from'), fn ($query) => $query->whereDate('spent_on', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($query) => $query->whereDate('spent_on', '<=', $request->query('to')))
+            ->when($request->filled('from'), fn ($query) => $query->whereDate('spent_on', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($query) => $query->whereDate('spent_on', '<=', \App\Support\MonthFilter::end($request->query('to'))))
             ->when($request->filled('q'), fn ($query) => $query->where(fn ($match) => $match->where('description', 'like', '%'.$request->string('q').'%')
                 ->orWhere('payee', 'like', '%'.$request->string('q').'%')
                 ->orWhere('receipt_reference', 'like', '%'.$request->string('q').'%')

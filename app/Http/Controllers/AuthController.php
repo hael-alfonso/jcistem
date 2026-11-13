@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\{AuditLog, User};
+use App\Services\ChapterService;
 use App\Notifications\JciPasswordRecoveryOtp;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\{Request, RedirectResponse};
@@ -122,6 +123,7 @@ class AuthController extends Controller
             'active_login_seen_at' => null,
         ])->save();
         event(new PasswordReset($user));
+        AuditLog::create(['user_id' => $user->id, 'action' => 'account_password_reset', 'object_type' => 'User', 'object_id' => $user->id, 'before' => [], 'after' => [], 'remarks' => 'Password reset with a verified recovery code.']);
         $this->clearRecovery($request);
         $request->session()->regenerate();
         return redirect()->route('login')->with('status', 'Your password has been updated. Sign in using your username or email and new password.');
@@ -138,6 +140,7 @@ class AuthController extends Controller
         $status = Password::reset($data + ['status' => 'active'], function (User $user, string $password) {
             $user->forceFill(['password' => Hash::make($password), 'remember_token' => Str::random(60), 'active_login_token' => null, 'active_login_seen_at' => null])->save();
             event(new PasswordReset($user));
+            AuditLog::create(['user_id' => $user->id, 'action' => 'account_password_reset', 'object_type' => 'User', 'object_id' => $user->id, 'before' => [], 'after' => [], 'remarks' => 'Password reset with a recovery link.']);
         });
         if ($status !== Password::PASSWORD_RESET) return back()->withErrors(['email' => 'This reset link is invalid or expired. Request a new link.'])->onlyInput('email');
         return redirect()->route('login')->with('status', 'Your password has been updated. Sign in with your new password.');
@@ -175,6 +178,7 @@ class AuthController extends Controller
         Auth::login($claimed, false);
         $request->session()->regenerate();
         $request->session()->put('active_login_token', $token);
+        ChapterService::audit('account_signed_in', $claimed);
         $startPage = data_get($claimed->profile, 'preferences.start_page', 'dashboard');
         $destination = match ($startPage) {
             'projects' => route('projects', ['filter' => 'mine']),
@@ -187,6 +191,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
+        if ($request->user()) ChapterService::audit('account_signed_out', $request->user());
         $token = $request->session()->get('active_login_token');
         if ($token) User::whereKey(Auth::id())->where('active_login_token', $token)->update(['active_login_token' => null, 'active_login_seen_at' => null]);
         Auth::logout();

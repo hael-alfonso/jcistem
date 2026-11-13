@@ -15,9 +15,9 @@ class Notification extends ChapterRecord
 
     public function hasDestination(): bool
     {
-        return !$this->isProjectCancellation()
-            && is_string($this->url)
+        return is_string($this->url)
             && str_starts_with($this->url, '/')
-            && !str_starts_with($this->url, '//');
+            && !str_starts_with($this->url, '//')
+            && !($this->isProjectCancellation() && str_starts_with($this->url, '/workspaces/'));
     }
 }

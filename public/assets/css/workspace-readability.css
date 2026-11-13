@@ -1,0 +1,72 @@
+/* Shared legibility and print rules, loaded after the module styles. */
+@media screen {
+    .project-cancellation-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 26px; margin-bottom: 20px; border-color: #efc9c0; background: #fffaf8; }
+    .project-cancellation-card-copy { min-width: 0; }
+    .project-cancellation-card .eyebrow { color: #a33d30; }
+    .project-cancellation-card h2 { margin: 4px 0 6px; font-size: 19px; }
+    .project-cancellation-card p { margin: 0 0 7px; color: var(--ink); line-height: 1.55; overflow-wrap: anywhere; }
+    .project-cancellation-card small, .project-decision-reason small, .project-appeal-record small { color: var(--muted); }
+    .project-cancellation-card-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; flex-shrink: 0; }
+    .project-cancel-action { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .project-cancel-action strong { color: var(--ink); }
+    .project-cancel-action p { margin: 5px 0 0; max-width: 700px; line-height: 1.55; }
+    .project-cancel-action .btn { flex-shrink: 0; }
+    .project-decision-dialog { width: min(650px, calc(100vw - 32px)); }
+    .project-decision-dialog .task-modal-body { display: grid; align-content: start; gap: 18px; }
+    .project-decision-reason, .project-appeal-record { padding: 17px 18px; border: 1px solid #dce8ed; border-radius: 12px; background: #f7fafb; }
+    .project-decision-reason p, .project-appeal-record p { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+    .project-appeal-form { display: grid; gap: 12px; padding-top: 4px; }
+    .project-appeal-form h3 { margin: 0; font-size: 17px; }
+    .project-appeal-form p { margin: 0; line-height: 1.55; color: var(--muted); }
+    .project-appeal-form .field { margin: 0; }
+    .project-appeal-form .btn { justify-self: start; }
+    .project-appeal-form .button-row { display: flex; flex-wrap: wrap; gap: 9px; }
+    .project-cancellation-history .list-row p { margin: 6px 0 0; max-width: 80ch; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); line-height: 1.55; }
+    .project-decision-dialog > form { min-height: 0; overflow-y: auto; }
+    .project-decision-dialog > form .task-modal-body { overflow: visible; }
+    .project-decision-dialog > form .task-modal-actions { position: sticky; bottom: 0; }
+    .workspace-theme-dark .project-cancellation-card { border-color: #75514e; background: #322b2b; }
+    .workspace-theme-dark .project-cancellation-card .eyebrow { color: #f2b6a7; }
+    .workspace-theme-dark .project-cancellation-card p { color: #e8e0df; }
+    .workspace-theme-dark .project-decision-reason, .workspace-theme-dark .project-appeal-record { border-color: #48545c; background: #27323a; }
+    .workspace-theme-dark .project-decision-reason p, .workspace-theme-dark .project-appeal-record p { color: #e1e9ee; }
+    .workspace-theme-dark .project-cancellation-history .list-row p { color: #e1e9ee; }
+}
+@media screen and (max-width: 720px) {
+    .project-cancellation-card, .project-cancel-action { flex-direction: column; align-items: stretch; }
+    .project-cancellation-card-actions { justify-content: flex-start; }
+    .project-cancel-action .btn { align-self: start; }
+    .project-decision-dialog .task-modal-body { padding: 18px; }
+}
+@media screen {
+    .app-content .project-owner-alerts { overflow: hidden; }
+    .app-content .project-owner-alerts .attention-row { gap: 14px; }
+    .app-content .project-owner-alerts .badge { flex-shrink: 0; }
+    .app-content .project-owner-status-alert, .app-content .project-board-readonly-note {
+        margin: 0 0 22px; padding: 16px 20px; border-radius: 12px; line-height: 1.6;
+    }
+    .app-content .project-board-readonly-note {
+        color: var(--ink); background: #edf6fa; border: 1px solid #c9e3ef;
+    }
+    .app-content .profile-password-current { max-width: 430px; }
+    .workspace-theme-dark .app-content .project-board-readonly-note {
+        color: #e4edf5; background: #24313e; border-color: #42586a;
+    }
+}
+
+@page { size: A4 portrait; margin: 14mm 12mm; }
+@media print {
+    html, body { width: auto !important; background: #fff !important; color: #182f43 !important; }
+    .app-content { width: 100% !important; max-width: none !important; padding: 0 !important; }
+    .printable-document, .report-document { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
+    .project-letterhead, .document-letterhead { break-inside: avoid; }
+    .report-register-table, .ledger-pdf-table { width: 100% !important; table-layout: fixed; font-size: 8.5pt; border-collapse: collapse; }
+    .report-register-table th, .report-register-table td { padding: 6pt 4pt; white-space: normal !important; overflow-wrap: anywhere; vertical-align: top; }
+    .report-register-table small { display: block; font-size: 7.5pt; line-height: 1.35; }
+    .ledger-pdf-table .report-money { font-size: 8pt; font-weight: 700; }
+    .ledger-report-totals, .report-title, .budget-summary-meta { break-inside: avoid; }
+    .table-wrap, .report-table-wrap { overflow: visible !important; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    tr { break-inside: avoid; }
+}

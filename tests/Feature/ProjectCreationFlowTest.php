@@ -104,12 +104,7 @@ class ProjectCreationFlowTest extends TestCase
         $this->actingAs($chair)->post($url, ['action' => 'submit_concept'])->assertSessionHasNoErrors();
         $this->actingAs($admin)->post($url, ['action' => 'endorse', 'comments' => 'Ready for budget review'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, ['action' => 'budget_review', 'comments' => 'No spending required'])->assertSessionHasNoErrors();
-        $this->actingAs($admin)->post($url, [
-            'action' => 'approve', 'comments' => 'Concept approved',
-            'meeting_date' => today()->toDateString(),
-            'evidence' => UploadedFile::fake()->create('signed-concept.pdf', 8, 'application/pdf'),
-        ])->assertSessionHasNoErrors();
-        $this->assertSame('Concept approved', ProjectFlow::statusLabel($project->fresh()));
+        $this->assertSame('Proposal preparation', ProjectFlow::statusLabel($project->fresh()));
 
         $proposalBase = [
             'title' => $project->title, 'area' => $project->area,
@@ -129,24 +124,24 @@ class ProjectCreationFlowTest extends TestCase
             ...$proposalBase,
             'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL_REQUIRED), 'Volunteer-led delivery and evaluation'),
         ])->assertSessionHasNoErrors();
-        $this->post($url, ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
+        $this->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, [
             'action' => 'return_full_proposal', 'comments' => 'Clarify how results will be measured',
-        ])->assertSessionHasNoErrors();
+        ])->assertRedirect()->assertSessionHasNoErrors();
         $this->actingAs($chair)->post($url, ['action' => 'submit_full_proposal'])->assertSessionHasErrors('action');
         $proposal = $project->fresh()->proposal;
         $proposal[array_key_first(ChapterForms::PROPOSAL_REQUIRED)] = 'Volunteer-led delivery with attendance and outcome tracking';
         $this->put(route('projects.update', $project), [...$proposalBase, 'proposal' => $proposal])
             ->assertSessionHasNoErrors();
-        $this->post($url, ['action' => 'submit_full_proposal'])->assertSessionHasNoErrors();
-        $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Zero-cost plan verified'])->assertSessionHasNoErrors();
+        $this->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Zero-cost plan verified'])->assertRedirect()->assertSessionHasNoErrors();
         $this->actingAs($admin)->post($url, [
             'action' => 'approve_full_proposal', 'comments' => 'Final plan approved',
             'meeting_date' => today()->toDateString(),
             'evidence' => UploadedFile::fake()->create('signed-proposal.pdf', 8, 'application/pdf'),
-        ])->assertSessionHasNoErrors();
+        ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('Proposal approved', ProjectFlow::statusLabel($project->fresh()));
-        $this->actingAs($chair)->post($url, ['action' => 'lock_plan'])->assertSessionHasNoErrors();
+        $this->actingAs($chair)->post($url, ['action' => 'lock_plan'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('Plan Locked', $project->fresh()->status);
         $this->assertSame([], $project->fresh()->budget_items);
     }

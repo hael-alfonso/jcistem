@@ -8,6 +8,7 @@ use App\Support\ChapterForms;
 use App\Support\Permissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Hash, Storage};
+use Illuminate\Support\Str;
 use Illuminate\Validation\{Rule, Rules\Password, ValidationException};
 
 class RecordController extends Controller
@@ -48,7 +49,7 @@ class RecordController extends Controller
     public function index(Request $request, string $kind)
     {
         $class = $this->model($kind);
-        $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Completion', 'Liquidation', 'Overall Financial'])], 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|string|max:80', 'type' => ['nullable', Rule::in(['Completion', 'Liquidation', 'Overall Financial'])], 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $user = $request->user();
         $query = $class::with(['project', 'author'])
             ->when($user->role !== 'treasurer' && !($user->role === 'admin' && $kind === 'reports'), fn ($q) => $q->whereNotNull('project_id'))
@@ -75,8 +76,8 @@ class RecordController extends Controller
         $records = $query->when($request->boolean('mine'), fn ($q) => $q->whereHas('project', fn ($p) => $p->where('chair_id', $user->id)))
             ->when($kind === 'reports', fn ($q) => $q->where('type', '!=', 'Progress'))
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%')->orWhereHas('project', fn ($p) => $p->where('title', 'like', '%'.$request->string('q').'%'))->orWhereHas('author', fn ($author) => $author->where('name', 'like', '%'.$request->string('q').'%'))))
-            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', \App\Support\MonthFilter::end($request->query('to'))))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($kind === 'reports' && $request->filled('type'), fn ($q) => $q->where('type', $request->type))
             ->latest()->paginate(25)->withQueryString();
@@ -334,7 +335,7 @@ class RecordController extends Controller
 
     public function members(Request $request)
     {
-        $request->validate(['q' => 'nullable|string|max:200', 'role' => ['nullable', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'state' => 'nullable|in:active,inactive,archived', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $request->validate(['q' => 'nullable|string|max:200', 'role' => ['nullable', Rule::in(['admin', 'bod', 'treasurer', 'member'])], 'state' => 'nullable|in:active,inactive,archived', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $admin = Permissions::allows($request->user(), Permissions::ACCOUNTS_MANAGE);
         abort_if($request->query('state') === 'archived' && !$admin, 403);
         $members = User::query()->when($request->query('state') === 'archived', fn ($q) => $q->onlyTrashed())
@@ -342,8 +343,8 @@ class RecordController extends Controller
             ->when(in_array($request->query('state'), ['active', 'inactive'], true), fn ($q) => $q->where('status', $request->query('state')))
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->string('q').'%')->orWhere('member_no', 'like', '%'.$request->string('q').'%')->when($admin, fn ($search) => $search->orWhere('email', 'like', '%'.$request->string('q').'%'))))
             ->when($request->filled('role'), fn ($q) => $q->where('role', $request->role))
-            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', \App\Support\MonthFilter::end($request->query('to'))))
             ->orderBy('name')->paginate(30)->withQueryString();
         return view('chapter.members', compact('members'));
     }
@@ -548,6 +549,30 @@ class RecordController extends Controller
         }
         if (($newPhoto || $request->boolean('remove_photo')) && $oldPhoto && str_starts_with($oldPhoto, 'profile-photos/'.$user->id.'/')) Storage::disk('local')->delete($oldPhoto);
         return back()->with('success', 'Profile updated.');
+    }
+
+    public function accountPassword(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::min(10)],
+        ]);
+        $user = $request->user();
+        if (!Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages(['current_password' => 'Your current password is incorrect.']);
+        }
+        if (Hash::check($data['password'], $user->password)) {
+            throw ValidationException::withMessages(['password' => 'Choose a password different from your current one.']);
+        }
+
+        DB::transaction(function () use ($user, $data) {
+            $user->password = $data['password'];
+            $user->remember_token = Str::random(60);
+            $user->save();
+            ChapterService::audit('account_password_changed', $user);
+        });
+
+        return back()->with('success', 'Password updated.');
     }
 
     public function settings(Request $request)

@@ -18,7 +18,7 @@ class PartnershipWorkflowTest extends TestCase
         $chair = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $project = Project::create(['created_by' => $chair->id, 'chair_id' => $chair->id, 'title' => 'Community event', 'area' => 'Community Impact', 'status' => 'Ongoing', 'plan_locked_at' => now(), 'proposed_budget' => 0]);
-        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $admin->id, 'meeting_date' => today(), 'decision' => 'approved', 'resolution_number' => 'PARTNER-TEST-1', 'evidence_path' => 'board.pdf', 'comments' => 'Approved']);
+        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $admin->id, 'stage' => 'proposal', 'meeting_date' => today(), 'decision' => 'approved', 'resolution_number' => 'PARTNER-TEST-1', 'evidence_path' => 'board.pdf', 'comments' => 'Approved']);
         $data = array_fill_keys(array_keys(ChapterForms::LETTER_REQUIRED), 'Partnership details');
         $data['letter_date'] = '2026-10-31';
         $data['organization'] = 'Carmona Partner Foundation';
@@ -44,7 +44,7 @@ class PartnershipWorkflowTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $outsider = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $project = Project::create(['created_by' => $chair->id, 'chair_id' => $chair->id, 'title' => 'Education outreach', 'area' => 'Community Impact', 'status' => 'Ongoing', 'plan_locked_at' => now(), 'proposed_budget' => 0]);
-        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $admin->id, 'meeting_date' => today(), 'decision' => 'approved', 'resolution_number' => 'PARTNER-TEST-2', 'evidence_path' => 'board.pdf', 'comments' => 'Approved']);
+        BodDecision::create(['project_id' => $project->id, 'recorded_by' => $admin->id, 'stage' => 'proposal', 'meeting_date' => today(), 'decision' => 'approved', 'resolution_number' => 'PARTNER-TEST-2', 'evidence_path' => 'board.pdf', 'comments' => 'Approved']);
         $partner = Partner::create(['name' => 'School Partner']);
         $terms = ['purpose' => 'Education outreach', 'partner_support' => 'Venue and volunteers', 'chapter_commitments' => 'Training team', 'deliverables' => 'One event and report', 'start_on' => '2026-11-01', 'end_on' => '2026-11-30', 'reporting' => 'Weekly updates', 'contact_person' => 'Project Chair', 'president_name' => 'LO President', 'partner_signatory' => 'School Director', 'changes_and_termination' => 'Written notice from both parties'];
         $this->actingAs($chair)->post('/partner-directory/'.$partner->id.'/agreements', ['project_id' => $project->id, 'title' => 'Education partnership', 'terms' => $terms])->assertSessionHasNoErrors();

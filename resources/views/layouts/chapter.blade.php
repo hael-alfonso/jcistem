@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="{{ asset('assets/css/notification-ui.css') }}?v={{ filemtime(public_path('assets/css/notification-ui.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/overlay-ui.css') }}?v={{ filemtime(public_path('assets/css/overlay-ui.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/navigation-ui.css') }}?v={{ filemtime(public_path('assets/css/navigation-ui.css')) }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/workspace-readability.css') }}?v={{ filemtime(public_path('assets/css/workspace-readability.css')) }}">
     <script type="module" src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
     <script src="{{ asset('assets/js/back-navigation.js') }}?v={{ filemtime(public_path('assets/js/back-navigation.js')) }}" defer></script>
 </head>

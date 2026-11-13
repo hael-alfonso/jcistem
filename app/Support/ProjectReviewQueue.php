@@ -25,7 +25,7 @@ final class ProjectReviewQueue
                         ->whereHas('reports', fn (Builder $report) => $report->where('type', 'Liquidation')->where('status', 'Submitted')));
             }),
             // BOD members can inspect full proposals; only Admin records the signed verdict.
-            'bod' => $query->where('status', 'Submitted for Formal Approval')->whereNotNull('proposal_budget_reviewed_at'),
+            'bod' => $query->where('status', 'Submitted for Formal Approval'),
             default => $query->whereRaw('1 = 0'),
         };
     }

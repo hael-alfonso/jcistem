@@ -1,5 +1,5 @@
     <section class="panel" id="dashboard-reviews">
-        <div class="panel-heading"><div><h2>{{ auth()->user()->role === 'bod' ? 'Board agenda' : 'Review queue' }}</h2><p>{{ auth()->user()->role === 'admin' ? 'Concept decisions, verified final proposals, and submitted completion reports' : (auth()->user()->role === 'treasurer' ? 'Independent budget checks and submitted liquidations' : 'Projects ready for Board deliberation') }}</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'review']) }}"><x-icon name="arrow" /> Open queue</a></div>
+        <div class="panel-heading"><div><h2>{{ auth()->user()->role === 'bod' ? 'Submitted proposals' : 'Review queue' }}</h2><p>{{ auth()->user()->role === 'admin' ? 'Concept decisions, verified final proposals, and submitted completion reports' : (auth()->user()->role === 'treasurer' ? 'Independent budget checks and submitted liquidations' : 'Full proposals available to read before the in-person Board meeting') }}</p></div><a class="text-link" href="{{ route('projects', ['filter' => 'review']) }}"><x-icon name="arrow" /> Open queue</a></div>
         <div class="dashboard-list-scroll" tabindex="0" aria-label="Dashboard items">
         @forelse($pending->take(5) as $project)
             <a class="attention-row" href="{{ route('projects.show', $project) }}">

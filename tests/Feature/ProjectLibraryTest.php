@@ -10,7 +10,7 @@ class ProjectLibraryTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dedicated_project_collections_keep_current_work_separate_and_open_the_library_to_active_users(): void
+    public function test_all_projects_excludes_drafts_while_closed_and_completed_records_remain_visible_and_in_the_library(): void
     {
         $viewer = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
@@ -21,11 +21,12 @@ class ProjectLibraryTest extends TestCase
         $cancelled = Project::create(['created_by' => $viewer->id, 'title' => 'Cancelled chapter project', 'status' => 'Cancelled', 'archived_at' => now()]);
 
         $this->actingAs($viewer)->get(route('projects'))->assertOk()
-            ->assertSee($current->title)->assertDontSee($completed->title)->assertDontSee($archived->title)->assertDontSee($cancelled->title)
+            ->assertViewHas('projects', fn ($items) => $items->pluck('id')->sort()->values()->all() === collect([$completed, $archived, $cancelled])->pluck('id')->sort()->values()->all())
             ->assertSee(route('projects.completed'), false)->assertSee(route('projects.archived'), false)
             ->assertDontSee(route('projects.cancelled'), false)
             ->assertSee('Project status')->assertDontSee('Current project views');
-        $this->get(route('projects', ['filter' => 'Draft Concept']))->assertOk()->assertSee($current->title);
+        $this->get(route('projects', ['filter' => 'mine']))->assertOk()->assertSee($current->title)->assertSee($cancelled->title);
+        $this->get(route('projects', ['filter' => 'Draft Concept']))->assertOk()->assertViewHas('projects', fn ($items) => $items->isEmpty());
         $this->get(route('projects', ['filter' => 'Ongoing']))->assertOk()->assertDontSee($current->title);
         $this->get(route('projects.completed'))->assertOk()
             ->assertSee($completed->title)->assertDontSee($archived->title)->assertDontSee($current->title)

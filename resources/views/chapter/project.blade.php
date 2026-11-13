@@ -4,12 +4,13 @@
 @php
     $u=auth()->user();
     $manages=$project->canManage($u);
-    $canReview=$u->role==='admin'||($u->role==='bod'&&$u->proposal_reviewer);
-    $collectionUrl = $project->status === 'Completed'
+    $collectionUrl = ($project->created_by === $u->id || $project->chair_id === $u->id)
+        ? route('projects', ['filter' => 'mine'])
+        : ($project->status === 'Completed'
         ? route($project->archived_at ? 'projects.archived' : 'projects.completed')
         : (in_array($project->status, ['Declined', 'Not Approved', 'Cancelled'], true)
             ? route('projects.archived', ['archive' => 'cancelled'])
-            : route('projects'));
+            : route('projects')));
 @endphp
 <header class="project-workspace-hero">
     <div class="project-workspace-hero-main">
@@ -24,6 +25,9 @@
     </div>
     <div class="project-workspace-hero-actions"><span class="badge large project-status status-{{ $project->status_tone }}">{{ \App\Support\ProjectFlow::statusLabel($project) }}</span>@if($project->archived_at)<span class="badge">Archived record</span>@endif @if(in_array($project->status, ['Completed', 'Archived'], true))<form method="POST" action="{{ route('projects.reuse', $project) }}">@csrf<button class="btn primary" type="submit" data-confirm="Create a new editable concept from this stored project? Review its plan and budget before resubmitting."><x-icon name="filePlus" /> Reuse as new concept</button></form>@endif<button class="btn secondary" type="button" data-print><x-icon name="print" /> Print / save PDF</button></div>
 </header>
+@if(($project->created_by === $u->id || $project->chair_id === $u->id) && in_array($project->status, ['Needs Revision', 'Returned for Revision', 'Cancelled', 'Declined', 'Not Approved'], true))
+<div class="alert {{ in_array($project->status, ['Needs Revision', 'Returned for Revision'], true) ? 'warning' : 'error' }} project-owner-status-alert" role="status"><strong>{{ \App\Support\ProjectFlow::statusLabel($project) }}.</strong> {{ in_array($project->status, ['Needs Revision', 'Returned for Revision'], true) ? 'Review the latest comments below, update your project, and resubmit when ready.' : 'This project is closed. Review the decision and retained project records below.' }}</div>
+@endif
 @php
     $trackedTasks = $project->tasks;
     $trackedTasks->each(fn ($task) => $task->setRelation('project', $project));
@@ -37,10 +41,47 @@
     $partnershipDocuments = $project->documents->where('submission_stage', 'partnership')->sortByDesc('version');
     $canUploadPartnership = $u->status === 'active' && !$project->archived_at && $project->status !== 'Cancelled' && ($u->role === 'admin' || $project->created_by === $u->id || $project->isChair($u));
     $cancellation = $project->status === 'Cancelled' ? $project->reviews->where('action', 'cancel')->sortByDesc('id')->first() : null;
+    $appeal = $cancellation ? $project->reviews->where('action', 'appeal_submitted')->where('id', '>', $cancellation->id)->sortByDesc('id')->first() : null;
+    $appealDecision = $appeal ? $project->reviews->whereIn('action', ['appeal_approved', 'appeal_declined'])->where('id', '>', $appeal->id)->sortByDesc('id')->first() : null;
+    $canSeeAppeal = $u->role === 'admin' || $project->created_by === $u->id || $project->chair_id === $u->id;
+    $canViewProjectFiles = \App\Services\ChapterService::canViewProjectFiles($project, $u);
     $flowNext = \App\Support\ProjectFlow::next($project);
     $tracker = \App\Support\ProjectFlow::tracker($project, $completedTasks, $trackedTasks->count());
     $closedRecord = in_array($project->status, ['Completed', 'Archived', 'Cancelled', 'Declined', 'Not Approved'], true);
 @endphp
+@if($project->status === 'Cancelled')
+<section class="panel project-cancellation-card" id="cancellation-decision" aria-labelledby="cancellation-decision-title">
+    <div class="project-cancellation-card-copy">
+        <span class="eyebrow">PROJECT DECISION</span>
+        <h2 id="cancellation-decision-title">Project cancelled</h2>
+        <p>{{ $cancellation?->comments ? \Illuminate\Support\Str::limit($cancellation->comments, 170) : 'This project was closed. The cancellation record is available in the project history.' }}</p>
+        <small>{{ $cancellation?->created_at?->format('M d, Y') ?? 'Date not recorded' }}@if($cancellation?->user) · {{ $cancellation->user->name }}@endif</small>
+    </div>
+    <div class="project-cancellation-card-actions no-print">
+        @if($canSeeAppeal && $appeal && !$appealDecision)<span class="badge status-review">Appeal awaiting Admin review</span>@elseif($canSeeAppeal && $appealDecision?->action === 'appeal_declined')<span class="badge status-declined">Appeal declined</span>@endif
+        <button class="btn secondary" type="button" data-project-dialog-open="project-cancellation-dialog" aria-haspopup="dialog" aria-controls="project-cancellation-dialog">View reason{{ $cancellation && $canSeeAppeal && $u->role !== 'admin' && !$appeal ? ' & appeal' : '' }}</button>
+    </div>
+</section>
+<dialog class="task-modal project-decision-dialog no-print" id="project-cancellation-dialog" aria-labelledby="project-cancellation-dialog-title">
+    <div class="task-modal-header"><div><span class="eyebrow">PROJECT DECISION</span><h2 id="project-cancellation-dialog-title">Why this project was cancelled</h2><p>{{ $project->title }}</p></div><button class="task-modal-close" type="button" data-project-dialog-close aria-label="Close cancellation details"><x-icon name="close" /></button></div>
+    <div class="task-modal-body">
+        @if(old('_project_dialog') === 'project-cancellation-dialog' && $errors->any())<div class="alert error" role="alert">{{ $errors->first() }}</div>@endif
+        <div class="project-decision-reason"><strong>Recorded reason</strong><p>{{ $cancellation?->comments ?: 'No reason was recorded for this older project.' }}</p><small>{{ $cancellation?->created_at?->format('M d, Y') ?? 'Date not recorded' }}@if($cancellation?->user) · Recorded by {{ $cancellation->user->name }}@endif</small></div>
+        @if($canSeeAppeal && $appeal)
+            <div class="project-appeal-record"><strong>Appeal from {{ $appeal->user?->name ?? 'project owner' }}</strong><p>{{ $appeal->comments }}</p><small>Submitted {{ $appeal->created_at?->format('M d, Y') }}</small></div>
+            @if($appealDecision)<div class="project-appeal-record"><strong>{{ $appealDecision->action === 'appeal_approved' ? 'Appeal approved' : 'Appeal declined' }}</strong><p>{{ $appealDecision->comments }}</p></div>@endif
+        @elseif($cancellation && ($project->created_by === $u->id || $project->chair_id === $u->id))
+            <form method="POST" action="{{ route('projects.appeal', $project) }}" class="project-appeal-form">@csrf<input type="hidden" name="_project_dialog" value="project-cancellation-dialog"><h3>Request a review</h3><p>Explain what changed or why the cancellation should be reconsidered. Admin will review this request; the project stays closed until an appeal is approved.</p><label class="field"><span>Appeal message <em aria-hidden="true">*</em></span><textarea name="message" rows="4" minlength="20" maxlength="2000" required placeholder="Describe why this project should be reopened and what has changed">{{ old('message') }}</textarea></label><button class="btn primary" type="submit">Send appeal to Admin</button></form>
+        @elseif(!$cancellation && ($project->created_by === $u->id || $project->chair_id === $u->id))
+            <p class="hint">This older cancelled record has no saved decision or previous stage. Ask Admin to review the original record before it can be reopened safely.</p>
+        @endif
+        @if($u->role === 'admin' && $appeal && !$appealDecision)
+            <form method="POST" action="{{ route('projects.appeal.decision', $project) }}" class="project-appeal-form">@csrf<input type="hidden" name="_project_dialog" value="project-cancellation-dialog"><h3>Review appeal</h3><p>Approving restores the project to its pre-cancellation stage. Existing financial and audit records remain unchanged; cancelled fund releases are not restored.</p><label class="field"><span>Decision and explanation <em aria-hidden="true">*</em></span><textarea name="comments" rows="3" minlength="10" maxlength="2000" required placeholder="Record the reason for your decision">{{ old('comments') }}</textarea></label><div class="button-row"><button class="btn primary" name="decision" value="approve" type="submit" data-confirm="Approve this appeal and reopen the project at its previous stage?">Approve & reopen</button><button class="btn danger" name="decision" value="decline" type="submit" data-confirm="Decline this appeal and keep the project closed?">Decline appeal</button></div></form>
+        @endif
+    </div>
+    <div class="task-modal-actions"><button class="btn secondary" type="button" data-project-dialog-close>Close</button></div>
+</dialog>
+@endif
 <section class="panel project-tracker" aria-labelledby="project-tracker-title">
     <div class="tracker-heading"><div><span class="eyebrow">PROJECT MANAGEMENT</span><h2 id="project-tracker-title">Project tracker</h2></div></div>
     <div class="tracker-details">
@@ -54,9 +95,7 @@
         @endif
         <div><span>Last updated</span><strong>{{ $project->updated_at?->format('M d, Y') ?? 'Not set' }}</strong><small>Project details and task status</small></div>
     </div>
-    @if($project->status === 'Cancelled')
-        <p class="project-cancelled-note"><strong>This project was cancelled.</strong> New tasks, allocations, and expenses are closed. Earlier decisions and posted financial records remain available.@if($cancellation?->comments) <span>Reason: {{ $cancellation->comments }}</span>@endif</p>
-    @endif
+    @if($project->status === 'Cancelled')<p class="project-cancelled-note">New tasks, allocations, and expenses are closed. Earlier decisions and posted financial records remain available.</p>@endif
     <div class="project-flow-next"><span class="project-flow-next-icon"><x-icon name="arrow" /></span><div><small>{{ $closedRecord ? 'PROJECT RECORD' : 'WHAT HAPPENS NEXT · '.$flowNext['actor'] }}</small><strong>{{ $flowNext['title'] }}</strong><p>{{ $flowNext['detail'] }}</p></div><a class="text-link" href="#{{ $flowNext['anchor'] }}">{{ $closedRecord ? 'Open record' : 'Open step' }} <x-icon name="arrow" /></a></div>
     <div class="project-journey" aria-labelledby="project-process-title">
         <div class="project-journey-heading"><div><strong id="project-process-title">Project Process</strong><small>Follow the project from idea to completion.</small></div><small>{{ $tracker['position'] }}</small></div>
@@ -121,6 +160,9 @@
     <div class="button-row">@if(!$project->proposal_budget_reviewed_at)<button class="btn primary" name="action" value="review_full_budget">Verify Proposal Budget</button>@endif<button class="btn caution" name="action" value="return_full_proposal">Return Proposal for Revision</button></div>
 </form>
 @endif
+@if($project->status === 'Submitted for Formal Approval' && $u->role === 'bod')
+<p class="project-board-readonly-note"><strong>Board review copy.</strong> Read the submitted full proposal and budget before the in-person meeting. The Treasurer verifies the budget; after the meeting, Admin records the signed Board decision. There is no online BOD approval button.</p>
+@endif
 @if($project->status === 'Submitted for Formal Approval' && $u->role === 'admin')
 @if($project->proposal_budget_reviewed_at)
 <p class="hint">Record the final Board decision only after the Treasurer verifies this exact proposal version.</p>
@@ -138,14 +180,12 @@
 </div>
 @if($project->canCancel($u))
 <div class="project-cancel-wrap"><section class="project-cancel-action" aria-labelledby="project-cancel-title">
-    <div class="project-record-heading"><div class="project-cancel-label"><x-icon name="info" /><strong id="project-cancel-title">Cancel project</strong></div><small>Permanent project-closing action</small></div>
-    <form method="POST" action="{{ route('projects.transition', $project) }}">@csrf
-        <p>Cancellation closes future project work. Existing decisions, tasks, claims, and ledger records stay in the history. Pending claims still need a Treasurer decision.</p>
-        <label class="field"><span>Reason for cancellation <em aria-hidden="true">*</em></span><textarea name="comments" rows="3" maxlength="5000" required placeholder="Explain why the project can no longer continue"></textarea></label>
-        <button class="btn danger" type="submit" name="action" value="cancel" data-confirm="Cancel this project? New work and spending will close, while existing records stay available.">Confirm cancellation</button>
-    </form>
+    <div><strong id="project-cancel-title">Need to close this project?</strong><p>Cancellation stops new project work. The reason and all earlier records remain visible to the owner and reviewers.</p></div>
+    <button class="btn danger" type="button" data-project-dialog-open="project-cancel-dialog" aria-haspopup="dialog" aria-controls="project-cancel-dialog">Cancel project</button>
 </section></div>
+<dialog class="task-modal project-decision-dialog no-print" id="project-cancel-dialog" aria-labelledby="project-cancel-dialog-title"><div class="task-modal-header"><div><span class="eyebrow">PROJECT DECISION</span><h2 id="project-cancel-dialog-title">Cancel this project?</h2><p>{{ $project->title }}</p></div><button class="task-modal-close" type="button" data-project-dialog-close aria-label="Close cancellation form"><x-icon name="close" /></button></div><form method="POST" action="{{ route('projects.transition', $project) }}">@csrf<input type="hidden" name="_project_dialog" value="project-cancel-dialog"><div class="task-modal-body">@if(old('_project_dialog') === 'project-cancel-dialog' && $errors->any())<div class="alert error" role="alert">{{ $errors->first() }}</div>@endif<p>New tasks, allocations, and expenses will close. Earlier decisions, tasks, claims, and posted ledger records stay available. Pending claims still need a Treasurer decision.</p><label class="field"><span>Reason for cancellation <em aria-hidden="true">*</em></span><textarea name="comments" rows="4" minlength="15" maxlength="5000" required placeholder="Explain why this project cannot continue">{{ old('comments') }}</textarea></label><small class="hint">Give a specific reason (at least 15 characters); the owner will see it and may request a review.</small></div><div class="task-modal-actions"><button class="btn secondary" type="button" data-project-dialog-close>Keep project</button><button class="btn danger" type="submit" name="action" value="cancel" data-confirm="Cancel this project? Existing records remain available, but new work and spending will close.">Confirm cancellation</button></div></form></dialog>
 @endif
+@if(old('_project_dialog'))<span hidden data-project-dialog-reopen="{{ old('_project_dialog') }}"></span>@endif
 <p class="hint">Monitoring access does not grant editing, approval, or financial recording authority.</p></section>
 @endif
 @if($project->decisions->isNotEmpty())
@@ -153,6 +193,12 @@
     <div class="panel-heading flush"><div><h2 id="project-decisions-title">Board decision history</h2><p>{{ $project->decisions->count() }} recorded {{ \Illuminate\Support\Str::plural('decision', $project->decisions->count()) }}</p></div></div>
     <div class="project-decision-list">@foreach($project->decisions as $decision)<div class="list-row"><span><strong>{{ $decision->stage === 'proposal' ? 'Full proposal' : 'Concept' }} · {{ ucfirst($decision->decision) }}</strong><small>{{ $decision->meeting_date->format('d M Y') }} · {{ $decision->comments }}</small></span>@if(in_array($u->role,['admin','bod','treasurer']) || $project->isChair($u))<a class="text-link" href="{{ route('decisions.evidence',$decision) }}">Signed evidence</a>@endif</div>@endforeach</div>
 </section>
+@endif
+@if($u->role === 'admin' || $project->created_by === $u->id || $project->chair_id === $u->id)
+@php $cancellationHistory = $project->reviews->whereIn('action', ['cancel', 'appeal_submitted', 'appeal_approved', 'appeal_declined'])->sortBy('id'); @endphp
+@if($cancellationHistory->isNotEmpty() && $project->status !== 'Cancelled')
+<section class="panel form-panel project-cancellation-history" id="project-cancellation-history" aria-labelledby="project-cancellation-history-title"><div class="panel-heading flush"><div><h2 id="project-cancellation-history-title">Cancellation &amp; appeal history</h2><p>The original decision and appeal remain on record after reopening.</p></div></div><div class="project-decision-list">@foreach($cancellationHistory as $entry)<div class="list-row"><span><strong>{{ match($entry->action) { 'cancel' => 'Cancelled', 'appeal_submitted' => 'Appeal submitted', 'appeal_approved' => 'Appeal approved · reopened', default => 'Appeal declined' } }}</strong><small>{{ $entry->created_at?->format('M d, Y') }} · {{ $entry->user?->name ?? 'Former member' }}</small><p>{{ $entry->comments }}</p></span></div>@endforeach</div></section>
+@endif
 @endif
 <nav class="anchor-tabs project-section-tabs no-print" aria-label="Project records by process area" data-project-pages><a href="#overview"><x-icon name="info" /> Overview</a><a href="#proposal"><x-icon name="fileSignature" /> Proposal</a><a href="#delivery"><x-icon name="checklist" /> Implementation</a><a href="#budget"><x-icon name="wallet" /> Finance</a><a href="#files"><x-icon name="folder" /> Reports &amp; Files</a></nav>
 @include('chapter.partials.project-overview-summary')
@@ -258,19 +304,19 @@
     <div class="evidence-list">
         @forelse($evidenceDocuments as $document)
             <article class="evidence-item">
-                @if($document->path && $document->canPreviewInline())<a href="{{ route('documents.preview', $document) }}" target="_blank" rel="noopener" aria-label="View {{ $document->title }}"><img src="{{ route('documents.preview', $document) }}" alt="{{ $document->title }}" loading="lazy"></a>@endif
+                @if($canViewProjectFiles && $document->path && $document->canPreviewInline())<a href="{{ route('documents.preview', $document) }}" target="_blank" rel="noopener" aria-label="View {{ $document->title }}"><img src="{{ route('documents.preview', $document) }}" alt="{{ $document->title }}" loading="lazy"></a>@endif
                 <div>
                     <span class="eyebrow">{{ $document->submission_stage === 'attendance' ? 'ATTENDANCE' : 'EVALUATION' }} · {{ $document->activity_on?->format('d M Y') }}</span>
                     <h3>{{ $document->title }}</h3>
                     @if($document->notes)
                         <p class="preserve-lines">{{ $document->notes }}</p>
                     @endif
-                    @if($document->path)
+                    @if($document->path && $canViewProjectFiles)
                         <div class="button-row">
                             <a class="text-link" href="{{ route('documents.preview', $document) }}" target="_blank" rel="noopener"><x-icon name="eye" /> View image</a>
                             <a class="text-link" href="{{ route('documents.download', $document) }}"><x-icon name="download" /> Download original</a>
                         </div>
-                    @endif
+                    @elseif($document->path)<small>File available to the project team and reviewers until approval.</small>@endif
                 </div>
             </article>
         @empty<p class="panel-empty">No attendance photos or evaluations yet.</p>@endforelse

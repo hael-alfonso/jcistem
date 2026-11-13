@@ -42,7 +42,7 @@ final class ProjectSubmission
                 $issues['project_details'] = 'Set the proposed date and venue first.';
             }
         } else {
-            if ($project->status === 'Approved' && !$project->proposal_reviewed_at) {
+            if (in_array($project->status, ['Returned for Revision', 'Approved'], true) && !$project->proposal_reviewed_at) {
                 $returned = $project->reviews()->where('action', 'return_full_proposal')->latest('id')->first();
                 if ($returned && (int) $project->revision <= (int) ($returned->snapshot['revision'] ?? 0)) {
                     $issues['action'] = 'Update the full proposal in response to the review before resubmitting.';

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\{Project, ProjectReport, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class ProjectReviewQueueTest extends TestCase
@@ -44,8 +45,17 @@ class ProjectReviewQueueTest extends TestCase
             ->assertDontSee($formalVerified->title)->assertDontSee($selfReview->title);
 
         $this->actingAs($board)->get(route('dashboard'))->assertOk()
-            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->all() === [$agenda->id]);
-        $this->get(route('projects', ['filter' => 'review']))->assertOk()->assertSee($agenda->title)->assertDontSee($concept->title);
+            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->sort()->values()->all() === collect([$formalPending, $formalVerified])->pluck('id')->sort()->values()->all());
+        $this->get(route('projects', ['filter' => 'review']))->assertOk()
+            ->assertSee($formalPending->title)->assertSee($formalVerified->title)->assertDontSee($agenda->title)->assertDontSee($concept->title);
+        $this->get(route('projects.show', $formalVerified))->assertOk()
+            ->assertSee('Board review copy.')->assertDontSee('Record Approval');
+        $this->post(route('projects.transition', $formalVerified), [
+            'action' => 'approve_full_proposal', 'comments' => 'Board decision',
+            'meeting_date' => now()->toDateString(),
+            'evidence' => UploadedFile::fake()->create('board-decision.pdf', 1, 'application/pdf'),
+        ])->assertForbidden();
+        $this->assertSame('Submitted for Formal Approval', $formalVerified->fresh()->status);
 
         $this->actingAs($admin)->get(route('projects', ['filter' => 'concepts']))->assertOk()
             ->assertSee($concept->title)->assertSee($agenda->title)->assertSee($budget->title)

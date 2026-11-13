@@ -27,6 +27,9 @@ class ChapterController extends Controller
             && $task->project->tasks->whereIn('id', $task->dependencies ?? [])->where('status', 'Completed')->count() === count($task->dependencies ?? []));
         $personalProjects = $projects->filter(fn ($project) => $project->created_by === $request->user()->id
             || $project->chair_id === $request->user()->id || $assignedTasks->contains('project_id', $project->id));
+        $projectAlerts = $projects->filter(fn ($project) => ($project->created_by === $request->user()->id || $project->chair_id === $request->user()->id)
+            && in_array($project->status, ['Needs Revision', 'Returned for Revision', 'Cancelled', 'Declined', 'Not Approved'], true))
+            ->sortByDesc('updated_at')->take(5);
         $dashboardProjects = $request->user()->role === 'member' ? $personalProjects : $projects;
         $chairProjects = $request->user()->role === 'member'
             ? $projects->where('chair_id', $request->user()->id)->whereIn('status', ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review']) : collect();
@@ -58,7 +61,7 @@ class ChapterController extends Controller
         $recentProjects = $dashboardProjects->sortByDesc('updated_at')->take(4);
         $recentTransactions = LedgerEntry::with('project')->whereIn('project_id', $dashboardProjects->whereIn('status', Project::APPROVED)->pluck('id'))
             ->where('status', 'Posted')->orderByDesc('transaction_date')->orderByDesc('id')->limit(4)->get();
-        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'pending', 'myDuesBalance', 'tasks', 'pendingAssignments', 'readyTasks', 'chairProjects', 'financeActionProjects', 'pendingClaims', 'pendingFundReleases', 'recentDecisions', 'adminActions', 'charts', 'monitorStages', 'taskStatuses', 'financeCharts', 'chapterFunds', 'recentProjects', 'recentTransactions'));
+        return view('chapter.dashboard', compact('projects', 'dashboardProjects', 'projectAlerts', 'pending', 'myDuesBalance', 'tasks', 'pendingAssignments', 'readyTasks', 'chairProjects', 'financeActionProjects', 'pendingClaims', 'pendingFundReleases', 'recentDecisions', 'adminActions', 'charts', 'monitorStages', 'taskStatuses', 'financeCharts', 'chapterFunds', 'recentProjects', 'recentTransactions'));
     }
 
     public function projects(Request $request)
@@ -119,8 +122,8 @@ class ChapterController extends Controller
         $request->validate([
             'q' => 'nullable|string|max:200',
             'filter' => 'nullable|string|max:80',
-            'from' => 'nullable|date',
-            'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''),
+            'from' => 'nullable|date_format:Y-m',
+            'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : ''),
             'sort' => 'nullable|in:newest,oldest,title',
             'archive' => 'nullable|in:completed,cancelled',
         ]);
@@ -129,7 +132,7 @@ class ChapterController extends Controller
 
         $folderQuery = ChapterService::visibleProjects($request->user());
         $projectFolderCounts = [
-            'active' => (clone $folderQuery)->whereNotIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved', 'Cancelled'])->count(),
+            'active' => (clone $folderQuery)->whereNotIn('status', Project::DRAFT_STATUSES)->count(),
             'completed' => (clone $folderQuery)->where('status', 'Completed')->whereNull('archived_at')->count(),
             'archived' => (clone $folderQuery)->where('status', 'Completed')->whereNotNull('archived_at')->count(),
             'cancelled' => (clone $folderQuery)->whereIn('status', ['Declined', 'Not Approved', 'Cancelled'])->whereNotNull('archived_at')->count(),
@@ -143,11 +146,12 @@ class ChapterController extends Controller
             ->withSum('allocations as allocated_amount', 'amount');
         $statusFilter = $request->query('filter');
         match ($folder) {
-            'active' => $statusFilter === 'completed'
-                ? $query->where('status', 'Completed')
-                : ($statusFilter === 'cancelled'
-                    ? $query->whereIn('status', ['Declined', 'Not Approved', 'Cancelled'])
-                    : $query->whereNotIn('status', ['Completed', 'Archived', 'Declined', 'Not Approved', 'Cancelled'])),
+            'active' => match ($statusFilter) {
+                'mine', 'review', 'proposals', 'chairing', 'concepts' => null,
+                'completed' => $query->where('status', 'Completed'),
+                'cancelled' => $query->whereIn('status', ['Declined', 'Not Approved', 'Cancelled']),
+                default => $query->whereNotIn('status', Project::DRAFT_STATUSES),
+            },
             'completed' => $query->where('status', 'Completed')->whereNull('archived_at'),
             'archived' => $query->where('status', 'Completed')->whereNotNull('archived_at'),
             'cancelled' => $query->whereIn('status', ['Declined', 'Not Approved', 'Cancelled'])->whereNotNull('archived_at'),
@@ -156,15 +160,15 @@ class ChapterController extends Controller
         if ($request->filled('q')) $query->where(fn ($q) => $q->where('title', 'like', '%'.$request->string('q').'%')
             ->orWhere('reference', 'like', '%'.$request->string('q').'%')
             ->orWhereHas('chair', fn ($chair) => $chair->where('name', 'like', '%'.$request->string('q').'%')));
-        if ($request->filled('from')) $query->whereDate('created_at', '>=', $request->query('from'));
-        if ($request->filled('to')) $query->whereDate('created_at', '<=', $request->query('to'));
+        if ($request->filled('from')) $query->whereDate('created_at', '>=', \App\Support\MonthFilter::start($request->query('from')));
+        if ($request->filled('to')) $query->whereDate('created_at', '<=', \App\Support\MonthFilter::end($request->query('to')));
         if ($folder === 'active' && $request->filter === 'mine') $query->where(fn ($q) => $q->where('created_by', $request->user()->id)->orWhere('chair_id', $request->user()->id)->orWhereHas('tasks', fn ($q) => $q->whereJsonContains('assignees', $request->user()->id)));
         elseif ($folder === 'active' && $request->filter === 'proposals') $query->where('created_by', $request->user()->id);
         elseif ($folder === 'active' && $request->filter === 'chairing') $query->where('chair_id', $request->user()->id)->whereIn('status', Project::APPROVED);
         elseif ($folder === 'active' && $request->filter === 'board') {
             abort_unless(in_array($request->user()->role, ['admin', 'bod', 'treasurer'], true), 403);
             $query->where(function ($items) use ($request) {
-                $items->where('status', 'Submitted for Formal Approval')->whereNotNull('proposal_budget_reviewed_at');
+                $items->where('status', 'Submitted for Formal Approval');
                 if ($request->user()->role === 'admin') $items->orWhere('status', 'BOD Agenda');
             });
         }
@@ -182,7 +186,8 @@ class ChapterController extends Controller
         ]);
         elseif ($folder === 'active' && $request->filter === 'review') {
             abort_unless(in_array($request->user()->role, ['admin', 'treasurer', 'bod'], true), 403);
-            ProjectReviewQueue::apply($query, $request->user());
+            $query->where(fn ($items) => $items->whereIn('status', Project::DRAFT_STATUSES)
+                ->orWhere(fn ($actionable) => ProjectReviewQueue::apply($actionable, $request->user())));
         }
         elseif ($folder === 'active' && $request->filter === 'approved') $query->whereIn('status', ['Approved', 'Plan Locked']);
         elseif ($folder === 'active' && $request->filter === 'ongoing') $query->where('status', 'Ongoing');
@@ -216,7 +221,7 @@ class ChapterController extends Controller
                 'completed' => 'Completed Projects',
                 'archived', 'cancelled' => 'Project Archive',
                 'removed' => 'Deleted Projects',
-                default => $request->filter === 'review' ? 'Project Review Queue' : ($request->filter === 'mine' ? 'My Current Projects' : 'Current Projects'),
+                default => $request->filter === 'review' ? 'Project Reviews' : ($request->filter === 'mine' ? 'My Projects' : 'All Projects'),
             },
             'eyebrow' => $request->filter === 'review'
                 ? 'REVIEW WORKFLOW'
@@ -226,8 +231,8 @@ class ChapterController extends Controller
                 'archived', 'cancelled' => 'Completed and cancelled or closed project records are kept together here, with separate sections for clear reference.',
                 'removed' => 'Admin-only deleted-project folder. Records can be restored without losing finance or audit history.',
                 default => $request->filter === 'review'
-                    ? match ($request->user()->role) { 'admin' => 'Review concepts, record signed Board decisions, and follow submitted completion reports.', 'treasurer' => 'Verify independent concept and proposal budgets, then review submitted liquidations.', default => 'Open projects ready for Board deliberation and recorded decisions.' }
-                    : 'Find current concepts, reviews, approved plans, and ongoing project work.',
+                    ? match ($request->user()->role) { 'admin' => 'See private drafts for context; act only on submitted reviews and official Board decisions.', 'treasurer' => 'See private drafts for context; verify submitted budgets and liquidations when ready.', default => 'See private drafts for context and read submitted full proposals before the Board meeting. Admin records the signed decision.' }
+                    : ($request->filter === 'mine' ? 'Projects you created, chaired, or worked on, including completed and cancelled records.' : 'Monitor submitted, approved, completed, and cancelled chapter projects. Drafts stay private until submitted.'),
             },
         ];
 
@@ -490,7 +495,7 @@ class ChapterController extends Controller
 
     public function proposalPacket(Request $request, Project $project)
     {
-        abort_unless(ChapterService::canView($project, $request->user()), 403);
+        abort_unless(ChapterService::canViewProjectFiles($project, $request->user()), 403);
         abort_unless($project->proposal_submission_method !== 'upload' && $project->proposal, 404);
         $project->load(['owner', 'chair', 'documents', 'reviews']);
         return view('chapter.proposal-packet', compact('project'));
@@ -498,7 +503,7 @@ class ChapterController extends Controller
 
     public function projectWordDocument(Request $request, Project $project, string $stage, ProjectWordDocumentService $documents)
     {
-        abort_unless(ChapterService::canView($project, $request->user()), 403);
+        abort_unless(ChapterService::canViewProjectFiles($project, $request->user()), 403);
         abort_unless(in_array($stage, ['concept', 'proposal'], true), 404);
         abort_unless($stage === 'concept' ? filled($project->concept) : filled($project->proposal), 404);
         abort_unless(($stage === 'concept' ? $project->concept_submission_method : $project->proposal_submission_method) !== 'upload', 404);
@@ -531,7 +536,7 @@ class ChapterController extends Controller
     public function transition(Request $request, Project $project, ChapterService $service)
     {
         $data = $request->validate([
-            'action' => 'required|string', 'comments' => 'nullable|string|max:5000',
+            'action' => 'required|string', 'comments' => $request->input('action') === 'cancel' ? 'required|string|min:15|max:5000' : 'nullable|string|max:5000',
             'meeting_date' => 'required_if:action,approve_full_proposal,reject_full_proposal,defer_full_proposal|nullable|date|before_or_equal:today',
             'evidence' => 'required_if:action,approve_full_proposal,reject_full_proposal,defer_full_proposal|nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
         ]);
@@ -546,6 +551,25 @@ class ChapterController extends Controller
         return back()->with('success', 'Project updated. The decision has been recorded in its history.');
     }
 
+    public function projectAppeal(Request $request, Project $project)
+    {
+        $data = $request->validate(['message' => 'required|string|min:20|max:2000']);
+        app(\App\Services\ProjectAppealService::class)->submit($project, $request->user(), trim($data['message']));
+
+        return redirect()->route('projects.show', $project)->with('success', 'Your appeal was sent to Admin. The project remains closed while it is reviewed.');
+    }
+
+    public function projectAppealDecision(Request $request, Project $project)
+    {
+        $data = $request->validate([
+            'decision' => 'required|in:approve,decline',
+            'comments' => 'required|string|min:10|max:2000',
+        ]);
+        app(\App\Services\ProjectAppealService::class)->decide($project, $request->user(), $data['decision'], trim($data['comments']));
+
+        return redirect()->route('projects.show', $project)->with('success', $data['decision'] === 'approve' ? 'Appeal approved. The project was reopened at its previous stage.' : 'Appeal declined. The project remains closed.');
+    }
+
     public function tasks(Request $request)
     {
         if (!$request->has('mine') && $request->user()->role === 'member') $request->merge(['mine' => '1']);
@@ -555,7 +579,7 @@ class ChapterController extends Controller
             'status' => ['nullable', Rule::in(['To Do', 'In Progress', 'Blocked', 'Completed'])],
             'project' => 'nullable|integer',
             'assignee' => 'nullable|integer|exists:users,id',
-            'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : ''),
+            'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : ''),
         ]);
         $visibleProjects = ChapterService::visibleProjects($request->user())
             ->orderBy('title')->get(['id', 'title']);
@@ -572,8 +596,8 @@ class ChapterController extends Controller
             ->when($request->boolean('mine'), fn ($q) => $q->whereJsonContains('assignees', $request->user()->id))
             ->when($request->filled('project'), fn ($q) => $q->where('project_id', $request->integer('project')))
             ->when($request->filled('assignee'), fn ($q) => $q->whereJsonContains('assignees', $request->integer('assignee')))
-            ->when($request->filled('from'), fn ($q) => $q->whereDate('deadline', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('deadline', '<=', $request->query('to')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('deadline', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('deadline', '<=', \App\Support\MonthFilter::end($request->query('to'))))
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($match) => $match->where('title', 'like', '%'.$request->string('q').'%')
                 ->orWhereHas('project', fn ($project) => $project->where('title', 'like', '%'.$request->string('q').'%'))));
 
@@ -920,14 +944,14 @@ class ChapterController extends Controller
 
     public function download(Request $request, ProjectDocument $document)
     {
-        abort_unless(ChapterService::canView($document->project, $request->user()), 403);
+        abort_unless(ChapterService::canViewProjectFiles($document->project, $request->user()), 403);
         abort_unless($document->path && Storage::disk('local')->exists($document->path), 404);
         return Storage::disk('local')->download($document->path, $document->original_name, ['X-Content-Type-Options' => 'nosniff']);
     }
 
     public function previewDocument(Request $request, ProjectDocument $document, OfficePreviewService $previews)
     {
-        abort_unless(ChapterService::canView($document->project, $request->user()), 403);
+        abort_unless(ChapterService::canViewProjectFiles($document->project, $request->user()), 403);
         abort_unless($document->path && Storage::disk('local')->exists($document->path), 404);
         abort_unless($document->canPreviewInline(), 415, 'This file type must be downloaded to view it.');
 
@@ -972,7 +996,7 @@ class ChapterController extends Controller
 
     public function originalDocumentPreview(Request $request, ProjectDocument $document)
     {
-        abort_unless(ChapterService::canView($document->project, $request->user()), 403);
+        abort_unless(ChapterService::canViewProjectFiles($document->project, $request->user()), 403);
         abort_unless(in_array($document->extension(), ['docx', 'xls', 'xlsx', 'pptx'], true), 415);
         abort_unless($document->path && Storage::disk('local')->exists($document->path), 404);
 
@@ -983,7 +1007,7 @@ class ChapterController extends Controller
 
     public function documents(Request $request)
     {
-        $request->validate(['q' => 'nullable|string|max:200', 'type' => 'nullable|in:all,evidence,attendance,evaluation,documents', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $request->validate(['q' => 'nullable|string|max:200', 'type' => 'nullable|in:all,evidence,attendance,evaluation,documents', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : '')]);
 
         $documents = ProjectDocument::query()
             ->with('project')
@@ -994,8 +1018,8 @@ class ChapterController extends Controller
             ->when($request->query('type') === 'evidence', fn ($query) => $query->whereIn('submission_stage', ['attendance', 'evaluation']))
             ->when(in_array($request->query('type'), ['attendance', 'evaluation'], true), fn ($query) => $query->where('submission_stage', $request->query('type')))
             ->when($request->query('type') === 'documents', fn ($query) => $query->where(fn ($query) => $query->whereNull('submission_stage')->orWhereNotIn('submission_stage', ['attendance', 'evaluation'])))
-            ->when($request->filled('from'), fn ($query) => $query->whereDate('created_at', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($query) => $query->whereDate('created_at', '<=', $request->query('to')))
+            ->when($request->filled('from'), fn ($query) => $query->whereDate('created_at', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($query) => $query->whereDate('created_at', '<=', \App\Support\MonthFilter::end($request->query('to'))))
             ->when($request->filled('q'), fn ($query) => $query->where(fn ($query) => $query
                 ->where('title', 'like', '%'.$request->string('q').'%')
                 ->orWhere('category', 'like', '%'.$request->string('q').'%')
@@ -1025,13 +1049,16 @@ class ChapterController extends Controller
     public function readNotifications(Request $request)
     {
         $count = Notification::where('user_id', $request->user()->id)->whereNull('read_at')->update(['read_at' => now()]);
+        if ($count) ChapterService::audit('notifications_marked_read', $request->user(), [], $count.' notifications');
         return back()->with('success', $count.' '.($count === 1 ? 'notification' : 'notifications').' marked as read.');
     }
 
     public function openNotification(Request $request, Notification $notification)
     {
         abort_unless($notification->user_id === $request->user()->id, 403);
+        $before = $notification->toArray();
         if (!$notification->read_at) $notification->update(['read_at' => now()]);
+        ChapterService::audit('notification_opened', $notification, $before);
         return $notification->hasDestination()
             ? redirect()->to($notification->url)
             : redirect()->route('notifications');
@@ -1040,6 +1067,7 @@ class ChapterController extends Controller
     public function deleteNotification(Request $request, Notification $notification)
     {
         abort_unless($notification->user_id === $request->user()->id, 403);
+        ChapterService::audit('notification_removed', $notification, $notification->toArray());
         $notification->delete();
 
         return back()->with('success', 'Notification removed.');
@@ -1048,7 +1076,7 @@ class ChapterController extends Controller
     public function audit(Request $request)
     {
         abort_unless(Permissions::allows($request->user(), Permissions::AUDIT_VIEW), 403);
-        $filters = $request->validate(['action' => 'nullable|string|max:100', 'actor' => 'nullable|integer|exists:users,id', 'q' => 'nullable|string|max:100', 'from' => 'nullable|date', 'to' => 'nullable|date'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $filters = $request->validate(['action' => 'nullable|string|max:100', 'actor' => 'nullable|integer|exists:users,id', 'q' => 'nullable|string|max:100', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $action = $filters['action'] ?? null;
         $search = trim($filters['q'] ?? '');
         $actor = $filters['actor'] ?? null;
@@ -1056,8 +1084,8 @@ class ChapterController extends Controller
         $actors = User::whereIn('id', AuditLog::query()->whereNotNull('user_id')->distinct()->pluck('user_id'))->orderBy('name')->get(['id', 'name']);
         $records = AuditLog::with('actor')->when($action, fn ($q) => $q->where('action', $action))
             ->when($actor, fn ($q) => $q->where('user_id', $actor))
-            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->query('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->query('to')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', \App\Support\MonthFilter::start($request->query('from'))))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', \App\Support\MonthFilter::end($request->query('to'))))
             ->when($search !== '', fn ($q) => $q->where(fn ($match) => $match->where('action', 'like', '%'.$search.'%')->orWhere('object_type', 'like', '%'.$search.'%')->orWhere('remarks', 'like', '%'.$search.'%')->orWhereHas('actor', fn ($actor) => $actor->where('name', 'like', '%'.$search.'%'))))
             ->latest()->paginate(25)->withQueryString();
         return view('chapter.activity-log', compact('records', 'actions', 'actors', 'action', 'actor', 'search'));
