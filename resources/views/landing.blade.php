@@ -10,7 +10,6 @@
     <meta property="og:type" content="website">
     <title>JCI Carmona | Lead with purpose</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
-    <link rel="preload" as="image" href="{{ asset('assets/images/community/carmona-technohub-aerial.webp') }}">
     @include('shared.public-fonts')
     <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/landing.css') }}?v={{ filemtime(public_path('assets/css/landing.css')) }}">

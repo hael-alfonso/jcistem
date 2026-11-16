@@ -15,38 +15,41 @@
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
     @include('shared.public-fonts')
-    <link rel="stylesheet" href="{{ asset('assets/css/chapter.css') }}?v={{ filemtime(public_path('assets/css/chapter.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/jci-theme.css') }}?v={{ filemtime(public_path('assets/css/jci-theme.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/theme-ui.css') }}?v={{ filemtime(public_path('assets/css/theme-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/project-documents.css') }}?v={{ filemtime(public_path('assets/css/project-documents.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/project-workflow.css') }}?v={{ filemtime(public_path('assets/css/project-workflow.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/dashboard-charts.css') }}?v={{ filemtime(public_path('assets/css/dashboard-charts.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/project-tracker.css') }}?v={{ filemtime(public_path('assets/css/project-tracker.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/project-status.css') }}?v={{ filemtime(public_path('assets/css/project-status.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/task-ui.css') }}?v={{ filemtime(public_path('assets/css/task-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/empty-state-ui.css') }}?v={{ filemtime(public_path('assets/css/empty-state-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/calendar-ui.css') }}?v={{ filemtime(public_path('assets/css/calendar-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/filter-ui.css') }}?v={{ filemtime(public_path('assets/css/filter-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/notification-ui.css') }}?v={{ filemtime(public_path('assets/css/notification-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/overlay-ui.css') }}?v={{ filemtime(public_path('assets/css/overlay-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/navigation-ui.css') }}?v={{ filemtime(public_path('assets/css/navigation-ui.css')) }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/workspace-readability.css') }}?v={{ filemtime(public_path('assets/css/workspace-readability.css')) }}">
+    @php
+        $chapterStyles = ['chapter.css', 'jci-theme.css', 'theme-ui.css', 'project-documents.css',
+            'project-workflow.css', 'dashboard-charts.css', 'project-tracker.css', 'project-status.css',
+            'task-ui.css', 'empty-state-ui.css', 'calendar-ui.css', 'filter-ui.css',
+            'notification-ui.css', 'overlay-ui.css', 'navigation-ui.css', 'workspace-readability.css'];
+        $bundlePath = public_path('assets/css/chapter-bundle.css');
+        $bundleModified = is_file($bundlePath) ? filemtime($bundlePath) : 0;
+        $stylesAreBundled = $bundleModified && collect($chapterStyles)->every(
+            fn ($style) => $bundleModified >= filemtime(public_path('assets/css/'.$style))
+        );
+    @endphp
+    @if($stylesAreBundled)
+        <link rel="stylesheet" href="{{ asset('assets/css/chapter-bundle.php') }}?v={{ $bundleModified }}">
+    @else
+        @foreach($chapterStyles as $style)
+            <link rel="stylesheet" href="{{ asset('assets/css/'.$style) }}?v={{ filemtime(public_path('assets/css/'.$style)) }}">
+        @endforeach
+    @endif
     <script type="module" src="{{ asset('assets/js/chapter.js') }}?v={{ filemtime(public_path('assets/js/chapter.js')) }}"></script>
     <script src="{{ asset('assets/js/back-navigation.js') }}?v={{ filemtime(public_path('assets/js/back-navigation.js')) }}" defer></script>
 </head>
 @php
     $user = auth()->user();
     $workspacePreferences = $user?->profile['preferences'] ?? [];
-    $notificationCounts = \App\Models\Notification::where('user_id', $user->id)->whereNull('read_at')
-        ->selectRaw('COUNT(*) AS unread_count, COALESCE(SUM(CASE WHEN requires_open = 1 THEN 1 ELSE 0 END), 0) AS important_count')->first();
-    $unread = (int) $notificationCounts->unread_count;
-    $importantUnread = (int) $notificationCounts->important_count;
+    $unreadNotifications = \App\Support\NotificationIndicators::unreadFor($user);
+    $unread = $unreadNotifications->count();
+    $importantUnread = $unreadNotifications->where('requires_open', true)->count();
     $recentNotifications = \App\Models\Notification::where('user_id', $user->id)
         ->orderByRaw('CASE WHEN requires_open = 1 AND read_at IS NULL THEN 0 ELSE 1 END')
-        ->latest()
-        ->get();
+        ->orderByDesc('created_at')->orderByDesc('id')
+        ->simplePaginate(10, ['*'], 'menu_page', 1)->withPath(route('notifications.menu'));
     $roleLabel = \App\Support\WorkspaceNav::label($user->role);
     $navigation = \App\Support\PmsNavigation::for($user);
+    $unreadGroups = \App\Support\PmsNavigation::unreadGroups($unreadNotifications, $user);
+    $unreadItems = \App\Support\PmsNavigation::unreadItems($unreadNotifications, $user);
     $workspaceNotice = \Illuminate\Support\Facades\Cache::remember('jci.workspace_notice', 300, fn () => \App\Models\ChapterSetting::where('key', 'workspace_notice')->value('value') ?? '');
     $systemTheme = \Illuminate\Support\Facades\Cache::remember('jci.workspace_theme', 300, fn () => \App\Models\ChapterSetting::where('key', 'workspace_theme')->value('value') ?? 'light');
     $normalizeTheme = static fn ($theme) => in_array($theme, ['dark', 'navy'], true) ? 'dark' : 'light';
@@ -57,7 +60,7 @@
         : (in_array($preferredTheme, [null, 'system'], true) && in_array($systemTheme, ['jci', 'teal', 'navy'], true) ? 'workspace-theme-'.$systemTheme : '');
     $activeGroup = collect($navigation)->search(fn ($items) => collect($items)->contains(fn ($item) => \App\Support\PmsNavigation::active($item)));
 @endphp
-<body class="workspace-density-{{ $workspacePreferences['interface_density'] ?? 'comfortable' }} workspace-theme-{{ $effectiveTheme }} {{ $legacyThemeClass }} {{ !empty($workspacePreferences['reduce_motion']) ? 'workspace-reduce-motion' : '' }}" data-navigation-mode="{{ $workspacePreferences['navigation_mode'] ?? 'accordion' }}" data-chapter-theme="{{ $normalizeTheme($systemTheme) }}">
+<body class="workspace-density-{{ $workspacePreferences['interface_density'] ?? 'comfortable' }} workspace-theme-{{ $effectiveTheme }} {{ $legacyThemeClass }} {{ !empty($workspacePreferences['reduce_motion']) ? 'workspace-reduce-motion' : '' }}" data-navigation-mode="{{ $workspacePreferences['navigation_mode'] ?? 'accordion' }}" data-chapter-theme="{{ $normalizeTheme($systemTheme) }}" @if(session('notification_focus')) data-notification-focus="true" @endif>
 <a class="skip-link" href="#content">Skip to content</a>
 <div class="app-shell">
     <aside class="app-sidebar" id="navigation" aria-label="Workspace navigation">
@@ -81,11 +84,11 @@
                     @endphp
                     <a class="side-link nav-direct-link {{ $groupOpen ? 'is-active' : '' }}" href="{{ \App\Support\PmsNavigation::url($items[0]) }}" @if($groupOpen) aria-current="page" @endif>
                         <x-icon :name="$icon"/><span>{{ $label }}</span>
-                        @if($route === 'notifications' && $unread)<b>{{ $unread }}</b>@endif
+                        @if(isset($unreadGroups[$group]))<i class="nav-menu-dot" aria-hidden="true"></i><span class="sr-only">Unread updates</span>@endif
                     </a>
                 @else
                 <details class="nav-section" @if(($workspacePreferences['navigation_mode'] ?? 'accordion') !== 'expanded') name="sidebar-menu" @endif @if($groupOpen || ($workspacePreferences['navigation_mode'] ?? 'accordion') === 'expanded') open @endif>
-                    <summary><x-icon :name="\App\Support\PmsNavigation::icon($group)"/><span>{{ \App\Support\PmsNavigation::label($group) }}</span></summary>
+                    <summary><x-icon :name="\App\Support\PmsNavigation::icon($group)"/><span>{{ \App\Support\PmsNavigation::label($group) }}</span>@if(isset($unreadGroups[$group]))<i class="nav-menu-dot" aria-hidden="true"></i><span class="sr-only">Unread updates</span>@endif</summary>
                     <div class="nav-items">
                     @foreach($items as [$route, $label, $icon, $params])
                         @php
@@ -96,6 +99,7 @@
                         <a class="side-link {{ $active ? 'is-active' : '' }}" href="{{ \App\Support\PmsNavigation::url($item) }}" @if($active) aria-current="page" @endif>
                             <x-icon :name="$icon"/>
                             <span>{{ $label }}</span>
+                            @if(isset($unreadItems[$group][$label]))<i class="nav-menu-dot" aria-hidden="true"></i><span class="sr-only">Unread updates</span>@endif
                         </a>
                         @else
                         <form method="POST" action="{{ route('logout') }}">@csrf<button class="side-link side-logout" type="submit"><x-icon :name="$icon"/><span>{{ $label }}</span></button></form>
@@ -125,17 +129,10 @@
                 <span class="today" aria-label="Today">{{ now()->format('D, d M Y') }}</span>
                 <details class="topbar-settings-menu topbar-notification-menu">
                     <summary class="notification-link" aria-label="Notifications{{ $unread ? ' ('.$unread.' unread)' : '' }}" aria-controls="notification-dropdown" aria-expanded="false" title="Notifications"><x-icon name="bell" />@if($unread)<b>{{ $unread > 9 ? '9+' : $unread }}</b>@endif</summary>
-                    <div class="topbar-menu-panel topbar-notification-panel" id="notification-dropdown">
+                    <div class="topbar-menu-panel topbar-notification-panel" id="notification-dropdown" data-notification-next="{{ $recentNotifications->nextPageUrl() }}">
                         <div class="topbar-notification-heading"><span>Notifications</span><a class="topbar-notification-view-all" href="{{ route('notifications') }}">View all</a></div>
-                        @forelse($recentNotifications as $notification)
-                            <div class="topbar-notification-item {{ $notification->read_at ? 'is-read' : 'is-unread' }} {{ $notification->requires_open ? 'is-important' : '' }}">
-                            <form method="POST" action="{{ route('notifications.open', $notification) }}" class="topbar-notification-open-form">@csrf
-                                <button type="submit" class="topbar-notification-static"><span class="topbar-notification-title">{{ $notification->title }}@if($notification->requires_open && !$notification->read_at)<em>Important</em>@endif</span><span class="topbar-notification-body">{{ $notification->body }}</span><small>{{ $notification->created_at->diffForHumans() }}@if($notification->requires_open && !$notification->read_at) · Open to mark read @endif</small></button>
-                            </form>
-                            </div>
-                        @empty
-                            <p class="topbar-notification-empty">You're all caught up. New updates will appear here.</p>
-                        @endforelse
+                        <div data-notification-items>@include('chapter.partials.notification-dropdown-items', ['notifications' => $recentNotifications])</div>
+                        @if($recentNotifications->hasMorePages())<p class="topbar-notification-loading" data-notification-loading hidden>Loading more notifications…</p>@endif
                     </div>
                 </details>
                 <details class="topbar-settings-menu topbar-profile-menu">

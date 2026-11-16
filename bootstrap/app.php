@@ -27,6 +27,17 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (\Illuminate\Database\QueryException $exception, \Illuminate\Http\Request $request) {
+            if ((string) $exception->getCode() !== '2002') return null;
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'The database is temporarily unavailable. Please try again shortly.'], 503)
+                    ->header('Retry-After', '30')->header('Cache-Control', 'no-store');
+            }
+
+            return response()->view('errors.database-unavailable', [], 503)
+                ->header('Retry-After', '30')->header('Cache-Control', 'no-store');
+        });
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception, \Illuminate\Http\Request $request) {
             if ($exception->getStatusCode() !== 419 || $request->expectsJson()) return null;
             $workspace = $request->attributes->get('workspace');

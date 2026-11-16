@@ -12,6 +12,7 @@ class WorkspaceSession
     {
         $workspace = $request->route('workspace');
         $cookie = config('session.cookie');
+        $cookiePath = config('session.path');
         $sessionName = $cookie;
         if ($workspace) {
             $request->route()->forgetParameter('workspace');
@@ -20,7 +21,10 @@ class WorkspaceSession
             $request->route()->setAction($action);
             $request->attributes->set('workspace', $workspace);
             $sessionName = $cookie.'_'.$workspace;
-            config(['session.cookie' => $sessionName]);
+            // A browser sends cookies to every port on localhost. Keeping each
+            // workspace's session and CSRF cookies on its own path prevents the
+            // Cookie request header from growing with every workspace opened.
+            config(['session.cookie' => $sessionName, 'session.path' => '/workspaces/'.$workspace]);
         }
         // The session manager may already have created its store (for example in a
         // long-running worker). StartSession reads the store name, not this config key.
@@ -41,7 +45,7 @@ class WorkspaceSession
             return $response;
         } finally {
             $session->setName($previousSessionName);
-            config(['session.cookie' => $cookie]);
+            config(['session.cookie' => $cookie, 'session.path' => $cookiePath]);
             URL::formatPathUsing(fn ($path) => $path);
         }
     }

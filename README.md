@@ -18,6 +18,8 @@ A Laravel 12 application for JCI Carmona project management, with separate Admin
 5. Run `npm install` and `npm run build` to build frontend assets.
 6. Start the application with `php artisan serve` and open the URL it prints.
 
+The project-root `server.php` is used when `php artisan serve` starts, providing compression and cache headers for public assets. Restart the server if it was launched before this file was added. Run `npm run build:chapter-css` after changing a PMS stylesheet, or use `npm run build` to rebuild all frontend assets.
+
 The default configuration uses SQLite. Set `DB_CONNECTION=sqlite` and provide a writable database path in `.env` (for example, `database/database.sqlite`) before migrating if the file does not exist.
 
 Password recovery uses email reset links. The default `MAIL_MAILER=log` writes messages to the application log for local development; it does not deliver email. Configure an SMTP mailer and a chapter-approved `MAIL_FROM_ADDRESS` in `.env` before using password recovery with real accounts.

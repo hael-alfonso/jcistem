@@ -17,6 +17,7 @@
     $archiveQuery = request()->except(['archive', 'page']);
     $completedArchiveQuery = array_merge($archiveQuery, ['archive' => 'completed']);
     $cancelledArchiveQuery = array_merge($archiveQuery, ['archive' => 'cancelled']);
+    $notificationTargets = \App\Support\NotificationIndicators::for(auth()->user());
 @endphp
 <div class="page-heading collection-heading">
     <div><div class="eyebrow">{{ $projectFolder['eyebrow'] }}</div><h1>{{ $projectFolder['title'] }}</h1><p>{{ $projectFolder['description'] }}</p></div>
@@ -84,6 +85,7 @@
             $chairHasPhoto = $chair && ! $chair->trashed() && $chair->status === 'active' && ! empty($chair->profile['photo_path']);
         @endphp
         <article class="project-card modern-project-card status-{{ $tone }}">
+            @if(isset($notificationTargets['project_notices'][$project->id]))@include('chapter.partials.unread-indicator', ['notificationId' => $notificationTargets['project_notices'][$project->id], 'label' => 'Unread project update'])@endif
             <div class="project-card-heading"><span class="project-card-icon"><x-icon :name="$statusIcon"/></span><span class="badge project-status status-{{ $tone }}">{{ \App\Support\ProjectFlow::statusLabel($project) }}</span></div>
             <div class="project-card-copy"><span class="project-reference">{{ $project->reference ?? 'Project #'.$project->id }}</span><h2>@if($project->trashed()){{ $project->title }}@else<a href="{{ route('projects.show', $project) }}">{{ $project->title }}</a>@endif</h2><p class="project-focus">{{ $project->area }}</p></div>
             <div class="project-card-facts">

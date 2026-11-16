@@ -11,6 +11,23 @@ class ConcurrentWorkspaceLoginTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_workspace_cookies_are_path_scoped(): void
+    {
+        $workspace = '/workspaces/123e4567-e89b-12d3-a456-426614174000';
+        $baseCookie = config('session.cookie');
+
+        $response = $this->get($workspace.'/login')->assertOk();
+        $cookies = collect($response->headers->getCookies());
+        $session = $cookies->first(fn ($cookie) => $cookie->getName() === $baseCookie.'_'.basename($workspace)
+            && $cookie->getPath() === $workspace);
+
+        $this->assertNotNull($session);
+        $this->assertNotNull($cookies->first(fn ($cookie) => $cookie->getName() === 'XSRF-TOKEN'
+            && $cookie->getPath() === $workspace));
+        $this->assertSame('/', config('session.path'));
+        $this->assertSame($baseCookie, config('session.cookie'));
+    }
+
     public function test_registered_users_of_every_role_can_stay_signed_in_together(): void
     {
         $admin = User::factory()->create(['name' => 'Alicia Admin', 'role' => 'admin', 'status' => 'active']);

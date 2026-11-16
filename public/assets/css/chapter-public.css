@@ -157,3 +157,11 @@
     .chapter-intro-copy h1 { font-size: clamp(30px, 8vw, 38px); }
     .contact-intro-grid > div:first-child h1 { font-size: clamp(30px, 8vw, 38px); }
 }
+
+html.data-saver .chapter-page-intro,
+html.data-saver .contact-intro {
+    background-image: none;
+}
+html.data-saver .chapter-page-intro--shield::before {
+    display: none;
+}

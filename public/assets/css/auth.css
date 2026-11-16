@@ -331,3 +331,8 @@ html.auth-flow-back .auth-form-panel { animation-name: auth-form-enter-back; }
     .auth-page-compact .signin-help { margin-top: 12px; }
     .auth-page-compact .auth-feedback { bottom: 10px; }
 }
+
+html.data-saver .auth-intro::before,
+html.data-saver .auth-page:not(.auth-page-registration) {
+    background-image: none;
+}

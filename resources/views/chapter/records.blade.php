@@ -1,20 +1,27 @@
 @extends('layouts.chapter')
-@section('title', $kind === 'letters' ? 'JCI Letters of Intent' : 'Project Reports')
+@section('title', $kind === 'letters' ? 'JCI Letters of Intent' : (request('status') === 'Submitted' && request('type') === 'Completion' && auth()->user()->role === 'admin' ? 'Completion Report Review' : (request('status') === 'Submitted' && request('type') === 'Liquidation' && auth()->user()->role === 'treasurer' ? 'Liquidation Report Review' : 'Project Reports')))
 @section('content')
+@php($notificationTargets = \App\Support\NotificationIndicators::for(auth()->user()))
+@php($reportReviewQueue = $kind === 'reports' && request('status') === 'Submitted' && ((request('type') === 'Completion' && auth()->user()->role === 'admin') || (request('type') === 'Liquidation' && auth()->user()->role === 'treasurer')))
 <div class="page-heading">
     <div>
         <div class="eyebrow">{{ $kind === 'letters' ? 'JCI CORRESPONDENCE' : 'DOCUMENT THE DIFFERENCE' }}</div>
-        <h1>{{ $kind === 'letters' ? 'JCI Letters of Intent' : 'Project Reports' }}</h1>
-        <p>{{ $kind === 'letters' ? 'Submit external LOIs to Admin, then print approved copies for hard-copy delivery.' : 'Find Project Completion Reports, liquidation reports, and chapter financial records.' }}</p>
+        <h1>{{ $kind === 'letters' ? 'JCI Letters of Intent' : ($reportReviewQueue ? (request('type') === 'Completion' ? 'Completion Report Review' : 'Liquidation Report Review') : 'Project Reports') }}</h1>
+        <p>{{ $kind === 'letters' ? 'Submit external LOIs to Admin, then print approved copies for hard-copy delivery.' : ($reportReviewQueue ? 'Open a submitted report to review its evidence, then approve it or return it with comments.' : 'Find Project Completion Reports, liquidation reports, and chapter financial records.') }}</p>
     </div>
-    @if($projects->isNotEmpty() || ($kind === 'reports' && auth()->user()->role === 'treasurer'))
+    @if(($projects->isNotEmpty() || ($kind === 'reports' && auth()->user()->role === 'treasurer')) && !$reportReviewQueue)
         <details class="record-create-dropdown no-print">
             <summary class="btn primary"><x-icon name="filePlus" /> {{ $kind === 'letters' ? 'Prepare JCI LOI' : 'Prepare Report' }}</summary>
             <div class="record-create-panel">
                 @if($kind === 'reports' && auth()->user()->role === 'treasurer')<a href="{{ route('records.create', ['kind' => 'reports']) }}"><strong>Financial report</strong><small>Chapter-wide income and spending</small></a>@endif
                 @foreach($projects as $project)
                     @if($kind === 'letters')<a href="{{ route('records.create', ['kind' => 'letters', 'project_id' => $project->id]) }}"><strong>{{ $project->title }}</strong><small>External partnership LOI</small></a>
-                    @else<a href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']) }}"><strong>{{ $project->title }} · Completion Report</strong><small>Project Completion Report (PCR)</small></a><a href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Liquidation']) }}"><strong>{{ $project->title }} · Liquidation Report</strong><small>Receipts and cash reconciliation</small></a>@endif
+                    @else
+                        @php($completionReport = $project->reports->where('type', 'Completion')->sortByDesc('id')->first())
+                        @php($liquidationReport = $project->reports->where('type', 'Liquidation')->sortByDesc('id')->first())
+                        <a href="{{ $completionReport ? route('records.show', ['kind' => 'reports', 'id' => $completionReport->id]) : route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']) }}"><strong>{{ $project->title }} · Completion Report</strong><small>{{ $completionReport ? 'Open existing report' : 'Project Completion Report (PCR)' }}</small></a>
+                        <a href="{{ $liquidationReport ? route('records.show', ['kind' => 'reports', 'id' => $liquidationReport->id]) : route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Liquidation']) }}"><strong>{{ $project->title }} · Liquidation Report</strong><small>{{ $liquidationReport ? 'Open existing report' : 'Receipts and cash reconciliation' }}</small></a>
+                    @endif
                 @endforeach
             </div>
         </details>
@@ -27,7 +34,7 @@
     @endforeach
 </nav>
 @if(auth()->user()->role === 'admin')
-    <div class="notice reports-inbox-note"><strong>Admin report inbox.</strong> Submitted reports are retained here. Admin approves Completion and chapter financial reports; liquidation copies remain visible here while the Treasurer makes the approval.</div>
+    <div class="notice reports-inbox-note"><strong>Admin report inbox.</strong> Admin approves submitted Completion Reports. The Treasurer approves Liquidation Reports; Admin retains a read-only copy of those and chapter financial reports.</div>
 @endif
 @endif
 <form class="list-filters" method="GET" action="{{ route('records', $kind) }}">
@@ -43,7 +50,8 @@
     <thead><tr><th>Document</th><th>Project</th><th>Prepared by</th><th>Status</th><th>Version</th><th></th></tr></thead>
     <tbody>
         @forelse($records as $record)
-            <tr><td><strong>{{ $record->title }}</strong><small>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : ($record->type === 'Completion' ? 'Completion Report' : $record->type) }}@if($kind === 'reports' && $record->type === 'Liquidation' && auth()->user()->role === 'admin') · Admin copy; Treasurer approval @endif</small></td><td>{{ $record->project?->title ?? 'Chapter finances' }}</td><td>{{ $record->author?->name }}</td><td><x-status-badge :status="$record->status" /></td><td>v{{ $record->version }}</td><td><a class="text-link" href="{{ route('records.show', [$kind, $record->id]) }}"><x-icon name="eye" /> Open</a></td></tr>
+            @php($noticeId = $notificationTargets['review_'.$kind][$record->id] ?? null)
+            <tr><td><strong>{{ $record->title }}</strong><small>{{ $kind === 'letters' && $record->type === 'External Partner Letter' ? 'JCI LOI' : ($record->type === 'Completion' ? 'Completion Report' : $record->type) }}@if($kind === 'reports' && $record->type === 'Liquidation' && auth()->user()->role === 'admin') · Admin copy; Treasurer approval @endif</small>@if($noticeId)@include('chapter.partials.unread-indicator', ['notificationId' => $noticeId, 'label' => 'Needs your review'])@endif</td><td>{{ $record->project?->title ?? 'Chapter finances' }}</td><td>{{ $record->author?->name }}</td><td><x-status-badge :status="$record->status" /></td><td>v{{ $record->version }}</td><td>@if($noticeId)<form method="POST" action="{{ route('notifications.open', $noticeId) }}">@csrf<button class="text-link" type="submit"><x-icon name="eye" /> Open</button></form>@else<a class="text-link" href="{{ route('records.show', [$kind, $record->id]) }}"><x-icon name="eye" /> Open</a>@endif</td></tr>
         @empty
             <tr><td colspan="6"><div class="empty-state"><h3>No matching {{ $kind === 'letters' ? 'LOIs' : 'reports' }}.</h3><p>Try another filter. New documents appear here after they are saved.</p><a class="btn secondary" href="{{ route('records', $kind) }}"><x-icon name="close" /> Show all</a></div></td></tr>
         @endforelse

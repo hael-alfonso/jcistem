@@ -3,7 +3,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "node scripts/build-chapter-css.mjs && vite build",
+        "build:chapter-css": "node scripts/build-chapter-css.mjs",
         "build:document-viewer": "vite build --config vite.document-viewer.config.js",
         "dev": "vite",
         "test:js": "vitest run && node --test tests/js/*.test.cjs",

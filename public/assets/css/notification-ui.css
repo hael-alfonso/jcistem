@@ -290,3 +290,50 @@ body.workspace-theme-dark .topbar-notification-panel:hover,
 body.workspace-theme-dark .topbar-notification-panel:focus-within { scrollbar-color: #697780 transparent; }
 body.workspace-theme-dark .topbar-notification-panel:hover::-webkit-scrollbar-thumb,
 body.workspace-theme-dark .topbar-notification-panel:focus-within::-webkit-scrollbar-thumb { background: #697780; }
+
+/* Contextual indicators belong to the affected record, not every notification type. */
+.record-unread-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  margin: 6px 0;
+  color: #075f88;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.record-unread-form { display: inline-flex; width: fit-content; max-width: 100%; margin: 0; }
+.record-unread-form .record-unread-indicator { padding: 0; border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; }
+.record-unread-form .record-unread-indicator:hover { text-decoration: underline; }
+.record-unread-form .record-unread-indicator:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 2px; }
+.table-wrap td > form { margin: 0; }
+.table-wrap td > form > button.text-link { padding: 0; border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; }
+.record-unread-indicator i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #0087b4;
+  box-shadow: 0 0 0 3px #dceff5;
+}
+.notification-focus-target {
+  outline: 3px solid #0889b7;
+  outline-offset: 4px;
+  scroll-margin-top: 110px;
+  animation: notification-focus-ring 1.2s ease-out 2;
+}
+@keyframes notification-focus-ring {
+  50% { outline-color: #46b9d5; outline-offset: 8px; }
+}
+body.workspace-theme-dark .record-unread-indicator { color: #83d8ef; }
+body.workspace-theme-dark .record-unread-indicator i { background: #73d4ec; box-shadow: 0 0 0 3px #254452; }
+body.workspace-theme-dark .notification-focus-target { outline-color: #73d4ec; }
+@media (prefers-reduced-motion: reduce) {
+  .notification-focus-target { animation: none; }
+}
+body.workspace-reduce-motion .notification-focus-target { animation: none; }
+@media print {
+  .record-unread-indicator { display: none !important; }
+  .notification-focus-target { outline: 0 !important; animation: none !important; }
+}

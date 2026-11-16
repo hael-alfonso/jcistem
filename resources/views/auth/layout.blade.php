@@ -8,7 +8,6 @@
     <meta name="description" content="Sign in to JCISTEM, the JCI Carmona member portal for chapter projects, tasks, schedules, and records.">
     <title>@yield('title', 'Member sign in') | JCISTEM · JCI Carmona</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
-    @unless(request()->routeIs('register', 'scoped.register'))<link rel="preload" as="image" media="(min-width: 701px)" href="{{ asset('assets/images/community/jci-scotland-banner.webp') }}">@endunless
     @include('shared.public-fonts')
     <link rel="stylesheet" href="{{ asset('assets/css/public.css') }}?v={{ filemtime(public_path('assets/css/public.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/auth.css') }}?v={{ filemtime(public_path('assets/css/auth.css')) }}">

@@ -78,6 +78,32 @@ import { boundedProgress } from './pms-helpers.js';
       if (event.relatedTarget && !menu.contains(event.relatedTarget)) menu.open = false;
     });
   });
+  const notificationMenu = document.querySelector('.topbar-notification-menu');
+  const notificationPanel = notificationMenu?.querySelector('[data-notification-next]');
+  let loadingNotifications = false;
+  const loadMoreNotifications = async () => {
+    if (!notificationMenu?.open || !notificationPanel?.dataset.notificationNext || loadingNotifications) return;
+    if (notificationPanel.scrollTop + notificationPanel.clientHeight < notificationPanel.scrollHeight - 100) return;
+    loadingNotifications = true;
+    const loadingLabel = notificationPanel.querySelector('[data-notification-loading]');
+    if (loadingLabel) loadingLabel.hidden = false;
+    try {
+      const response = await fetch(notificationPanel.dataset.notificationNext, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Could not load notifications');
+      const page = await response.json();
+      notificationPanel.querySelector('[data-notification-items]')?.insertAdjacentHTML('beforeend', page.html);
+      notificationPanel.dataset.notificationNext = page.next || '';
+      if (page.next) requestAnimationFrame(loadMoreNotifications);
+    } catch {
+      // The full Notifications page remains available if paging cannot load.
+      notificationPanel.dataset.notificationNext = '';
+    } finally {
+      loadingNotifications = false;
+      if (loadingLabel) loadingLabel.hidden = true;
+    }
+  };
+  notificationPanel?.addEventListener('scroll', loadMoreNotifications, { passive: true });
+  notificationMenu?.addEventListener('toggle', () => { if (notificationMenu.open) requestAnimationFrame(loadMoreNotifications); });
   toggle?.addEventListener('click', () => { topbarMenus.forEach((menu) => { menu.open = false; }); setNavigation(!document.body.classList.contains('nav-open')); });
   document.addEventListener('click', (event) => {
     topbarMenus.forEach((menu) => { if (!menu.contains(event.target)) menu.open = false; });
@@ -342,6 +368,23 @@ import { boundedProgress } from './pms-helpers.js';
     window.addEventListener('popstate', showPage);
     window.addEventListener('hashchange', showPage);
     showPage();
+  }
+  if (document.body.dataset.notificationFocus === 'true') {
+    // The server sets this only after the recipient opens a notification.
+    window.setTimeout(() => {
+      let anchor = '';
+      try { anchor = decodeURIComponent(window.location.hash.slice(1)); } catch {}
+      const section = anchor ? document.getElementById(anchor) : null;
+      const target = section?.querySelector?.('.task-detail-modal[open]') || section
+        || document.querySelector('.project-workspace-hero, #dues-records');
+      if (!target) return;
+      target.classList.add('notification-focus-target');
+      if (!target.matches('.task-detail-modal')) {
+        const reduceMotion = document.body.classList.contains('workspace-reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+      window.setTimeout(() => target.classList.remove('notification-focus-target'), 7000);
+    }, 120);
   }
   document.querySelectorAll('[data-project-submission-form]').forEach((form) => {
     const choices = [...form.querySelectorAll('input[type="radio"][name$="_submission_method"]')];

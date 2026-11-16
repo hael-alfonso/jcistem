@@ -7,9 +7,7 @@
     <title>{{ $pageTitle }} · JCISTEM Admin</title>
     <link rel="icon" type="image/png" href="{{ asset('assets/images/brand/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('assets/images/brand/favicon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    @include('shared.public-fonts', ['fontUrl' => 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap'])
     <link rel="stylesheet" href="{{ asset('assets/css/app.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/theme-ui.css') }}?v={{ filemtime(public_path('assets/css/theme-ui.css')) }}">
     <link rel="stylesheet" href="{{ asset('assets/css/admin-ui.css') }}">

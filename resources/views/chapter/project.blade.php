@@ -4,6 +4,7 @@
 @php
     $u=auth()->user();
     $manages=$project->canManage($u);
+    $notificationTargets = \App\Support\NotificationIndicators::for($u);
     $collectionUrl = ($project->created_by === $u->id || $project->chair_id === $u->id)
         ? route('projects', ['filter' => 'mine'])
         : ($project->status === 'Completed'
@@ -17,6 +18,7 @@
         <a class="back-link" href="{{ $collectionUrl }}"><x-icon name="arrowLeft" /> Back to Projects</a>
         <div class="project-workspace-reference"><span>{{ $project->reference }}</span><span>{{ $project->area }}</span></div>
         <h1>{{ $project->title }}</h1>
+        @if(isset($notificationTargets['project_notices'][$project->id]))@include('chapter.partials.unread-indicator', ['notificationId' => $notificationTargets['project_notices'][$project->id], 'label' => 'Unread project update'])@endif
         <div class="project-workspace-meta">
             <span><small>Proposed by</small><strong>{{ $project->owner?->name ?? 'Not assigned' }}</strong></span>
             <span><small>Schedule</small><strong>{{ $project->starts_on?->format('M d, Y') ?? 'To be set' }}@if($project->ends_on) – {{ $project->ends_on->format('M d, Y') }}@endif</strong></span>
@@ -205,7 +207,7 @@
 @include('chapter.partials.project-proposal-summary')
 <div class="project-page-group" id="delivery">
 <section class="panel form-panel project-tasks-section" id="tasks">
-    <div class="panel-heading flush"><div><span class="eyebrow">DELIVERY</span><h2>Tasks &amp; milestones</h2><p>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</p></div><div class="project-task-section-actions"><a class="btn secondary" href="{{ route('tasks', ['project' => $project->id, 'mine' => 0]) }}">Open task board</a>@if($manages)<button class="btn primary no-print" type="button" data-task-dialog-open="task-create-{{ $project->id }}"><x-icon name="plus" /> Create task</button>@endif</div></div>
+    <div class="panel-heading flush"><div><span class="eyebrow">DELIVERY</span><h2>Tasks &amp; milestones</h2><p>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</p>@if(isset($notificationTargets['task_project_notices'][$project->id]))@include('chapter.partials.unread-indicator', ['notificationId' => $notificationTargets['task_project_notices'][$project->id], 'label' => 'Unread task update'])@endif</div><div class="project-task-section-actions"><a class="btn secondary" href="{{ route('tasks', ['project' => $project->id, 'mine' => 0]) }}">Open task board</a>@if($manages)<button class="btn primary no-print" type="button" data-task-dialog-open="task-create-{{ $project->id }}"><x-icon name="plus" /> Create task</button>@endif</div></div>
     @if($trackedTasks->isNotEmpty())
     <div class="project-task-overview"><div><strong>Implementation progress</strong><span>{{ $completedTasks }} done · {{ $trackedTasks->count() - $completedTasks }} remaining</span></div><progress max="{{ $trackedTasks->count() }}" value="{{ $completedTasks }}" aria-label="{{ $completedTasks }} of {{ $trackedTasks->count() }} project tasks complete"></progress><p>Assigned members accept their tasks, then mark finished work complete with a short evidence note. Reports open after every task is complete.</p></div>
     @else<p class="hint">The Chair creates tasks after locking the approved plan. Members accept assignments and complete work with evidence after launch.</p>@endif
@@ -226,6 +228,7 @@
                 $canRemoveTask = $u->role === 'admin' && $project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing'], true) && !$hasDependentTask;
             @endphp
             <article class="project-task-card" id="task-{{ $task->id }}">
+                @if(isset($notificationTargets['task_notices'][$task->id]))@include('chapter.partials.unread-indicator', ['notificationId' => $notificationTargets['task_notices'][$task->id], 'label' => 'Unread task update'])@endif
                 <div class="project-task-heading"><div><span class="project-task-kicker">{{ $task->milestone ?: 'Project task' }} · {{ $task->priority ?: 'Normal' }} priority</span><h3>{{ $task->title }}</h3>@if($task->description)<p>{{ \Illuminate\Support\Str::limit($task->description, 135) }}</p>@endif</div><span class="badge task-status task-status-{{ $taskTone }}">{{ $task->status }}</span></div>
                 <div class="project-task-highlights"><span><x-icon name="calendar" /> {{ $task->deadline?->format('M d, Y') ?? 'No deadline' }}@if($isOverdue)<strong class="danger-text"> · Overdue</strong>@endif</span><span><x-icon name="users" /> {{ $assignedNames ?: 'Unassigned' }}</span></div>
                 <p class="project-task-next"><strong>Next:</strong> {{ $task->nextStep($u) }}</p>
@@ -333,8 +336,13 @@
     <div class="panel-heading flush"><div><h2>Completion and liquidation</h2><p>Close the project with separate outcome and financial records tied to this project.</p></div></div>
     <div class="completion-workflow"><div><span>1</span><strong>Complete project tasks</strong><small>Finish assigned work and upload implementation evidence.</small></div><div><span>2</span><strong>Submit completion report</strong><small>Admin reviews results, beneficiaries, and project evidence.</small></div><div><span>3</span><strong>Submit liquidation</strong><small>Treasurer verifies posted expenses and receipts independently.</small></div></div>
     <div class="button-row no-print">
-        @if($manages || $project->canReport($u))
-            @if($project->canReport($u))<a class="btn primary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']) }}"><x-icon name="checklist" /> Project Completion Report</a><a class="btn secondary" href="{{ route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Liquidation']) }}"><x-icon name="receipt" /> Liquidation Report</a>@endif
+        @if($project->canReport($u))
+            @php
+                $latestCompletionReport = $project->reports->where('type', 'Completion')->sortByDesc('id')->first();
+                $latestLiquidationReport = $project->reports->where('type', 'Liquidation')->sortByDesc('id')->first();
+            @endphp
+            <a class="btn primary" href="{{ $latestCompletionReport ? route('records.show', ['reports', $latestCompletionReport->id]) : route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']) }}"><x-icon name="checklist" /> {{ $latestCompletionReport ? 'Open Completion Report' : 'Prepare Completion Report' }}</a>
+            <a class="btn secondary" href="{{ $latestLiquidationReport ? route('records.show', ['reports', $latestLiquidationReport->id]) : route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Liquidation']) }}"><x-icon name="receipt" /> {{ $latestLiquidationReport ? 'Open Liquidation Report' : 'Prepare Liquidation Report' }}</a>
         @endif
         @if($u->role === 'treasurer')<a class="btn secondary" href="{{ route('projects.liquidation', $project) }}"><x-icon name="wallet" /> Live ledger liquidation</a>@endif
     </div>

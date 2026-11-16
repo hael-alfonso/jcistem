@@ -94,6 +94,7 @@ Route::middleware(['auth', 'active', \App\Http\Middleware\TrackUserActivity::cla
     Route::get('/documents/{document}/original-preview', [ChapterController::class, 'originalDocumentPreview'])->name('documents.original-preview');
     Route::get('/documents/{document}/download', [ChapterController::class, 'download'])->name('documents.download');
     Route::get('/notifications', [ChapterController::class, 'notifications'])->name('notifications');
+    Route::get('/notifications/menu', [ChapterController::class, 'notificationMenu'])->name('notifications.menu');
     Route::post('/notifications/read', [ChapterController::class, 'readNotifications'])->name('notifications.read');
     Route::post('/notifications/{notification}/open', [ChapterController::class, 'openNotification'])->name('notifications.open');
     Route::delete('/notifications/{notification}', [ChapterController::class, 'deleteNotification'])->name('notifications.delete');

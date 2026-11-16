@@ -1031,6 +1031,19 @@ class ChapterController extends Controller
         return view('chapter.documents', compact('documents'));
     }
 
+    public function notificationMenu(Request $request)
+    {
+        $notifications = Notification::where('user_id', $request->user()->id)
+            ->orderByRaw('CASE WHEN requires_open = 1 AND read_at IS NULL THEN 0 ELSE 1 END')
+            ->orderByDesc('created_at')->orderByDesc('id')
+            ->simplePaginate(10, ['*'], 'menu_page');
+
+        return response()->json([
+            'html' => view('chapter.partials.notification-dropdown-items', compact('notifications'))->render(),
+            'next' => $notifications->nextPageUrl(),
+        ]);
+    }
+
     public function notifications(Request $request)
     {
         $filter = $request->query('filter');
@@ -1059,9 +1072,38 @@ class ChapterController extends Controller
         $before = $notification->toArray();
         if (!$notification->read_at) $notification->update(['read_at' => now()]);
         ChapterService::audit('notification_opened', $notification, $before);
-        return $notification->hasDestination()
-            ? redirect()->to($notification->url)
-            : redirect()->route('notifications');
+        if (! $notification->hasDestination()) return redirect()->route('notifications');
+
+        // One visit resolves every unread update for this exact record, not unrelated notices.
+        if ($key = \App\Support\NotificationIndicators::destinationKey($notification)) {
+            $relatedIds = Notification::where('user_id', $request->user()->id)->whereNull('read_at')
+                ->get(['id', 'title', 'body', 'url', 'read_at'])
+                ->filter(fn (Notification $item) => \App\Support\NotificationIndicators::destinationKey($item) === $key)
+                ->pluck('id');
+            if ($relatedIds->isNotEmpty()) {
+                Notification::where('user_id', $request->user()->id)->whereIn('id', $relatedIds)->update(['read_at' => now()]);
+                ChapterService::audit('notifications_same_record_read', $request->user(), [], $relatedIds->count().' related updates');
+            }
+        }
+
+        $url = $notification->url;
+        $path = parse_url($url, PHP_URL_PATH);
+        if (is_string($path) && preg_match('~^/(?:workspaces/[^/]+/)?dues$~', $path)
+            && ! parse_url($url, PHP_URL_FRAGMENT) && ! str_contains($url, 'due=')) {
+            // Older dues notices linked only to the list. Resolve their saved period or payment reference.
+            $period = preg_match('/\b\d{4}-(?:0[1-9]|1[0-2])\b/', $notification->title.' '.$notification->body, $match) ? $match[0] : null;
+            $due = $period ? MemberDue::where('member_id', $request->user()->id)->where('period', $period)->first() : null;
+            if (! $due && preg_match('/^(.+?) was /', (string) $notification->body, $reference)) {
+                $dueId = LedgerEntry::where('member_id', $request->user()->id)->where('reference', $reference[1])->value('member_due_id');
+                $due = $dueId ? MemberDue::where('member_id', $request->user()->id)->find($dueId) : null;
+            }
+            if ($due) $url = route('dues', ['due' => $due->id], false).'#due-'.$due->id;
+        }
+        $pointsToProjectOrDues = is_string($path) && (preg_match('~^/(?:workspaces/[^/]+/)?projects/\d+$~', $path)
+            || preg_match('~^/(?:workspaces/[^/]+/)?dues$~', $path)
+            || preg_match('~^/(?:workspaces/[^/]+/)?expense-claims$~', $path));
+
+        return redirect()->to($url)->with('notification_focus', (bool) $pointsToProjectOrDues);
     }
 
     public function deleteNotification(Request $request, Notification $notification)

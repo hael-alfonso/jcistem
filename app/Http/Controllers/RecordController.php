@@ -81,7 +81,9 @@ class RecordController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($kind === 'reports' && $request->filled('type'), fn ($q) => $q->where('type', $request->type))
             ->latest()->paginate(25)->withQueryString();
-        $projects = Project::where('chair_id', $request->user()->id)->whereIn('status', ['Plan Locked', 'Ongoing', 'Completion Review'])->orderBy('title')->get();
+        $projects = Project::where('chair_id', $request->user()->id)->whereIn('status', ['Plan Locked', 'Ongoing', 'Completion Review'])
+            ->when($kind === 'reports', fn ($query) => $query->with('reports'))
+            ->orderBy('title')->get();
         return view('chapter.records', compact('records', 'projects', 'kind'));
     }
 
@@ -93,6 +95,10 @@ class RecordController extends Controller
         if ($project) abort_unless($project->canManage($request->user()) || $project->canReport($request->user()), 403);
         else abort_unless($kind === 'reports' && Permissions::allows($request->user(), Permissions::FINANCE_MANAGE), 403);
         $reportType = $kind === 'reports' && $project ? ($request->query('type') ?: 'Completion') : null;
+        if ($reportType) {
+            $existingReport = $project->reports()->where('type', $reportType)->latest('id')->first();
+            if ($existingReport) return redirect()->route('records.show', ['kind' => 'reports', 'id' => $existingReport->id]);
+        }
         $record = new $class([
             'project_id' => $project?->id,
             'title' => $kind === 'letters' ? 'Project Proposal and Invitation for Partnership – '.$project->title : null,
@@ -155,10 +161,14 @@ class RecordController extends Controller
         $data = $request->validate($rules); unset($data['attachment']);
         $path = $request->hasFile('attachment') ? $request->file('attachment')->store('report-attachments', 'local') : null;
         try {
-            $record = DB::transaction(function () use ($record, $class, $project, $request, $data, $path) {
+            $record = DB::transaction(function () use ($record, $class, $project, $request, $data, $path, $kind) {
                 if ($project) {
                     $project = Project::lockForUpdate()->findOrFail($project->id);
                     abort_unless($project->canManage($request->user()) || $project->canReport($request->user()), 403);
+                    if (!$record && $kind === 'reports' && in_array($data['type'], ['Completion', 'Liquidation'], true)
+                        && $project->reports()->where('type', $data['type'])->exists()) {
+                        throw ValidationException::withMessages(['type' => 'This project already has a '.$data['type'].' Report. Open it to review or revise the existing record.']);
+                    }
                 }
                 if ($record) { $record = $class::lockForUpdate()->findOrFail($record->id); abort_unless($this->editable($record, $request), 403); }
                 $before = $record?->toArray() ?? [];
@@ -251,9 +261,12 @@ class RecordController extends Controller
                 }
                 $notificationTitle = $kind === 'letters'
                     ? 'JCI LOI for review'
-                    : ($record->type === 'Liquidation' ? 'Liquidation submitted: Treasurer review, Admin copy' : 'Report submitted for Admin review');
+                    : ($record->type === 'Liquidation' ? 'Liquidation submitted: Treasurer review, Admin copy'
+                        : ($record->type === 'Overall Financial' ? 'Financial report submitted: Admin copy' : 'Report submitted for Admin review'));
                 ChapterService::notify($recipients, $notificationTitle, $record->title, route('records.show', [$kind, $record->id], false), true);
             } elseif (in_array($action, ['return', 'approve'])) {
+                // Chapter-wide financial reports are submitted as an Admin copy, not a third approval lane.
+                abort_if($kind === 'reports' && $record->type === 'Overall Financial', 403);
                 $reviewRole = $kind === 'reports' && $record->type === 'Liquidation' ? 'treasurer' : 'admin';
                 abort_unless($request->user()->role === $reviewRole && in_array($record->status, ['For Review', 'Submitted']), 403);
                 abort_if($record->created_by === $request->user()->id || $record->project?->chair_id === $request->user()->id, 403, 'An independent authorized officer must review this submission.');
@@ -284,7 +297,8 @@ class RecordController extends Controller
                 $record->data = $body;
                 $record->status = 'Sent';
             } elseif ($action === 'revise') {
-                abort_unless($manager && in_array($record->status, ['Reviewed', 'Sent', 'Approved for Sending']), 403);
+                $financialCopyRevision = $kind === 'reports' && $record->type === 'Overall Financial' && $record->status === 'Submitted';
+                abort_unless($manager && (in_array($record->status, ['Reviewed', 'Sent', 'Approved for Sending']) || $financialCopyRevision), 403);
                 $versions = $record->versions ?? [];
                 $versions[] = ['version' => $record->version, 'saved_at' => now()->toIso8601String(), 'title' => $record->title, 'status' => $record->status, 'data' => $record->data];
                 $record->versions = $versions; $record->version++; $record->status = 'Draft';

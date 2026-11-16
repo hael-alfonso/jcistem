@@ -16,12 +16,13 @@ class ExpenseClaimController extends Controller
         // Treasurers review the chapter queue by default, while `mine=1`
         // opens the same personal claims view available to every user.
         $treasurer = $request->user()->role === 'treasurer' && ! $request->boolean('mine');
-        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])], 'project' => 'nullable|integer|exists:projects,id', 'q' => 'nullable|string|max:200', 'state' => 'nullable|in:Pending,Posted,Returned,Rejected,Void', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : ''), 'mine' => 'nullable|boolean']);
+        $request->validate(['status' => ['nullable', Rule::in(['pending', 'all'])], 'project' => 'nullable|integer|exists:projects,id', 'claim' => 'nullable|integer|min:1', 'q' => 'nullable|string|max:200', 'state' => 'nullable|in:Pending,Posted,Returned,Rejected,Void', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : ''), 'mine' => 'nullable|boolean']);
         $filter = $request->query('status', $treasurer ? 'pending' : 'all');
         $selectedProject = $request->filled('project') ? Project::withTrashed()->findOrFail($request->integer('project')) : null;
         if ($selectedProject) abort_unless($treasurer || ChapterService::canView($selectedProject, $request->user()), 403);
         $claims = ExpenseClaim::with(['project', 'submitter', 'reviewer', 'ledgerEntry'])
             ->when(!$treasurer, fn ($query) => $query->where('submitted_by', $request->user()->id))
+            ->when($request->filled('claim'), fn ($query) => $query->whereKey($request->integer('claim')))
             ->when($selectedProject, fn ($query) => $query->where('project_id', $selectedProject->id))
             ->when($filter === 'pending', fn ($query) => $query->where('status', 'Pending'))
             ->when($filter === 'all' && $request->filled('state'), fn ($query) => $query->where('status', $request->query('state')))
@@ -68,7 +69,7 @@ class ExpenseClaimController extends Controller
                 $project->touch();
                 ChapterService::audit('expense_claim_submitted', $claim);
                 ChapterService::notify(User::where('status', 'active')->where('role', 'treasurer')->where('id', '!=', $request->user()->id)->pluck('id')->all(),
-                    'Expense claim needs review', $project->title.' · PHP '.number_format((float) $claim->amount, 2), route('expense-claims.index', [], false), true);
+                    'Expense claim needs review', $project->title.' · PHP '.number_format((float) $claim->amount, 2), route('expense-claims.index', ['status' => 'all', 'claim' => $claim->id], false).'#claim-'.$claim->id, true);
             });
         } catch (\Throwable $error) {
             Storage::disk('local')->delete($path);
@@ -118,7 +119,7 @@ class ExpenseClaimController extends Controller
                 ChapterService::notify(User::where('status', 'active')->where('role', 'treasurer')
                     ->where('id', '!=', $request->user()->id)->pluck('id')->all(),
                     'Expense claim resubmitted', $project->title.' · PHP '.number_format((float) $claim->amount, 2),
-                    route('expense-claims.index', [], false), true);
+                    route('expense-claims.index', ['status' => 'all', 'claim' => $claim->id], false).'#claim-'.$claim->id, true);
             });
         } catch (\Throwable $error) {
             if ($path) Storage::disk('local')->delete($path);

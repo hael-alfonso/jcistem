@@ -2,6 +2,19 @@
 .sidebar-mobile-header { flex: 0 0 auto; min-width: 0; }
 .sidebar-mobile-close { display: none; }
 
+.app-sidebar .nav-menu-dot {
+  display: block;
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: #d84658;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .82);
+}
+.app-sidebar .nav-section > summary > .nav-menu-dot { margin-left: 3px; }
+body.workspace-theme-dark .app-sidebar .nav-menu-dot { box-shadow: 0 0 0 2px #222a31; }
+
 body.workspace-theme-teal .app-sidebar .brand-name,
 body.workspace-theme-navy .app-sidebar .brand-name { color: #f4fbfc; }
 body.workspace-theme-teal .app-sidebar .brand-name small,

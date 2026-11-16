@@ -24,6 +24,17 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
+# Keep public, versioned PMS assets in the browser cache on Apache installs
+# where mod_expires is disabled. Private pages and downloads are not cached.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=86400, must-revalidate"
+    </FilesMatch>
+    <FilesMatch "\.(png|jpe?g|webp|svg|ico|woff2?)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>
+
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/css "access plus 7 days"

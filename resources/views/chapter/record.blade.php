@@ -5,14 +5,15 @@
     $uploadedProjectReport = $kind === 'reports' && in_array($record->type, ['Completion', 'Liquidation'], true) && ($record->data['submission_method'] ?? 'digital') === 'upload';
     $reviewRole = $kind === 'reports' && $record->type === 'Liquidation' ? 'treasurer' : 'admin';
     $closedProject = in_array($record->project?->status, ['Archived', 'Completed', 'Cancelled'], true);
-    $canReview = !$record->project?->trashed() && !$closedProject && auth()->user()->role === $reviewRole
+    $canReview = !($kind === 'reports' && $record->type === 'Overall Financial')
+        && !$record->project?->trashed() && !$closedProject && auth()->user()->role === $reviewRole
         && auth()->id() !== $record->created_by && auth()->id() !== $record->project?->chair_id
         && in_array($record->status, ['Submitted', 'For Review'], true);
 @endphp
 <div class="page-heading no-print"><div><a class="back-link" href="{{ route('records',$kind) }}"><x-icon name="arrowLeft" /> {{ $kind==='letters'?'External LOIs':'Project Reports' }}</a><div class="eyebrow">{{ $kind === 'letters' ? 'EXTERNAL PARTNERSHIP LOI' : $record->type }} · VERSION {{ $record->version }}</div><h1>{{ $record->title }}</h1><p>Prepared by {{ $record->author?->name }} · {{ $record->updated_at->format('M d, Y H:i') }}</p></div><x-status-badge :status="$record->status" class="large" /></div>
 <div class="button-row no-print">@if($kind !== 'letters' || in_array($record->status, ['Approved for Sending', 'Sent', 'Archived']))<button class="btn secondary" type="button" data-print><x-icon name="print" /> {{ $kind === 'letters' ? 'Print approved LOI' : 'Print / save PDF' }}</button>@endif
 @if($kind === 'letters' && $record->partner)<a class="btn secondary" href="{{ route('partners.show', $record->partner) }}">Partner record</a>@endif
-@if($editable)<a class="btn secondary" href="{{ route('records.edit',[$kind,$record->id]) }}"><x-icon name="edit" /> Edit draft</a><form method="POST" action="{{ route('records.transition',[$kind,$record->id]) }}">@csrf<input type="hidden" name="action" value="submit"><button class="btn primary" data-confirm="Submit this record for review? Reviewers will see the current version."><x-icon name="arrow" /> Submit for Review</button></form>@endif
+@if($editable)<a class="btn secondary" href="{{ route('records.edit',[$kind,$record->id]) }}"><x-icon name="edit" /> Edit draft</a><form method="POST" action="{{ route('records.transition',[$kind,$record->id]) }}">@csrf<input type="hidden" name="action" value="submit"><button class="btn primary" data-confirm="{{ $kind === 'reports' && $record->type === 'Overall Financial' ? 'Send this financial report to Admin as a retained copy?' : 'Submit this record for review? Reviewers will see the current version.' }}"><x-icon name="arrow" /> {{ $kind === 'reports' && $record->type === 'Overall Financial' ? 'Send Admin Copy' : 'Submit for Review' }}</button></form>@endif
 @if(isset($record->data['attachment_path']))@if(in_array(strtolower(pathinfo($record->data['attachment_name'] ?? '', PATHINFO_EXTENSION)), ['pdf', 'jpg', 'jpeg', 'png', 'docx']))<a class="btn secondary" href="{{ route('records.attachment',[$kind,$record->id,'preview'=>1]) }}" target="_blank" rel="noopener"><x-icon name="eye" /> View attachment</a>@endif<a class="btn secondary" href="{{ route('records.attachment',[$kind,$record->id]) }}"><x-icon name="download" /> Download original</a>@endif
 @if($canReview)
     <section class="record-review-panel no-print">
@@ -31,7 +32,7 @@
 @endif
 @php $manager=$record->project_id?($record->project->canManage(auth()->user()) || $record->project->canReport(auth()->user())):auth()->user()->role==='treasurer'; @endphp
 @if($manager && $kind==='letters'&&$record->status==='Approved for Sending')<form method="POST" action="{{ route('records.transition',[$kind,$record->id]) }}">@csrf<input type="hidden" name="action" value="sent"><x-field name="delivered_on" label="Hard-copy delivery date" type="date" required/><x-field name="delivery_notes" label="Received by / delivery note"/><button class="btn primary" data-confirm="Confirm the approved hard copy was delivered to the partner?"><x-icon name="check" /> Record hard-copy delivery</button></form>@endif
-@if($manager&&in_array($record->status,['Reviewed','Sent','Approved for Sending']))<form method="POST" action="{{ route('records.transition',[$kind,$record->id]) }}">@csrf<input type="hidden" name="action" value="revise"><button class="btn secondary"><x-icon name="filePlus" /> Create a revision</button></form>@endif
+@if($manager&&(in_array($record->status,['Reviewed','Sent','Approved for Sending']) || ($kind === 'reports' && $record->type === 'Overall Financial' && $record->status === 'Submitted')))<form method="POST" action="{{ route('records.transition',[$kind,$record->id]) }}">@csrf<input type="hidden" name="action" value="revise"><button class="btn secondary" data-confirm="Create a new draft version? The submitted report copy remains in version history."><x-icon name="filePlus" /> Create a revision</button></form>@endif
 @if(!$record->project?->trashed() && !in_array($record->project?->status, ['Archived', 'Completed', 'Cancelled'], true) && $kind==='letters'&&$record->status==='Sent'&&($manager||auth()->user()->role==='admin'))<form method="POST" action="{{ route('records.transition',[$kind,$record->id]) }}">@csrf<input type="hidden" name="action" value="archive"><button class="btn secondary" data-confirm="Archive this letter? It will remain in the document history."><x-icon name="archive" /> Archive letter</button></form>@endif</div>
 @if($kind === 'reports' && $record->project_id)
     <section class="record-review-route no-print" aria-label="Report approval route">
@@ -41,8 +42,8 @@
     </section>
 @elseif($kind === 'reports' && $record->type === 'Overall Financial')
     <section class="record-review-route no-print" aria-label="Report approval route">
-        <span class="eyebrow">APPROVAL ROUTE</span><strong>Admin review and approval</strong>
-        <p>The Treasurer prepares the chapter financial report; Admin receives the submitted copy and records the independent review.</p>
+        <span class="eyebrow">REPORT COPY</span><strong>Admin oversight copy</strong>
+        <p>The Treasurer prepares and submits this chapter financial record. Admin can read and retain the copy; only project Completion and Liquidation Reports have approval decisions.</p>
     </section>
 @endif
 @if($record->review_comments)<div class="notice no-print"><strong>Review comments:</strong> {{ $record->review_comments }}</div>@endif

@@ -68,10 +68,7 @@ final class ProjectFlow
                 'title' => 'Deliver work and record spending', 'actor' => 'Chair, assignees, and Treasurer',
                 'detail' => 'Finish tasks, confirm fund handovers, and keep receipts and project evidence together.', 'anchor' => 'delivery',
             ],
-            'Completion Review' => [
-                'title' => 'Submit and review final reports', 'actor' => 'Chair, Admin, and Treasurer',
-                'detail' => 'Submit the completion report and liquidation for separate reviews.', 'anchor' => 'completion',
-            ],
+            'Completion Review' => self::finalReportNext($project),
             'Completed' => [
                 'title' => 'Keep the finished record', 'actor' => 'Chapter',
                 'detail' => 'The project is complete. Members can use it as a reference or start a new cycle.', 'anchor' => 'overview',
@@ -85,6 +82,36 @@ final class ProjectFlow
                 'detail' => 'Earlier decisions and posted finance records remain in the project history.', 'anchor' => 'overview',
             ],
         };
+    }
+
+    /** @return array{title: string, actor: string, detail: string, anchor: string} */
+    private static function finalReportNext(Project $project): array
+    {
+        $reports = ($project->relationLoaded('reports')
+            ? $project->reports->whereIn('type', ['Completion', 'Liquidation'])->sortByDesc('id')
+            : $project->reports()->whereIn('type', ['Completion', 'Liquidation'])->latest('id')->get())
+            ->unique('type')->keyBy('type');
+        $completion = $reports->get('Completion');
+        $liquidation = $reports->get('Liquidation');
+
+        if (! $completion || in_array($completion->status, ['Draft', 'Returned'], true)) {
+            return ['title' => 'Submit the Completion Report', 'actor' => 'Project Chair',
+                'detail' => 'Document results and evidence, then send the report to Admin for approval.', 'anchor' => 'completion'];
+        }
+        if ($completion->status === 'Submitted') {
+            return ['title' => 'Review the Completion Report', 'actor' => 'Admin',
+                'detail' => 'Check the submitted outcomes and evidence; approve or return with comments.', 'anchor' => 'completion'];
+        }
+        if (! $liquidation || in_array($liquidation->status, ['Draft', 'Returned'], true)) {
+            return ['title' => 'Submit the Liquidation Report', 'actor' => 'Project Chair',
+                'detail' => 'Reconcile posted expenses and receipts, then send the report to the Treasurer.', 'anchor' => 'completion'];
+        }
+        if ($liquidation->status === 'Submitted') {
+            return ['title' => 'Review the Liquidation Report', 'actor' => 'Treasurer',
+                'detail' => 'Verify the submitted reconciliation and receipts; approve or return with comments.', 'anchor' => 'completion'];
+        }
+        return ['title' => 'Check the final approval records', 'actor' => 'Admin and Treasurer',
+            'detail' => 'Both reports show as reviewed, but the project has not closed. Verify the recorded independent approvals.', 'anchor' => 'completion'];
     }
 
     /**

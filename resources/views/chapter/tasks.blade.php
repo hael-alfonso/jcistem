@@ -1,6 +1,7 @@
 @extends('layouts.chapter')
 @section('title', 'Tasks')
 @section('content')
+@php $notificationTargets = \App\Support\NotificationIndicators::for(auth()->user()); @endphp
 @php
     $mine = request()->boolean('mine');
     $statusOptions = ['' => 'All', 'To Do' => 'To do', 'In Progress' => 'In progress', 'Blocked' => 'Blocked', 'Completed' => 'Completed'];
@@ -86,7 +87,7 @@
                             && !$task->project->tasks->contains(fn ($other) => $other->id !== $task->id && in_array($task->id, array_map('intval', $other->dependencies ?? []), true));
                     @endphp
                     <tr id="task-{{ $task->id }}">
-                        <td data-label="Task"><div class="task-row-main"><a class="task-row-title" href="{{ route('projects.show', $task->project_id) }}#task-{{ $task->id }}">{{ $task->title }}</a><a class="task-row-project" href="{{ route('projects.show', $task->project_id) }}"><x-icon name="briefcase" />{{ $task->project?->title ?? 'Project details' }}</a><span class="task-row-next">{{ $task->nextStep(auth()->user()) }}</span></div></td>
+                        <td data-label="Task"><div class="task-row-main"><a class="task-row-title" href="{{ route('projects.show', $task->project_id) }}#task-{{ $task->id }}">{{ $task->title }}</a>@if(isset($notificationTargets['task_notices'][$task->id]))@include('chapter.partials.unread-indicator', ['notificationId' => $notificationTargets['task_notices'][$task->id], 'label' => 'Unread task update'])@endif<a class="task-row-project" href="{{ route('projects.show', $task->project_id) }}"><x-icon name="briefcase" />{{ $task->project?->title ?? 'Project details' }}</a><span class="task-row-next">{{ $task->nextStep(auth()->user()) }}</span></div></td>
                         <td data-label="Assigned to"><div class="task-assignee-identity"><div class="task-assignee-avatars" role="img" aria-label="Assigned members: {{ $assigneeNames ?: 'Unassigned' }}">
                             @forelse(array_slice($task->assignees ?? [], 0, 3) as $assigneeId)
                                 @php $person = $assignedMembers[$assigneeId] ?? null; @endphp

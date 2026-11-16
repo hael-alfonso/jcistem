@@ -173,7 +173,7 @@ class FinanceController extends Controller
                     }
                 }
                 ChapterService::audit('transaction_'.$data['action'], $entry, $before, $data['remarks']);
-                if ($entry->member_due_id) ChapterService::notify([$entry->member_id], 'Dues payment updated', $entry->reference.' was '.$entry->status, route('dues', [], false));
+                if ($entry->member_due_id) ChapterService::notify([$entry->member_id], 'Dues payment updated', $entry->reference.' was '.$entry->status, route('dues', ['due' => $entry->member_due_id], false).'#due-'.$entry->member_due_id);
             });
         } catch (\Throwable $e) { if ($path) Storage::disk('local')->delete($path); throw $e; }
         return back()->with('success', 'Transaction updated with audit history preserved.');
@@ -191,9 +191,10 @@ class FinanceController extends Controller
         $all = $request->routeIs('dues.manage', 'dues.assessments');
         $assessmentPage = $request->routeIs('dues.assessments');
         if ($all) $this->treasurer($request);
-        $request->validate(['q' => 'nullable|string|max:200', 'member' => 'nullable|integer|exists:users,id', 'status' => 'nullable|in:all,paid,unpaid,waived', 'period' => 'nullable|date_format:Y-m', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : '')]);
+        $request->validate(['q' => 'nullable|string|max:200', 'member' => 'nullable|integer|exists:users,id', 'due' => 'nullable|integer|min:1', 'status' => 'nullable|in:all,paid,unpaid,waived', 'period' => 'nullable|date_format:Y-m', 'from' => 'nullable|date_format:Y-m', 'to' => 'nullable|date_format:Y-m'.($request->filled('from') ? '|after_or_equal:from' : '')]);
         $postedPaymentsSql = "(SELECT COALESCE(SUM(ledger_entries.amount), 0) FROM ledger_entries WHERE ledger_entries.member_due_id = member_dues.id AND ledger_entries.status = ?)";
         $duesQuery = $all && !$assessmentPage ? null : MemberDue::with(['member', 'payments'])->when(!$all, fn ($q) => $q->where('member_id', $request->user()->id))
+            ->when(!$all && $request->filled('due'), fn ($q) => $q->whereKey($request->integer('due')))
             ->when($assessmentPage && $request->query('status') === 'paid', fn ($q) => $q->where('member_dues.amount', '>', 0)->whereRaw('member_dues.amount <= '.$postedPaymentsSql, ['Posted']))
             ->when($assessmentPage && $request->query('status') === 'unpaid', fn ($q) => $q->where('member_dues.amount', '>', 0)->whereRaw('member_dues.amount > '.$postedPaymentsSql, ['Posted']))
             ->when($assessmentPage && $request->query('status') === 'waived', fn ($q) => $q->where('member_dues.amount', 0))
@@ -236,7 +237,7 @@ class FinanceController extends Controller
                 if ($due->exists && \App\Support\Money::cents($data['amount']) < \App\Support\Money::cents($due->payments()->where('status', 'Posted')->sum('amount'))) throw ValidationException::withMessages(['amount' => 'The dues amount cannot be lower than payments already posted.']);
                 $due->fill(['due_date' => $data['due_date'], 'amount' => $data['amount'], 'remarks' => $data['remarks'], 'recorded_by' => $request->user()->id])->save();
                 ChapterService::audit('dues_assessed_or_adjusted', $due, $before, $data['remarks']);
-                ChapterService::notify([$member->id], 'Member dues: '.$due->period, 'Amount due: PHP '.number_format($due->balance, 2).'. Due '.$due->due_date->format('M d, Y').'.', route('dues', [], false));
+                ChapterService::notify([$member->id], 'Member dues: '.$due->period, 'Amount due: PHP '.number_format($due->balance, 2).'. Due '.$due->due_date->format('M d, Y').'.', route('dues', ['due' => $due->id], false).'#due-'.$due->id);
             }
         });
         return redirect()->route('dues.assessments', !empty($data['member_id']) ? ['member' => $data['member_id']] : [])
@@ -256,7 +257,7 @@ class FinanceController extends Controller
                 if (\App\Support\Money::cents($data['amount']) > \App\Support\Money::cents($due->amount) - \App\Support\Money::cents($due->payments()->where('status', 'Posted')->sum('amount'))) throw ValidationException::withMessages(['amount' => 'Payment exceeds the outstanding dues balance.']);
                 $entry = LedgerEntry::create($data + ['member_id' => $due->member_id, 'member_due_id' => $due->id, 'recorded_by' => $request->user()->id, 'type' => 'Dues Collection', 'direction' => 'credit', 'category' => 'Member dues', 'account' => 'Chapter fund', 'counterparty' => $due->member->name, 'description' => 'Member dues for '.$due->period, 'status' => 'Posted']);
                 ChapterService::audit('dues_payment_posted', $entry);
-                ChapterService::notify([$due->member_id], 'Dues payment received', 'PHP '.number_format($entry->amount, 2).' recorded for '.$due->period.'. Reference '.$entry->reference.'.', route('dues', [], false));
+                ChapterService::notify([$due->member_id], 'Dues payment received', 'PHP '.number_format($entry->amount, 2).' recorded for '.$due->period.'. Reference '.$entry->reference.'.', route('dues', ['due' => $due->id], false).'#due-'.$due->id);
             });
         } catch (\Throwable $e) { if ($path) Storage::disk('local')->delete($path); throw $e; }
         return back()->with('success', 'Payment recorded in dues and the Treasurer ledger.');

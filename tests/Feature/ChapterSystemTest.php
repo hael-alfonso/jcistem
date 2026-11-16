@@ -172,10 +172,10 @@ class ChapterSystemTest extends TestCase
         $this->get(route('dues.manage'))->assertOk()
             ->assertSee('id="dues-assessment-dialog"', false)
             ->assertSee('href="'.route('dues.assessments').'"', false)
-            ->assertDontSee('<article class="due-card">', false);
+            ->assertDontSee('<article class="due-card"', false);
         $this->get(route('dues.assessments'))->assertOk()
             ->assertSee('id="due-payment-dialog-'.$due->id.'"', false)
-            ->assertSee('<article class="due-card">', false)
+            ->assertSee('<article class="due-card"', false)
             ->assertSee('type="radio" name="payment_method"', false)
             ->assertSee('Unpaid')
             ->assertSee('Paid')
@@ -217,7 +217,7 @@ class ChapterSystemTest extends TestCase
             ->assertSee('All active members')
             ->assertSee('Member Dues')
             ->assertSee('My Member Dues')
-            ->assertDontSee('<article class="due-card">', false);
+            ->assertDontSee('<article class="due-card"', false);
         $this->get(route('dues.assessments'))->assertOk()->assertSee('No dues assessments yet');
 
         $this->withCookie(config('session.cookie'), session()->getId())->followingRedirects()->from(route('dues.manage'))->post(route('dues.store'), [
@@ -448,9 +448,74 @@ class ChapterSystemTest extends TestCase
         $this->get('/records/reports/'.$report->id)->assertOk()->assertSee('Print / save PDF');
         LedgerEntry::create(['reference' => 'INC-002', 'direction' => 'credit', 'status' => 'Posted', 'amount' => 5000, 'transaction_date' => '2026-10-10']);
         $this->assertEquals(2000, $report->fresh()->data['financial_snapshot']['income']);
-        $this->actingAs($admin)->get('/records/reports/'.$report->id)->assertOk()->assertSee('Admin review and approval');
-        $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'approve', 'comments' => 'Financial report reviewed.'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->get('/records/reports/'.$report->id)->assertOk()->assertSee('Admin oversight copy')->assertDontSee('Approve Financial Report');
+        $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'approve', 'comments' => 'Financial report reviewed.'])->assertForbidden();
+        $this->assertSame('Submitted', $report->fresh()->status);
         $this->actingAs($member)->get('/records/reports/'.$report->id)->assertForbidden();
+
+        $this->actingAs($treasurer)->get('/records/reports/'.$report->id)->assertOk()->assertSee('Create a revision');
+        $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'revise'])->assertSessionHasNoErrors();
+        $this->assertSame('Draft', $report->fresh()->status);
+        $this->assertEquals(2000, $report->fresh()->versions[0]['data']['financial_snapshot']['income']);
+        $this->post('/records/reports/'.$report->id.'/transition', ['action' => 'submit'])->assertSessionHasNoErrors();
+        $this->assertEquals(7000, $report->fresh()->data['financial_snapshot']['income']);
+    }
+
+    public function test_report_review_queues_do_not_offer_report_creation(): void
+    {
+        $admin = $this->user('admin');
+        Project::create(['created_by' => $admin->id, 'chair_id' => $admin->id, 'title' => 'Admin chaired project', 'status' => 'Ongoing']);
+
+        $this->actingAs($admin)->get(route('records', ['kind' => 'reports', 'type' => 'Completion', 'status' => 'Submitted']))
+            ->assertOk()->assertSee('Completion Report Review')->assertDontSee('Prepare Report');
+        $this->get(route('records', ['kind' => 'reports']))->assertOk()->assertSee('Prepare Report');
+
+        $treasurer = $this->user('treasurer');
+        $this->actingAs($treasurer)->get(route('records', ['kind' => 'reports', 'type' => 'Liquidation', 'status' => 'Submitted']))
+            ->assertOk()->assertSee('Liquidation Report Review')->assertDontSee('Prepare Report');
+    }
+
+    public function test_project_next_step_names_the_report_and_responsible_reviewer(): void
+    {
+        $chair = $this->user();
+        $project = Project::create(['created_by' => $chair->id, 'chair_id' => $chair->id,
+            'title' => 'Final reporting project', 'status' => 'Completion Review']);
+
+        $this->assertSame('Submit the Completion Report', \App\Support\ProjectFlow::next($project)['title']);
+        $completion = ProjectReport::create(['project_id' => $project->id, 'created_by' => $chair->id,
+            'type' => 'Completion', 'title' => 'Completion', 'status' => 'Submitted']);
+        $this->assertSame('Admin', \App\Support\ProjectFlow::next($project)['actor']);
+        $completion->update(['status' => 'Reviewed']);
+        $this->assertSame('Submit the Liquidation Report', \App\Support\ProjectFlow::next($project)['title']);
+        ProjectReport::create(['project_id' => $project->id, 'created_by' => $chair->id,
+            'type' => 'Liquidation', 'title' => 'Liquidation', 'status' => 'Submitted']);
+        $this->assertSame('Treasurer', \App\Support\ProjectFlow::next($project)['actor']);
+    }
+
+    public function test_existing_project_report_is_opened_instead_of_created_again(): void
+    {
+        $chair = $this->user();
+        $project = Project::create(['created_by' => $chair->id, 'chair_id' => $chair->id,
+            'title' => 'Single closeout record', 'status' => 'Completion Review']);
+        \App\Models\BodDecision::create(['project_id' => $project->id, 'recorded_by' => $chair->id,
+            'stage' => 'proposal', 'meeting_date' => '2026-10-01', 'decision' => 'approved',
+            'resolution_number' => 'TEST-'.$project->id, 'evidence_path' => 'resolution.pdf',
+            'comments' => 'Approved for closeout testing']);
+        $report = ProjectReport::create(['project_id' => $project->id, 'created_by' => $chair->id,
+            'type' => 'Completion', 'title' => 'Completion evidence', 'status' => 'Draft']);
+        $showUrl = route('records.show', ['kind' => 'reports', 'id' => $report->id]);
+        $createUrl = route('records.create', ['kind' => 'reports', 'project_id' => $project->id, 'type' => 'Completion']);
+
+        $this->actingAs($chair)->get($createUrl)->assertRedirect($showUrl);
+        $this->get(route('records', ['kind' => 'reports']))->assertOk()
+            ->assertSee('href="'.$showUrl.'"', false)->assertDontSee('href="'.$createUrl.'"', false);
+        $this->get(route('projects.show', $project))->assertOk()
+            ->assertSee('Open Completion Report')->assertSee('href="'.$showUrl.'"', false);
+        $this->post(route('records.store', ['kind' => 'reports']), [
+            'project_id' => $project->id, 'title' => 'Duplicate completion', 'type' => 'Completion',
+            'data' => ['submission_method' => 'digital'],
+        ])->assertSessionHasErrors('type');
+        $this->assertSame(1, $project->reports()->where('type', 'Completion')->count());
     }
 
     public function test_all_roles_can_monitor_posted_chapter_funds_without_ledger_access(): void
