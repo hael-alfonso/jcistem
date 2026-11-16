@@ -64,6 +64,9 @@
         </div>
         <div class="form-grid project-entry-details">
             <div class="full"><x-field name="title" label="Project title" :value="$project->title" required maxlength="200" placeholder="Enter a clear, specific project name"/></div>
+            @unless($proposal)
+                <div class="full"><x-field name="proposed_chair_id" label="Proposed project chair" type="select" :options="$chairOptions" :value="data_get($project->concept, 'proposed_chair_id', auth()->id())" required/><small class="hint">Choose who will lead the full proposal and delivery. Chair authority begins only after concept endorsement; budget review must be done by someone else.</small></div>
+            @endunless
             <x-field name="area" label="JCI area of opportunity" type="select" :options="array_combine(\App\Support\ChapterForms::AREAS, \App\Support\ChapterForms::AREAS)" :value="$project->area" required/>
             <x-field name="starts_on" label="Proposed start date" type="date" :value="$project->starts_on?->format('Y-m-d')"/>
             <x-field name="ends_on" label="Proposed end date" type="date" :value="$project->ends_on?->format('Y-m-d')"/>

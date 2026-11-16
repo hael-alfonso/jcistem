@@ -183,11 +183,13 @@ class ProjectTaskWorkflowTest extends TestCase
             'action' => 'cancel', 'comments' => 'Partner withdrew after closeout.',
         ])->assertSessionHasNoErrors();
         $this->assertSame('Cancelled', $project->fresh()->status);
-        $this->assertNotNull($project->fresh()->archived_at);
+        $this->assertNull($project->fresh()->archived_at);
         $this->actingAs($member)->delete('/projects/'.$project->id, ['reason' => 'No access'])->assertForbidden();
 
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $report = \App\Models\ProjectReport::create(['project_id' => $project->id, 'created_by' => $chair->id, 'title' => 'Retained completion report', 'type' => 'Completion', 'status' => 'Reviewed', 'version' => 1, 'data' => []]);
+        $this->actingAs($admin)->post(route('projects.archive', $project))->assertSessionHasNoErrors();
+        $this->assertNotNull($project->fresh()->archived_at);
         $this->actingAs($admin)->delete('/projects/'.$project->id, ['reason' => 'Duplicate closed record'])->assertSessionHasNoErrors();
         $this->assertNull(Project::find($project->id));
         $this->assertNotNull(Project::withTrashed()->findOrFail($project->id)->deleted_at);

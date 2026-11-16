@@ -62,6 +62,9 @@
     <div class="project-cancellation-card-actions no-print">
         @if($canSeeAppeal && $appeal && !$appealDecision)<span class="badge status-review">Appeal awaiting Admin review</span>@elseif($canSeeAppeal && $appealDecision?->action === 'appeal_declined')<span class="badge status-declined">Appeal declined</span>@endif
         <button class="btn secondary" type="button" data-project-dialog-open="project-cancellation-dialog" aria-haspopup="dialog" aria-controls="project-cancellation-dialog">View reason{{ $cancellation && $canSeeAppeal && $u->role !== 'admin' && !$appeal ? ' & appeal' : '' }}</button>
+        @if($u->role === 'admin' && !$project->archived_at && !($appeal && !$appealDecision))
+            <form method="POST" action="{{ route('projects.archive', $project) }}">@csrf<button class="btn secondary" type="submit" data-confirm="Archive this cancelled project now? Its cancellation reason and appeal history will remain available."><x-icon name="archive" /> Archive now</button></form>
+        @endif
     </div>
 </section>
 <dialog class="task-modal project-decision-dialog no-print" id="project-cancellation-dialog" aria-labelledby="project-cancellation-dialog-title">
@@ -117,6 +120,7 @@
 </section>
 <div class="project-snapshot-grid is-compact" aria-label="Project at a glance"><div id="chair"><span>Project Chair</span>@include('chapter.partials.person-chip', ['person' => $project->chair, 'project' => $project])@if(!$project->chair)<small>Assigned after concept approval</small>@endif</div><div><span>Available project funds</span><strong>PHP {{ number_format($project->remaining,2) }}</strong><small>PHP {{ number_format($project->spent,2) }} posted from PHP {{ number_format($project->allocated,2) }} allocated</small></div></div>
 @if($project->status !== 'Cancelled')
+@php $boardMeeting = $project->events->firstWhere('purpose', 'proposal_board'); @endphp
 <section class="panel form-panel project-next-actions no-print" id="project-actions"><div class="panel-heading flush"><div><span class="eyebrow">YOUR ACTIONS</span><h2>Available actions</h2><p>Only actions allowed for your role and this project stage appear here.</p></div></div><div class="action-grid">
 @if(($u->role === 'admin' || $project->created_by === $u->id) && !$project->decisions()->exists() && in_array($project->status,['Endorsed for Development','Full Proposal Draft','Returned for Revision','Submitted for Formal Approval','Approved'], true) && !$project->plan_locked_at && !$project->tasks->count() && !$project->allocations->count() && !$project->transactions->count() && !$project->expenseClaims->count() && !$project->fundReleases->count())
 <p class="hint">This earlier project has no recorded BOD decision. Its saved records remain available. Submit it through the current review process before continuing project work.</p>
@@ -149,7 +153,7 @@
 <button class="btn primary" name="action" value="advance_concept">Continue to Full Proposal Preparation</button>
 </form>
 @endif
-@if($project->isChair($u) && in_array($project->status, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true) && !$project->proposal_reviewed_at)
+@if(($project->isChair($u) || $project->created_by === $u->id) && in_array($project->status, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true) && !$project->proposal_reviewed_at)
 <p class="hint">The concept passed Admin and Treasurer review. Complete the full PPF, then submit it for independent budget verification and the final BOD verdict.</p>
 @php $proposalIssues = \App\Support\ProjectSubmission::issues($project, 'proposal'); @endphp
 @if($proposalIssues)<div class="project-submit-readiness"><strong>Finish the full proposal before submitting</strong><ul>@foreach(array_slice(array_values($proposalIssues), 0, 3) as $issue)<li>{{ $issue }}</li>@endforeach</ul>@if(count($proposalIssues) > 3)<small>And {{ count($proposalIssues) - 3 }} more required {{ \Illuminate\Support\Str::plural('detail', count($proposalIssues) - 3) }}.</small>@endif</div>
@@ -163,16 +167,28 @@
 </form>
 @endif
 @if($project->status === 'Submitted for Formal Approval' && $u->role === 'bod')
-<p class="project-board-readonly-note"><strong>Board review copy.</strong> Read the submitted full proposal and budget before the in-person meeting. The Treasurer verifies the budget; after the meeting, Admin records the signed Board decision. There is no online BOD approval button.</p>
+<p class="project-board-readonly-note"><strong>Board review copy.</strong> Read the submitted full proposal and budget before the in-person meeting. {{ $boardMeeting ? 'Meeting: '.$boardMeeting->starts_on->format('d M Y').($boardMeeting->venue ? ' at '.$boardMeeting->venue : '').'.' : 'The meeting date is not yet scheduled.' }} After the meeting, Admin records the signed Board decision. There is no online BOD approval button.</p>
 @endif
 @if($project->status === 'Submitted for Formal Approval' && $u->role === 'admin')
 @if($project->proposal_budget_reviewed_at)
-<p class="hint">Record the final Board decision only after the Treasurer verifies this exact proposal version.</p>
-<form method="POST" action="{{ route('projects.transition',$project) }}" enctype="multipart/form-data" class="project-review-actions-form project-board-decision-form">@csrf
-<div class="form-grid"><x-field name="meeting_date" label="Final Board meeting date" type="date" required/><x-field name="evidence" label="Signed Board decision evidence (PDF/JPG/PNG, max 10 MB)" type="file" required/></div>
-<x-field name="comments" label="Official decision and conditions" type="textarea" required/>
-<div class="button-row"><button class="btn primary" name="action" value="approve_full_proposal" data-confirm="Record the signed final Board approval for this full proposal?">Record Approval</button><button class="btn caution" name="action" value="defer_full_proposal" data-confirm="Record the signed Board deferral for this full proposal?">Record Deferral</button><button class="btn danger" name="action" value="reject_full_proposal" data-confirm="Record the signed Board rejection for this full proposal?">Record Rejection</button><button class="btn secondary" name="action" value="return_full_proposal" formnovalidate data-confirm="Return the full proposal for revision?">Return for Revision</button></div>
+<form method="POST" action="{{ route('projects.board-meeting.schedule', $project) }}" class="project-review-actions-form">@csrf
+    <div><strong>{{ $boardMeeting ? 'Reschedule Board meeting' : 'Schedule Board meeting' }}</strong><p class="hint">Adds the date to the chapter calendar and notifies active users. Rescheduling updates the existing calendar entry.</p></div>
+    <div class="form-grid"><x-field name="meeting_date" label="Meeting date" type="date" :value="$boardMeeting?->starts_on?->format('Y-m-d')" required/><x-field name="venue" label="Venue" :value="$boardMeeting?->venue"/><div class="full"><x-field name="notes" label="Agenda or meeting notes" type="textarea" :value="$boardMeeting?->description"/></div></div>
+    <button class="btn secondary" type="submit">{{ $boardMeeting ? 'Update meeting' : 'Schedule meeting' }}</button>
 </form>
+<form method="POST" action="{{ route('projects.transition',$project) }}" class="project-review-actions-form">@csrf
+    <div><strong>Needs more work?</strong><p class="hint">Return this proposal with clear changes before recording a Board verdict.</p></div>
+    <x-field name="comments" label="Revision guidance" type="textarea" required/>
+    <button class="btn caution" name="action" value="return_full_proposal" data-confirm="Return the full proposal for revision?">Return for Revision</button>
+</form>
+@if($boardMeeting)
+<p class="hint">After the meeting, record the signed Board verdict for the Treasurer-verified proposal. The decision date must match the scheduled meeting.</p>
+<form method="POST" action="{{ route('projects.transition',$project) }}" enctype="multipart/form-data" class="project-review-actions-form project-board-decision-form">@csrf
+<div class="form-grid"><x-field name="meeting_date" label="Final Board meeting date" type="date" :value="$boardMeeting->starts_on?->format('Y-m-d')" required/><x-field name="evidence" label="Signed Board decision evidence (PDF/JPG/PNG, max 10 MB)" type="file" required/></div>
+<x-field name="comments" label="Official decision and conditions" type="textarea" required/>
+<div class="button-row"><button class="btn primary" name="action" value="approve_full_proposal" data-confirm="Record the signed final Board approval for this full proposal?">Record Approval</button><button class="btn caution" name="action" value="defer_full_proposal" data-confirm="Record the signed Board deferral for this full proposal?">Record Deferral</button><button class="btn danger" name="action" value="reject_full_proposal" data-confirm="Record the signed Board rejection for this full proposal?">Record Rejection</button></div>
+</form>
+@endif
 @else<p class="hint">Treasurer verification of the full proposal budget is required before final BOD approval.</p>@endif
 @endif
 @if($project->isChair($u) && $project->status === 'Approved' && $project->proposal_reviewed_at)@include('chapter.partials.project-action',['action'=>'lock_plan','label'=>'Finalize Approved Project Plan','tone'=>'primary'])@endif

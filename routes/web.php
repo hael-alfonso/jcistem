@@ -62,6 +62,7 @@ Route::middleware(['auth', 'active', \App\Http\Middleware\TrackUserActivity::cla
     Route::get('/projects/{project}/edit', [ChapterController::class, 'edit'])->name('projects.edit');
     Route::put('/projects/{project}', [ChapterController::class, 'save'])->name('projects.update');
     Route::post('/projects/{project}/transition', [ChapterController::class, 'transition'])->name('projects.transition');
+    Route::post('/projects/{project}/board-meeting', [ChapterController::class, 'scheduleBoardMeeting'])->name('projects.board-meeting.schedule');
     Route::post('/projects/{project}/appeal', [ChapterController::class, 'projectAppeal'])->name('projects.appeal');
     Route::post('/projects/{project}/appeal-decision', [ChapterController::class, 'projectAppealDecision'])->name('projects.appeal.decision');
     Route::post('/projects/{project}/tasks', [ChapterController::class, 'taskSave'])->name('tasks.store');

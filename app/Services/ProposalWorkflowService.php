@@ -32,7 +32,8 @@ class ProposalWorkflowService
                         ChapterService::audit('fund_release_cancelled', $release, $releaseBefore, $comments);
                     }
                     $project->status = 'Cancelled';
-                    $project->archived_at = now();
+                    // Cancellation closes work immediately; filing it in the archive is a separate step.
+                    $project->archived_at = null;
                     break;
                 case 'restart_review':
                     abort_unless(($admin || $owner) && !$project->decisions()->exists()
@@ -70,7 +71,13 @@ class ProposalWorkflowService
                     $project->status = $action === 'budget_review' ? 'Endorsed for Development' : 'Needs Revision';
                     $project->budget_reviewed_at = $action === 'budget_review' ? now() : null;
                     $project->budget_reviewed_by = $action === 'budget_review' ? $user->id : null;
-                    if ($action === 'budget_review') $project->chair_id = $project->created_by;
+                    if ($action === 'budget_review') {
+                        $chairId = (int) ($project->concept['proposed_chair_id'] ?? $project->created_by);
+                        if (!User::whereKey($chairId)->where('status', 'active')->exists()) {
+                            $this->invalid('Select an active project chair before endorsing the concept.');
+                        }
+                        $project->chair_id = $chairId;
+                    }
                     break;
                 case 'advance_concept':
                     // Existing concepts may still be waiting in the former BOD queue.
@@ -81,7 +88,7 @@ class ProposalWorkflowService
                     $project->status = 'Endorsed for Development';
                     break;
                 case 'submit_full_proposal':
-                    abort_unless($chair && in_array($from, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true) && !$project->proposal_reviewed_at, 403);
+                    abort_unless(($chair || $owner) && in_array($from, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true) && !$project->proposal_reviewed_at, 403);
                     if ($issues = ProjectSubmission::issues($project, 'proposal')) throw ValidationException::withMessages($issues);
                     $project->proposal_submitted_revision = $project->revision;
                     $project->proposal_budget_reviewed_at = null;
@@ -108,6 +115,10 @@ class ProposalWorkflowService
                     $this->comments($comments);
                     if (!$project->proposal_budget_reviewed_at || $project->proposal_submitted_revision !== $project->revision) $this->invalid('The Treasurer must verify this exact proposal revision before final approval.');
                     if (empty($decision['meeting_date']) || empty($decision['evidence_path'])) $this->invalid('Record the BOD meeting date and signed evidence.');
+                    $boardMeeting = $project->events()->where('purpose', 'proposal_board')->first();
+                    if ($boardMeeting && $boardMeeting->starts_on?->toDateString() !== $decision['meeting_date']) {
+                        $this->invalid('The decision date must match the scheduled Board meeting. Reschedule the meeting first if its date changed.');
+                    }
                     if (!Storage::disk('local')->exists($decision['evidence_path'])) $this->invalid('The signed BOD evidence file is missing.');
                     BodDecision::create([
                         'project_id' => $project->id, 'recorded_by' => $user->id, 'stage' => 'proposal',

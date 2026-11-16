@@ -28,4 +28,20 @@ class PmsReminderTest extends TestCase
         $this->assertSame(4, Notification::count());
         $this->travelBack();
     }
+
+    public function test_project_start_reminder_reaches_active_users_once_three_days_before_start(): void
+    {
+        $chair = User::factory()->create(['status' => 'active', 'role' => 'member']);
+        $other = User::factory()->create(['status' => 'active', 'role' => 'member']);
+        $inactive = User::factory()->create(['status' => 'inactive', 'role' => 'member']);
+        $project = Project::create(['created_by' => $chair->id, 'chair_id' => $chair->id,
+            'title' => 'Community launch', 'status' => 'Plan Locked',
+            'starts_on' => now('Asia/Manila')->addDays(3)->toDateString(), 'venue' => 'Carmona']);
+
+        $this->artisan('pms:reminders')->assertSuccessful();
+        $this->artisan('pms:reminders')->assertSuccessful();
+        $this->assertSame(2, Notification::where('event_key', 'project-start:'.$project->id.':'.$project->starts_on->toDateString())->count());
+        $this->assertDatabaseHas('notifications', ['user_id' => $other->id, 'title' => 'Project in three days: Community launch']);
+        $this->assertSame(0, Notification::where('user_id', $inactive->id)->count());
+    }
 }

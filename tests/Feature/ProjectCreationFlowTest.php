@@ -14,6 +14,37 @@ class ProjectCreationFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_concept_can_nominate_another_chair_without_granting_draft_access_or_review_authority(): void
+    {
+        $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $nominee = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $treasurer = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
+
+        $this->actingAs($owner)->post(route('projects.store'), [
+            'title' => 'Nominated chair project', 'area' => 'Community Impact',
+            'starts_on' => now()->addMonth()->toDateString(), 'venue' => 'Carmona',
+            'no_budget' => '1', 'proposed_budget' => '0.00', 'concept_submission_method' => 'online',
+            'proposed_chair_id' => $nominee->id,
+            'concept' => array_merge(array_fill_keys(array_keys(ChapterForms::CONCEPT_REQUIRED), 'Community project plan'), ['sdg_number' => '4']),
+        ])->assertSessionHasNoErrors();
+        $project = Project::firstOrFail();
+        $this->assertNull($project->chair_id);
+        $this->assertSame($nominee->id, $project->concept['proposed_chair_id']);
+        $this->actingAs($nominee)->get(route('projects.show', $project))->assertForbidden();
+
+        $this->actingAs($owner)->post(route('projects.transition', $project), ['action' => 'submit_concept'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('projects.transition', $project),
+            ['action' => 'endorse', 'comments' => 'Concept is ready for budget review.'])->assertSessionHasNoErrors();
+        $this->actingAs($treasurer)->post(route('projects.transition', $project),
+            ['action' => 'budget_review', 'comments' => 'Zero-cost plan is feasible.'])->assertSessionHasNoErrors();
+
+        $this->assertSame($nominee->id, $project->fresh()->chair_id);
+        $this->assertTrue($project->fresh()->canEdit($owner));
+        $this->assertTrue($project->fresh()->canEdit($nominee));
+        $this->assertFalse($project->fresh()->canManage($nominee));
+    }
+
     public function test_zero_cost_idea_can_be_saved_incomplete_but_only_submitted_when_ready(): void
     {
         $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);

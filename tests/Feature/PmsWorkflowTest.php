@@ -83,6 +83,7 @@ class PmsWorkflowTest extends TestCase
         $this->put($url.'/'.$task->id, ['status' => 'Completed'])->assertSessionHasErrors('evidence');
         $this->put($url.'/'.$task->id, ['status' => 'Completed', 'evidence' => 'Signed checklist'])->assertSessionHasNoErrors();
         $this->assertSame('Completed', $task->fresh()->status);
+        $this->assertDatabaseHas('notifications', ['user_id' => $chair->id, 'title' => 'All project tasks completed']);
         $this->actingAs($outsider)->get('/tasks?mine=0')->assertOk()->assertSee('Prepare kits');
         $this->get('/tasks?mine=1')->assertOk()->assertDontSee('Prepare kits');
     }

@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Project;
-use App\Models\User;
+use App\Models\{Project, ProjectReview, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -63,22 +62,73 @@ class ProjectArchiveTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'project_auto_archived', 'object_id' => $project->id, 'user_id' => null]);
     }
 
-    public function test_cancellation_keeps_cancelled_status_in_the_cancelled_archive_section(): void
+    public function test_newly_cancelled_project_can_be_archived_immediately_by_admin(): void
     {
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
-        $project = Project::create(['created_by' => $admin->id, 'title' => 'Cancelled initiative', 'status' => 'Ongoing']);
+        $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $project = Project::create(['created_by' => $owner->id, 'title' => 'Cancelled initiative', 'status' => 'Ongoing']);
 
         $this->actingAs($admin)->post(route('projects.transition', $project), [
             'action' => 'cancel', 'comments' => 'Event no longer feasible.',
         ])->assertSessionHasNoErrors();
 
         $this->assertSame('Cancelled', $project->fresh()->status);
+        $this->assertNull($project->fresh()->archived_at);
+        $this->actingAs($owner)->get(route('projects', ['filter' => 'mine']))->assertOk()->assertSee($project->title);
+        $this->post(route('projects.archive', $project))->assertForbidden();
+        $this->actingAs($admin)->get(route('projects.show', $project))->assertOk()->assertSee('Archive now');
+        $this->post(route('projects.archive', $project))->assertRedirect(route('projects.archived', ['archive' => 'cancelled']));
         $this->assertNotNull($project->fresh()->archived_at);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'project_archived_by_admin', 'object_id' => $project->id]);
         $cancelledArchive = route('projects.archived', ['archive' => 'cancelled']);
         $this->get(route('projects.cancelled'))->assertRedirect($cancelledArchive);
         $this->get($cancelledArchive)->assertOk()
             ->assertSee('Project Archive')->assertSee('Completed')->assertSee('Cancelled &amp; Closed', false)
             ->assertSee($project->title);
         $this->get(route('projects.archived', ['archive' => 'completed']))->assertOk()->assertSee('0 projects');
+        $this->actingAs($owner)->get(route('projects', ['filter' => 'mine']))->assertOk()->assertSee($project->title);
+        $this->post(route('projects.appeal', $project), ['message' => 'A replacement venue is secured and the project can continue.'])
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('project_reviews', ['project_id' => $project->id, 'action' => 'appeal_submitted']);
+    }
+
+    public function test_pending_appeal_blocks_manual_and_automatic_archive_until_reviewed(): void
+    {
+        $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $project = Project::create(['created_by' => $owner->id, 'title' => 'Appeal still open', 'status' => 'Ongoing']);
+        $this->actingAs($admin)->post(route('projects.transition', $project),
+            ['action' => 'cancel', 'comments' => 'The project venue is unavailable.'])->assertSessionHasNoErrors();
+        $this->actingAs($owner)->post(route('projects.appeal', $project),
+            ['message' => 'We have a new venue and request a review of this decision.'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('projects.archive', $project))->assertSessionHasErrors('project_archive');
+        $this->assertNull($project->fresh()->archived_at);
+
+        ProjectReview::where('project_id', $project->id)->where('action', 'cancel')
+            ->update(['created_at' => now()->subDays(8)]);
+        $this->artisan('projects:archive-completed')->assertSuccessful();
+        $this->assertNull($project->fresh()->archived_at);
+
+        $this->post(route('projects.appeal.decision', $project),
+            ['decision' => 'decline', 'comments' => 'Replacement location does not meet the requirements.'])
+            ->assertSessionHasNoErrors();
+        $this->post(route('projects.archive', $project))->assertSessionHasNoErrors();
+        $this->assertNotNull($project->fresh()->archived_at);
+    }
+
+    public function test_cancelled_project_moves_to_archive_after_seven_days_without_pending_appeal(): void
+    {
+        $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $project = Project::create(['created_by' => $owner->id, 'title' => 'Older cancellation', 'status' => 'Ongoing']);
+        $this->actingAs($admin)->post(route('projects.transition', $project),
+            ['action' => 'cancel', 'comments' => 'The site is no longer available.'])->assertSessionHasNoErrors();
+        ProjectReview::where('project_id', $project->id)->where('action', 'cancel')
+            ->update(['created_at' => now()->subDays(8)]);
+
+        $this->artisan('projects:archive-completed')->assertSuccessful();
+        $this->assertSame('Cancelled', $project->fresh()->status);
+        $this->assertNotNull($project->fresh()->archived_at);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'project_auto_archived', 'object_id' => $project->id]);
     }
 }

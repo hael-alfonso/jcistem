@@ -19,7 +19,10 @@ final class ProjectFlow
             'Full Proposal Draft' => 'Proposal draft',
             'Submitted for Formal Approval' => $project->proposal_budget_reviewed_at ? 'Board review' : 'Budget review',
             'Plan Locked' => 'Ready to start',
-            'Ongoing' => 'In progress',
+            'Ongoing' => $project->starts_on
+                && $project->starts_on->toDateString() <= now('Asia/Manila')->toDateString()
+                && ($project->ends_on?->toDateString() ?? $project->starts_on->toDateString()) >= now('Asia/Manila')->toDateString()
+                    ? 'Happening now' : 'In progress',
             'Completion Review' => 'Final report review',
             'Not Approved' => 'Not approved',
             default => $project->status,

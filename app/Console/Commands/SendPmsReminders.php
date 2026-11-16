@@ -2,18 +2,33 @@
 
 namespace App\Console\Commands;
 
-use App\Models\{MemberDue, Notification, Task, User};
+use App\Models\{MemberDue, Notification, Project, Task, User};
 use Illuminate\Console\Command;
 
 class SendPmsReminders extends Command
 {
     protected $signature = 'pms:reminders';
-    protected $description = 'Send daily in-app reminders for open task deadlines and outstanding member dues';
+    protected $description = 'Send daily in-app reminders for upcoming projects, open tasks, and outstanding member dues';
 
     public function handle(): int
     {
         $day = now('Asia/Manila')->toDateString();
         $tomorrow = now('Asia/Manila')->addDay()->toDateString();
+        $projectDay = now('Asia/Manila')->addDays(3)->toDateString();
+        $activeUserIds = User::where('status', 'active')->pluck('id');
+        Project::whereIn('status', ['Plan Locked', 'Ongoing'])->whereDate('starts_on', $projectDay)
+            ->chunkById(100, function ($projects) use ($activeUserIds, $projectDay) {
+                foreach ($projects as $project) {
+                    foreach ($activeUserIds as $userId) {
+                        Notification::firstOrCreate(
+                            ['user_id' => $userId, 'event_key' => 'project-start:'.$project->id.':'.$projectDay],
+                            ['title' => 'Project in three days: '.$project->title,
+                                'body' => 'Scheduled for '.$project->starts_on->format('d M Y').($project->venue ? ' · '.$project->venue : ''),
+                                'url' => '/projects/'.$project->id]
+                        );
+                    }
+                }
+            });
         Task::with('project')->where('status', '!=', 'Completed')->whereDate('deadline', '<=', $tomorrow)
             ->whereHas('project', fn ($q) => $q->whereIn('status', ['Plan Locked', 'Ongoing']))->chunkById(100, function ($tasks) use ($day) {
                 foreach ($tasks as $task) {

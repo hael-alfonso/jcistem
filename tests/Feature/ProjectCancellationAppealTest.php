@@ -62,7 +62,7 @@ class ProjectCancellationAppealTest extends TestCase
         $this->actingAs($admin)->post(route('projects.appeal.decision', $project), ['decision' => 'decline', 'comments' => 'No approved venue or revised schedule was supplied.'])->assertSessionHasNoErrors();
 
         $this->assertSame('Cancelled', $project->fresh()->status);
-        $this->assertNotNull($project->fresh()->archived_at);
+        $this->assertNull($project->fresh()->archived_at);
         $this->actingAs($owner)->get(route('projects.show', $project))->assertOk()->assertSee('Appeal declined');
     }
 }

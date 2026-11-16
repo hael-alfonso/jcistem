@@ -194,7 +194,8 @@ class ChapterController extends Controller
         elseif ($folder === 'active' && $request->filter === 'launching') $query
             ->where('status', 'Ongoing')
             ->whereDate('starts_on', '<=', now()->toDateString())
-            ->where(fn ($q) => $q->whereDate('ends_on', '>=', now()->toDateString())->orWhereNull('ends_on'));
+            ->where(fn ($q) => $q->whereDate('ends_on', '>=', now()->toDateString())
+                ->orWhere(fn ($singleDay) => $singleDay->whereNull('ends_on')->whereDate('starts_on', now()->toDateString())));
         elseif ($folder === 'active' && $request->filter === 'completed') { /* applied with the folder constraint above */ }
         elseif ($folder === 'active' && $request->filter === 'cancelled') { /* applied with the folder constraint above */ }
         elseif ($folder === 'active' && $request->filled('filter')) $query->where('status', $request->filter);
@@ -254,13 +255,19 @@ class ChapterController extends Controller
 
     public function create()
     {
-        return view('chapter.project-form', ['project' => new Project, 'proposal' => false]);
+        return view('chapter.project-form', ['project' => new Project, 'proposal' => false, 'chairOptions' => $this->chairOptions()]);
     }
 
     public function edit(Request $request, Project $project)
     {
         abort_unless($project->canEdit($request->user()), 403);
-        return view('chapter.project-form', ['project' => $project, 'proposal' => in_array($project->status, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Approved'], true)]);
+        return view('chapter.project-form', ['project' => $project, 'proposal' => in_array($project->status, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Approved'], true), 'chairOptions' => $this->chairOptions()]);
+    }
+
+    private function chairOptions(): array
+    {
+        return User::query()->where('status', 'active')
+            ->orderBy('name')->pluck('name', 'id')->all();
     }
 
     public function save(Request $request, ?Project $project = null)
@@ -272,6 +279,10 @@ class ChapterController extends Controller
         $request->merge([$methodField => $request->input($methodField, 'online')]);
         $rules = ['title' => 'required|string|max:200', 'area' => ['required', Rule::in(ChapterForms::AREAS)], 'starts_on' => 'nullable|date', 'ends_on' => 'nullable|date|after_or_equal:starts_on', 'venue' => 'nullable|string|max:255', 'no_budget' => 'sometimes|boolean', 'proposed_budget' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', 'budget_items' => 'nullable|array|max:50', 'budget_items.*.id' => 'nullable|uuid|distinct', 'budget_items.*.category' => ['required', Rule::in(array_keys(ProjectBudget::CATEGORIES))], 'budget_items.*.description' => 'required|string|max:255', 'budget_items.*.quantity' => 'required|numeric|decimal:0,2|min:0.01|max:999999.99', 'budget_items.*.unit_cost' => 'required|numeric|decimal:0,2|min:0|max:999999999.99', $methodField => ['required', Rule::in(['online', 'upload'])], 'submission_file' => 'nullable|prohibited_unless:'.$methodField.',upload|file|mimes:pdf,doc,docx|max:10240', 'revision_note' => 'nullable|string|max:2000'];
         $sectionKeys = array_keys($proposal ? ChapterForms::PROPOSAL : ChapterForms::CONCEPT);
+        if (!$proposal) {
+            $rules['proposed_chair_id'] = ['nullable', 'integer', Rule::exists('users', 'id')->where('status', 'active')->whereNull('deleted_at')];
+            $sectionKeys[] = 'proposed_chair_id';
+        }
         if ($proposal) $sectionKeys = array_merge($sectionKeys, ['committee_director', 'president_name', 'board_meeting_date', 'projected_income', 'income_lines', 'expense_lines']);
         $rules[$section] = 'sometimes|array:'.implode(',', $sectionKeys);
         $rules['budget_items.*'] = 'required|array:id,category,description,quantity,unit_cost,amount';
@@ -288,6 +299,11 @@ class ChapterController extends Controller
             foreach (array_keys(ChapterForms::PROPOSAL_EXPENSE_LINES) as $key) $rules['proposal.expense_lines.'.$key] = 'nullable|numeric|decimal:0,2|min:0|max:999999999.99';
         }
         $data = $request->validate($rules);
+        if (!$proposal) {
+            $chairId = $data['proposed_chair_id'] ?? ($project?->concept['proposed_chair_id'] ?? $request->user()->id);
+            $data['concept'] = array_replace($project?->concept ?? [], $data['concept'] ?? [], ['proposed_chair_id' => (int) $chairId]);
+            unset($data['proposed_chair_id']);
+        }
         if (!$proposal && array_key_exists('sdg_number', $data['concept'] ?? [])) {
             $data['concept']['sdg_name'] = ChapterForms::SDGS[$data['concept']['sdg_number']] ?? null;
         }
@@ -446,16 +462,31 @@ class ChapterController extends Controller
 
     public function projectArchive(Request $request, Project $project)
     {
-        abort_unless($request->user()->role === 'admin', 403);
+        abort_unless($request->user()->status === 'active' && $request->user()->role === 'admin', 403);
         DB::transaction(function () use ($project): void {
             $project = Project::lockForUpdate()->findOrFail($project->id);
-            abort_unless($project->status === 'Completed' && !$project->archived_at, 403);
+            abort_unless(in_array($project->status, ['Completed', 'Cancelled'], true) && !$project->archived_at, 403);
+            if ($project->status === 'Cancelled') {
+                $cancellation = $project->reviews()->where('action', 'cancel')->latest('id')->first();
+                $appeal = $cancellation ? $project->reviews()->where('action', 'appeal_submitted')
+                    ->where('id', '>', $cancellation->id)->latest('id')->first() : null;
+                if ($appeal && !$project->reviews()->whereIn('action', ['appeal_approved', 'appeal_declined'])
+                    ->where('id', '>', $appeal->id)->exists()) {
+                    throw ValidationException::withMessages(['project_archive' => 'Review the pending cancellation appeal before archiving this project.']);
+                }
+            }
             $before = $project->toArray();
             $project->update(['archived_at' => now()]);
-            ChapterService::audit('project_archived_by_admin', $project, $before, 'Admin archived the completed project before the automatic seven-day move.');
+            ChapterService::audit('project_archived_by_admin', $project, $before,
+                $project->status === 'Cancelled' ? 'Admin filed the cancelled project in the archive; cancellation and appeal history remain available.'
+                    : 'Admin archived the completed project before the automatic seven-day move.');
         });
 
-        return redirect()->route('projects.archived', ['archive' => 'completed'])->with('success', 'Completed project moved to the archive. Its status remains Completed.');
+        $section = $project->status === 'Cancelled' ? 'cancelled' : 'completed';
+        return redirect()->route('projects.archived', ['archive' => $section])
+            ->with('success', $section === 'cancelled'
+                ? 'Cancelled project filed in the archive. Its reason, appeal option, and audit history remain available.'
+                : 'Completed project moved to the archive. Its status remains Completed.');
     }
 
     public function projectRestore(Request $request, int $projectId)
@@ -549,6 +580,50 @@ class ChapterController extends Controller
             throw $e;
         }
         return back()->with('success', 'Project updated. The decision has been recorded in its history.');
+    }
+
+    public function scheduleBoardMeeting(Request $request, Project $project)
+    {
+        abort_unless($request->user()->status === 'active' && $request->user()->role === 'admin', 403);
+        $data = $request->validate([
+            'meeting_date' => 'required|date|after_or_equal:today',
+            'venue' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        $meetingResult = DB::transaction(function () use ($request, $project, $data) {
+            $project = Project::lockForUpdate()->findOrFail($project->id);
+            abort_unless($project->status === 'Submitted for Formal Approval' && $project->proposal_budget_reviewed_at
+                && !$project->decisions()->where('stage', 'proposal')->exists(), 403);
+
+            $event = CalendarEvent::where('project_id', $project->id)->where('purpose', 'proposal_board')->lockForUpdate()->first();
+            $wasScheduled = (bool) $event;
+            $before = $event?->toArray() ?? [];
+            $event ??= new CalendarEvent(['project_id' => $project->id, 'purpose' => 'proposal_board', 'created_by' => $request->user()->id]);
+            $event->fill([
+                'title' => 'Full proposal Board meeting: '.$project->title,
+                'type' => 'Meeting',
+                'starts_on' => $data['meeting_date'],
+                'ends_on' => $data['meeting_date'],
+                'venue' => trim($data['venue'] ?? '') ?: null,
+                'description' => trim($data['notes'] ?? '') ?: 'In-person Board review of the submitted full proposal.',
+            ]);
+            if (!$event->isDirty() && $event->exists) return 'unchanged';
+            $event->save();
+            ChapterService::audit($wasScheduled ? 'project_board_meeting_rescheduled' : 'project_board_meeting_scheduled', $event, $before);
+            ChapterService::notify(User::where('status', 'active')->pluck('id'),
+                $wasScheduled ? 'Board meeting rescheduled' : 'Board meeting scheduled',
+                $project->title.' · '.$event->starts_on->format('d M Y').($event->venue ? ' · '.$event->venue : ''),
+                route('projects.show', $project, false).'#project-actions', true);
+            return $wasScheduled ? 'rescheduled' : 'scheduled';
+        });
+
+        return redirect()->to(route('projects.show', $project).'#project-actions')
+            ->with('success', match ($meetingResult) {
+                'unchanged' => 'Board meeting details are unchanged.',
+                'rescheduled' => 'Board meeting updated. Members were notified.',
+                default => 'Board meeting added to the calendar. Members were notified.',
+            });
     }
 
     public function projectAppeal(Request $request, Project $project)
@@ -660,6 +735,12 @@ class ChapterController extends Controller
             $task->fill($data)->save();
             $project->touch();
             ChapterService::audit('task_saved', $task, $before);
+            if (($before['status'] ?? null) !== 'Completed' && $task->status === 'Completed'
+                && $project->tasks()->where('status', '!=', 'Completed')->doesntExist()) {
+                ChapterService::notify([$project->chair_id], 'All project tasks completed',
+                    $project->title.' is ready for the Chair to finish implementation and prepare the final reports.',
+                    route('projects.show', $project, false).'#project-actions', true);
+            }
             ChapterService::notify(array_merge($task->assignees ?? [], [$project->chair_id]), 'Task updated: '.$task->title, $task->status, route('projects.show', $project, false).'#task-'.$task->id);
         });
         return back()->with('success', 'Task saved.');
@@ -737,6 +818,11 @@ class ChapterController extends Controller
             $project->touch();
             ChapterService::audit('task_completed', $task, $before);
             ChapterService::notify(array_merge($task->assignees ?? [], [$project->chair_id]), 'Task completed: '.$task->title, $request->user()->name.' completed this task.', route('projects.show', $project, false).'#task-'.$task->id);
+            if ($project->tasks()->where('status', '!=', 'Completed')->doesntExist()) {
+                ChapterService::notify([$project->chair_id], 'All project tasks completed',
+                    $project->title.' is ready for the Chair to finish implementation and prepare the final reports.',
+                    route('projects.show', $project, false).'#project-actions', true);
+            }
         });
         return back()->with('success', 'Task marked complete.');
     }

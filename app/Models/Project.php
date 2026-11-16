@@ -80,6 +80,6 @@ class Project extends ChapterRecord
 
         return $user->status === 'active'
             && (($this->created_by === $user->id && in_array($this->status, ['Draft Concept', 'Needs Revision'], true))
-                || ($this->isChair($user) && in_array($this->status, $proposalPreparation, true) && !$this->proposal_reviewed_at && !$this->plan_locked_at));
+                || (($this->isChair($user) || $this->created_by === $user->id) && in_array($this->status, $proposalPreparation, true) && !$this->proposal_reviewed_at && !$this->plan_locked_at));
     }
 }
