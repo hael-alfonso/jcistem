@@ -360,10 +360,12 @@ class NavigationAndSubmissionTest extends TestCase
         $treasurer = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
         Storage::disk('local')->put('signed-full.pdf', 'signed approval');
         app(ProposalWorkflowService::class)->transition($project, $member, 'submit_full_proposal', null);
+        app(ProposalWorkflowService::class)->transition($project, $admin, 'review_full_proposal', 'Proposal plan reviewed');
         app(ProposalWorkflowService::class)->transition($project, $treasurer, 'review_full_budget', 'Verified full budget');
-        app(ProposalWorkflowService::class)->transition($project, $admin, 'approve_full_proposal', 'Approved full proposal', ['meeting_date' => '2026-11-01', 'resolution_number' => 'RES-UPLOAD-2', 'evidence_path' => 'signed-full.pdf']);
-        app(ProposalWorkflowService::class)->transition($project, $member, 'lock_plan', null);
-        $this->assertSame('Plan Locked', $project->fresh()->status);
+        $this->actingAs($admin)->post(route('projects.board-meeting.schedule', $project), ['meeting_date' => today()->toDateString()])->assertSessionHasNoErrors();
+        app(ProposalWorkflowService::class)->transition($project, $admin, 'approve_full_proposal', 'Approved full proposal', ['meeting_date' => today()->toDateString(), 'evidence_path' => 'signed-full.pdf']);
+        $this->assertSame('Approved', $project->fresh()->status);
+        $this->assertNotNull($project->fresh()->plan_locked_at);
     }
 
     public function test_chair_can_add_private_attendance_and_typed_evaluation(): void
@@ -477,10 +479,12 @@ class NavigationAndSubmissionTest extends TestCase
         $treasurer = User::factory()->create(['role' => 'treasurer', 'status' => 'active']);
         Storage::fake('local');
         $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/projects/'.$project->id.'/transition', ['action' => 'review_full_proposal', 'comments' => 'Proposal reviewed'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post('/projects/'.$project->id.'/transition', ['action' => 'review_full_budget', 'comments' => 'Detailed budget verified'])->assertRedirect()->assertSessionHasNoErrors();
-        $this->actingAs($admin)->post('/projects/'.$project->id.'/transition', ['action' => 'approve_full_proposal', 'comments' => 'Approved at meeting', 'meeting_date' => '2026-11-01', 'resolution_number' => 'RES-PPF-2', 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
-        $this->actingAs($chair)->post('/projects/'.$project->id.'/transition', ['action' => 'lock_plan'])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame('Plan Locked', $project->fresh()->status);
+        $this->actingAs($admin)->post(route('projects.board-meeting.schedule', $project), ['meeting_date' => today()->toDateString()])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/projects/'.$project->id.'/transition', ['action' => 'approve_full_proposal', 'comments' => 'Approved at meeting', 'meeting_date' => today()->toDateString(), 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('Approved', $project->fresh()->status);
+        $this->assertNotNull($project->fresh()->plan_locked_at);
     }
 
     public function test_submit_proposal_starts_with_the_internal_project_letter_format(): void

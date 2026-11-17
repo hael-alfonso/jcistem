@@ -83,7 +83,7 @@
                             && $task->project->plan_locked_at && $task->status !== 'Completed'
                             && $task->project->tasks->whereIn('id', $task->dependencies ?? [])->where('status', 'Completed')->count() === count($task->dependencies ?? []);
                         $canRemoveTask = auth()->user()->role === 'admin' && $task->project?->plan_locked_at
-                            && in_array($task->project->status, ['Plan Locked', 'Ongoing'], true)
+                            && in_array($task->project->status, ['Approved', 'Plan Locked', 'Ongoing'], true)
                             && !$task->project->tasks->contains(fn ($other) => $other->id !== $task->id && in_array($task->id, array_map('intval', $other->dependencies ?? []), true));
                     @endphp
                     <tr id="task-{{ $task->id }}">

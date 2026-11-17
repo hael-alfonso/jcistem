@@ -24,8 +24,9 @@ class ProjectReviewQueueTest extends TestCase
         $concept = $project('Concept awaiting Admin', 'Admin Review');
         $agenda = $project('Concept on BOD agenda', 'BOD Agenda');
         $budget = $project('Concept awaiting Treasurer', 'Treasurer Review');
-        $formalPending = $project('Full proposal awaiting Treasurer', 'Submitted for Formal Approval');
-        $formalVerified = $project('Full proposal ready for Admin', 'Submitted for Formal Approval', ['proposal_budget_reviewed_at' => now()]);
+        $formalPending = $project('Full proposal awaiting Treasurer', 'Submitted for Formal Approval', ['proposal_admin_reviewed_at' => now()]);
+        $formalVerified = $project('Full proposal ready for Admin', 'Submitted for Formal Approval', ['proposal_admin_reviewed_at' => now(), 'proposal_budget_reviewed_at' => now()]);
+        $formalAdmin = $project('Full proposal awaiting Admin review', 'Submitted for Formal Approval');
         $completion = $project('Completion report ready for Admin', 'Completion Review');
         $liquidation = $project('Liquidation ready for Treasurer', 'Completion Review');
         $selfReview = $project('Treasurer own concept', 'Treasurer Review', ['created_by' => $treasurer->id]);
@@ -33,21 +34,22 @@ class ProjectReviewQueueTest extends TestCase
         ProjectReport::create(['project_id' => $liquidation->id, 'created_by' => $owner->id, 'title' => 'Liquidation', 'type' => 'Liquidation', 'status' => 'Submitted']);
 
         $this->actingAs($admin)->get(route('dashboard'))->assertOk()
-            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->sort()->values()->all() === collect([$concept, $agenda, $formalVerified, $completion])->pluck('id')->sort()->values()->all());
+            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->sort()->values()->all() === collect([$concept, $agenda, $formalAdmin, $formalVerified, $completion])->pluck('id')->sort()->values()->all());
         $this->get(route('projects', ['filter' => 'review']))->assertOk()
-            ->assertSee($concept->title)->assertSee($agenda->title)->assertSee($formalVerified->title)->assertSee($completion->title)
+            ->assertSee($concept->title)->assertSee($agenda->title)->assertSee($formalAdmin->title)->assertSee($formalVerified->title)->assertSee($completion->title)
             ->assertDontSee($formalPending->title)->assertDontSee($budget->title)->assertDontSee($liquidation->title);
 
         $this->actingAs($treasurer)->get(route('dashboard'))->assertOk()
             ->assertViewHas('pending', fn ($items) => $items->pluck('id')->sort()->values()->all() === collect([$budget, $formalPending, $liquidation])->pluck('id')->sort()->values()->all());
         $this->get(route('projects', ['filter' => 'review']))->assertOk()
             ->assertSee($budget->title)->assertSee($formalPending->title)->assertSee($liquidation->title)
+            ->assertDontSee($formalAdmin->title)
             ->assertDontSee($formalVerified->title)->assertDontSee($selfReview->title);
 
         $this->actingAs($board)->get(route('dashboard'))->assertOk()
-            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->sort()->values()->all() === collect([$formalPending, $formalVerified])->pluck('id')->sort()->values()->all());
+            ->assertViewHas('pending', fn ($items) => $items->pluck('id')->sort()->values()->all() === collect([$formalVerified])->pluck('id')->sort()->values()->all());
         $this->get(route('projects', ['filter' => 'review']))->assertOk()
-            ->assertSee($formalPending->title)->assertSee($formalVerified->title)->assertDontSee($agenda->title)->assertDontSee($concept->title);
+            ->assertSee($formalVerified->title)->assertDontSee($formalPending->title)->assertDontSee($agenda->title)->assertDontSee($concept->title);
         $this->get(route('projects.show', $formalVerified))->assertOk()
             ->assertSee('Board review copy.')->assertDontSee('Record Approval');
         $this->post(route('projects.transition', $formalVerified), [

@@ -91,12 +91,12 @@
     <div class="tracker-heading"><div><span class="eyebrow">PROJECT MANAGEMENT</span><h2 id="project-tracker-title">Project tracker</h2></div></div>
     <div class="tracker-details">
         <div>@include('chapter.partials.project-progress', ['totalTasks' => $trackedTasks->count()])<small class="hint">Approvals, completed tasks, the Project Completion Report (PCR), and the Liquidation Report contribute to overall progress. The date marker only shows schedule pace.</small></div>
-        @if(in_array($project->status, ['Plan Locked', 'Ongoing'], true))
-            <div><span>Next open task</span><strong>@if($nextTask)<a href="#task-{{ $nextTask->id }}">{{ $nextTask->title }}</a>@else No open task @endif</strong><small>{{ $nextTask?->deadline?->format('M d, Y') ?? ($project->status === 'Plan Locked' ? 'Create tasks before launching.' : 'All assigned tasks are complete.') }}</small></div>
+        @if(in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing'], true) && $project->plan_locked_at)
+            <div><span>Next open task</span><strong>@if($nextTask)<a href="#task-{{ $nextTask->id }}">{{ $nextTask->title }}</a>@else No open task @endif</strong><small>{{ $nextTask?->deadline?->format('M d, Y') ?? (in_array($project->status, ['Approved', 'Plan Locked'], true) ? 'Create tasks before launch.' : 'All assigned tasks are complete.') }}</small></div>
         @elseif($closedRecord)
             <div><span>Task history</span><strong>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</strong><small>This record is closed to new task work.</small></div>
         @else
-            <div><span>Task planning</span><strong>Follows final approval</strong><small>The Chair sets tasks after locking the approved plan.</small></div>
+            <div><span>Task planning</span><strong>Follows final approval</strong><small>The Chair assigns tasks as soon as the Board-approved plan is recorded.</small></div>
         @endif
         <div><span>Last updated</span><strong>{{ $project->updated_at?->format('M d, Y') ?? 'Not set' }}</strong><small>Project details and task status</small></div>
     </div>
@@ -122,7 +122,7 @@
 @if($project->status !== 'Cancelled')
 @php $boardMeeting = $project->events->firstWhere('purpose', 'proposal_board'); @endphp
 <section class="panel form-panel project-next-actions no-print" id="project-actions"><div class="panel-heading flush"><div><span class="eyebrow">YOUR ACTIONS</span><h2>Available actions</h2><p>Only actions allowed for your role and this project stage appear here.</p></div></div><div class="action-grid">
-@if(($u->role === 'admin' || $project->created_by === $u->id) && !$project->decisions()->exists() && in_array($project->status,['Endorsed for Development','Full Proposal Draft','Returned for Revision','Submitted for Formal Approval','Approved'], true) && !$project->plan_locked_at && !$project->tasks->count() && !$project->allocations->count() && !$project->transactions->count() && !$project->expenseClaims->count() && !$project->fundReleases->count())
+@if(($u->role === 'admin' || $project->created_by === $u->id) && $project->status === 'Approved' && $project->proposal_reviewed_at && !$project->decisions()->exists() && !$project->plan_locked_at && !$project->tasks->count() && !$project->allocations->count() && !$project->transactions->count() && !$project->expenseClaims->count() && !$project->fundReleases->count())
 <p class="hint">This earlier project has no recorded BOD decision. Its saved records remain available. Submit it through the current review process before continuing project work.</p>
 @include('chapter.partials.project-action',['action'=>'restart_review','label'=>'Submit Existing Project for Review','comments'=>true])
 @endif
@@ -154,22 +154,31 @@
 </form>
 @endif
 @if(($project->isChair($u) || $project->created_by === $u->id) && in_array($project->status, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true) && !$project->proposal_reviewed_at)
-<p class="hint">The concept passed Admin and Treasurer review. Complete the full PPF, then submit it for independent budget verification and the final BOD verdict.</p>
+<p class="hint">The concept passed Admin and Treasurer review. Complete the full proposal, then submit it for Admin review, final budget verification, and the in-person BOD decision.</p>
 @php $proposalIssues = \App\Support\ProjectSubmission::issues($project, 'proposal'); @endphp
 @if($proposalIssues)<div class="project-submit-readiness"><strong>Finish the full proposal before submitting</strong><ul>@foreach(array_slice(array_values($proposalIssues), 0, 3) as $issue)<li>{{ $issue }}</li>@endforeach</ul>@if(count($proposalIssues) > 3)<small>And {{ count($proposalIssues) - 3 }} more required {{ \Illuminate\Support\Str::plural('detail', count($proposalIssues) - 3) }}.</small>@endif</div>
 @else @include('chapter.partials.project-action',['action'=>'submit_full_proposal','label'=>'Submit Proposal for Review','tone'=>'primary']) @endif
 @endif
-@if($project->status === 'Submitted for Formal Approval' && $u->role === 'treasurer' && $project->created_by !== $u->id && $project->chair_id !== $u->id)
-@if(!$project->proposal_budget_reviewed_at)<p class="hint">Verify the full proposal's itemized budget before Admin records the signed Board verdict.</p>@else<p class="hint">You verified this proposal revision. It is awaiting the Admin's signed Board verdict.</p>@endif
+@if($project->status === 'Submitted for Formal Approval' && $u->role === 'treasurer' && $project->created_by !== $u->id && $project->chair_id !== $u->id && $project->proposal_admin_reviewed_at && !$project->proposal_budget_reviewed_at)
+<p class="hint">Admin reviewed the full proposal. Verify this version's itemized budget before the Board meeting.</p>
 <form method="POST" action="{{ route('projects.transition',$project) }}" class="project-review-actions-form">@csrf
     <x-field name="comments" label="Review comments / conditions" type="textarea" required/>
-    <div class="button-row">@if(!$project->proposal_budget_reviewed_at)<button class="btn primary" name="action" value="review_full_budget">Verify Proposal Budget</button>@endif<button class="btn caution" name="action" value="return_full_proposal">Return Proposal for Revision</button></div>
+    <div class="button-row"><button class="btn primary" name="action" value="review_full_budget">Verify Final Budget</button><button class="btn caution" name="action" value="return_full_proposal">Return for Revision</button></div>
 </form>
 @endif
 @if($project->status === 'Submitted for Formal Approval' && $u->role === 'bod')
 <p class="project-board-readonly-note"><strong>Board review copy.</strong> Read the submitted full proposal and budget before the in-person meeting. {{ $boardMeeting ? 'Meeting: '.$boardMeeting->starts_on->format('d M Y').($boardMeeting->venue ? ' at '.$boardMeeting->venue : '').'.' : 'The meeting date is not yet scheduled.' }} After the meeting, Admin records the signed Board decision. There is no online BOD approval button.</p>
 @endif
 @if($project->status === 'Submitted for Formal Approval' && $u->role === 'admin')
+@if(!$project->proposal_admin_reviewed_at)
+<form method="POST" action="{{ route('projects.transition',$project) }}" class="project-review-actions-form">@csrf
+    <div><strong>Admin full-proposal review</strong><p class="hint">Check the plan and supporting details before Treasurer verifies the final budget.</p></div>
+    <x-field name="comments" label="Review comments / conditions" type="textarea" required/>
+    <div class="button-row"><button class="btn primary" name="action" value="review_full_proposal">Send for Final Budget Check</button><button class="btn caution" name="action" value="return_full_proposal">Return for Revision</button></div>
+</form>
+@elseif(!$project->proposal_budget_reviewed_at)
+<p class="hint">Admin review is complete. Treasurer is checking the final budget of this proposal revision.</p>
+@endif
 @if($project->proposal_budget_reviewed_at)
 <form method="POST" action="{{ route('projects.board-meeting.schedule', $project) }}" class="project-review-actions-form">@csrf
     <div><strong>{{ $boardMeeting ? 'Reschedule Board meeting' : 'Schedule Board meeting' }}</strong><p class="hint">Adds the date to the chapter calendar and notifies active users. Rescheduling updates the existing calendar entry.</p></div>
@@ -181,18 +190,22 @@
     <x-field name="comments" label="Revision guidance" type="textarea" required/>
     <button class="btn caution" name="action" value="return_full_proposal" data-confirm="Return the full proposal for revision?">Return for Revision</button>
 </form>
-@if($boardMeeting)
+@if($boardMeeting && $boardMeeting->starts_on->toDateString() <= now('Asia/Manila')->toDateString())
 <p class="hint">After the meeting, record the signed Board verdict for the Treasurer-verified proposal. The decision date must match the scheduled meeting.</p>
 <form method="POST" action="{{ route('projects.transition',$project) }}" enctype="multipart/form-data" class="project-review-actions-form project-board-decision-form">@csrf
 <div class="form-grid"><x-field name="meeting_date" label="Final Board meeting date" type="date" :value="$boardMeeting->starts_on?->format('Y-m-d')" required/><x-field name="evidence" label="Signed Board decision evidence (PDF/JPG/PNG, max 10 MB)" type="file" required/></div>
 <x-field name="comments" label="Official decision and conditions" type="textarea" required/>
 <div class="button-row"><button class="btn primary" name="action" value="approve_full_proposal" data-confirm="Record the signed final Board approval for this full proposal?">Record Approval</button><button class="btn caution" name="action" value="defer_full_proposal" data-confirm="Record the signed Board deferral for this full proposal?">Record Deferral</button><button class="btn danger" name="action" value="reject_full_proposal" data-confirm="Record the signed Board rejection for this full proposal?">Record Rejection</button></div>
 </form>
+@elseif($boardMeeting)
+<p class="hint">Board meeting is scheduled for {{ $boardMeeting->starts_on->format('d M Y') }}. The signed-verdict form opens on the meeting date.</p>
 @endif
-@else<p class="hint">Treasurer verification of the full proposal budget is required before final BOD approval.</p>@endif
 @endif
-@if($project->isChair($u) && $project->status === 'Approved' && $project->proposal_reviewed_at)@include('chapter.partials.project-action',['action'=>'lock_plan','label'=>'Finalize Approved Project Plan','tone'=>'primary'])@endif
-@if($manages && $project->status === 'Plan Locked')@include('chapter.partials.project-action',['action'=>'start','label'=>'Start Implementation','tone'=>'primary'])@endif
+@endif
+@if($manages && in_array($project->status, ['Approved', 'Plan Locked'], true))
+<p class="hint">Assign project tasks now. The project launches on its scheduled start date once at least one task is assigned.</p>
+@if($project->tasks->contains(fn ($task) => count($task->assignees ?? []) > 0) && (!$project->starts_on || $project->starts_on->toDateString() <= now('Asia/Manila')->toDateString()))@include('chapter.partials.project-action',['action'=>'start','label'=>'Launch Project Now','tone'=>'primary'])@endif
+@endif
 @if($manages && $project->status === 'Ongoing')@include('chapter.partials.project-action',['action'=>'request_completion','label'=>'Finish Implementation and Prepare Reports'])@endif
 @if($project->status === 'Completion Review')<p class="hint">The chair submits a completion report and liquidation. Independent Admin and Treasurer approvals complete the project; it moves to the archive seven days later.</p>@endif
 </div>
@@ -226,8 +239,8 @@
     <div class="panel-heading flush"><div><span class="eyebrow">DELIVERY</span><h2>Tasks &amp; milestones</h2><p>{{ $completedTasks }} of {{ $trackedTasks->count() }} completed</p>@if(isset($notificationTargets['task_project_notices'][$project->id]))@include('chapter.partials.unread-indicator', ['notificationId' => $notificationTargets['task_project_notices'][$project->id], 'label' => 'Unread task update'])@endif</div><div class="project-task-section-actions"><a class="btn secondary" href="{{ route('tasks', ['project' => $project->id, 'mine' => 0]) }}">Open task board</a>@if($manages)<button class="btn primary no-print" type="button" data-task-dialog-open="task-create-{{ $project->id }}"><x-icon name="plus" /> Create task</button>@endif</div></div>
     @if($trackedTasks->isNotEmpty())
     <div class="project-task-overview"><div><strong>Implementation progress</strong><span>{{ $completedTasks }} done · {{ $trackedTasks->count() - $completedTasks }} remaining</span></div><progress max="{{ $trackedTasks->count() }}" value="{{ $completedTasks }}" aria-label="{{ $completedTasks }} of {{ $trackedTasks->count() }} project tasks complete"></progress><p>Assigned members accept their tasks, then mark finished work complete with a short evidence note. Reports open after every task is complete.</p></div>
-    @else<p class="hint">The Chair creates tasks after locking the approved plan. Members accept assignments and complete work with evidence after launch.</p>@endif
-    @if($project->status === 'Plan Locked')<div class="notice">Planning is open. Members can accept assignments now; launch the project from Available actions to enable progress updates.</div>@endif
+    @else<p class="hint">After Board approval, the Chair assigns tasks. Members accept assignments and complete work with evidence after launch.</p>@endif
+    @if(in_array($project->status, ['Approved', 'Plan Locked'], true) && $project->plan_locked_at)<div class="notice">Planning is open. Members can accept assignments now. Progress updates open on launch.</div>@endif
     <div class="project-task-list">
         @forelse($project->tasks as $task)
             @php
@@ -241,7 +254,7 @@
                 $unmetDependencies = $trackedTasks->whereIn('id', $task->dependencies ?? [])->where('status', '!=', 'Completed');
                 $canCompleteTask = $myAssignment && $myResponse === 'accepted' && $project->status === 'Ongoing' && $project->plan_locked_at && $task->status !== 'Completed' && $unmetDependencies->isEmpty() && $trackedTasks->whereIn('id', $task->dependencies ?? [])->count() === count($task->dependencies ?? []);
                 $hasDependentTask = $trackedTasks->contains(fn ($other) => $other->id !== $task->id && in_array($task->id, array_map('intval', $other->dependencies ?? []), true));
-                $canRemoveTask = $u->role === 'admin' && $project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing'], true) && !$hasDependentTask;
+                $canRemoveTask = $u->role === 'admin' && $project->plan_locked_at && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing'], true) && !$hasDependentTask;
             @endphp
             <article class="project-task-card" id="task-{{ $task->id }}">
                 @if(isset($notificationTargets['task_notices'][$task->id]))@include('chapter.partials.unread-indicator', ['notificationId' => $notificationTargets['task_notices'][$task->id], 'label' => 'Unread task update'])@endif
@@ -267,7 +280,7 @@
                 @if($task->notes)<div class="project-task-note"><strong>Progress notes</strong><p class="preserve-lines">{{ $task->notes }}</p></div>@endif
                 @if($task->evidence)<div class="project-task-note"><strong>Completion evidence</strong><p class="preserve-lines">{{ $task->evidence }}</p></div>@endif
                 @if(old('_task_dialog') === 'task-detail-'.$task->id && $errors->any())<div class="alert error" role="alert"><strong>Check the task details:</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-                @if($myAssignment && in_array($project->status, ['Plan Locked','Ongoing'], true) && $task->status !== 'Completed')
+                @if($myAssignment && in_array($project->status, ['Approved', 'Plan Locked','Ongoing'], true) && $task->status !== 'Completed')
                     @if($myResponse !== 'accepted')
                     <div class="task-assignment-action no-print"><div><strong>{{ $myResponse === 'declined' ? 'Assignment declined' : 'You are assigned to this task' }}</strong><p>Accept to update progress and record completion after the project launches.</p></div><form method="POST" action="{{ route('tasks.respond',[$project,$task]) }}">@csrf<input type="hidden" name="response" value="accepted"><button class="btn primary" type="submit"><x-icon name="check" /> Accept assignment</button></form></div>
                     <section class="task-decline-panel no-print" aria-labelledby="task-decline-title-{{ $task->id }}"><div class="project-record-heading"><div><strong id="task-decline-title-{{ $task->id }}">Decline assignment</strong><small>Send the Project Chair a clear reason.</small></div></div><form method="POST" action="{{ route('tasks.respond',[$project,$task]) }}">@csrf<input type="hidden" name="response" value="declined"><label class="field"><span>Reason for the Chair</span><textarea name="note" rows="3" maxlength="2000" required></textarea></label><button class="btn danger" type="submit">Send decline</button></form></section>
@@ -281,12 +294,12 @@
                 </dialog>
             </article>
         @empty
-            <p class="panel-empty">No tasks yet. The Chair can create and assign tasks after locking the approved plan. Launch the project to begin work.</p>
+            <p class="panel-empty">No tasks yet. The Chair can create and assign tasks after Board approval. Progress updates open when the project launches.</p>
         @endforelse
     </div>
     @if($u->role === 'admin' && $removedTasks->isNotEmpty())
     <section class="task-removed-section no-print" aria-labelledby="removed-tasks-title"><div><h3 id="removed-tasks-title">Removed tasks</h3><p>Kept for audit history. Restore is available while this project is active.</p></div>
-        @foreach($removedTasks as $removedTask)<div class="task-removed-row"><span><strong>{{ $removedTask->title }}</strong><small>Removed {{ $removedTask->deleted_at?->format('M d, Y') }}</small></span>@if($project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing'], true))<form method="POST" action="{{ route('tasks.restore', [$project, $removedTask->id]) }}">@csrf<button class="btn secondary" type="submit" data-confirm="Restore this task to active project work and progress?"><x-icon name="refresh" /> Restore task</button></form>@else<small>History locked</small>@endif</div>@endforeach
+        @foreach($removedTasks as $removedTask)<div class="task-removed-row"><span><strong>{{ $removedTask->title }}</strong><small>Removed {{ $removedTask->deleted_at?->format('M d, Y') }}</small></span>@if($project->plan_locked_at && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing'], true))<form method="POST" action="{{ route('tasks.restore', [$project, $removedTask->id]) }}">@csrf<button class="btn secondary" type="submit" data-confirm="Restore this task to active project work and progress?"><x-icon name="refresh" /> Restore task</button></form>@else<small>History locked</small>@endif</div>@endforeach
     </section>
     @endif
 </section>

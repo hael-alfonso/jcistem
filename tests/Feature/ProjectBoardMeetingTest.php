@@ -18,7 +18,7 @@ class ProjectBoardMeetingTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $board = User::factory()->create(['role' => 'bod', 'status' => 'active']);
         $project = Project::create(['created_by' => $owner->id, 'title' => 'Proposal for the Board',
-            'status' => 'Submitted for Formal Approval', 'proposal_budget_reviewed_at' => now(),
+            'status' => 'Submitted for Formal Approval', 'proposal_admin_reviewed_at' => now(), 'proposal_budget_reviewed_at' => now(),
             'proposal_submitted_revision' => 1, 'revision' => 1]);
         $firstDate = now()->addDays(2)->toDateString();
         $secondDate = now()->addDays(4)->toDateString();
@@ -53,7 +53,7 @@ class ProjectBoardMeetingTest extends TestCase
         $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
         $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
         $project = Project::create(['created_by' => $owner->id, 'title' => 'Scheduled decision',
-            'status' => 'Submitted for Formal Approval', 'proposal_budget_reviewed_at' => now(),
+            'status' => 'Submitted for Formal Approval', 'proposal_admin_reviewed_at' => now(), 'proposal_budget_reviewed_at' => now(),
             'proposal_submitted_revision' => 1, 'revision' => 1]);
         $scheduledDate = now()->addDay()->toDateString();
         $this->actingAs($admin)->post(route('projects.board-meeting.schedule', $project),
@@ -75,5 +75,30 @@ class ProjectBoardMeetingTest extends TestCase
         $this->assertSame('Approved', $project->fresh()->status);
         $this->assertDatabaseHas('bod_decisions', ['project_id' => $project->id, 'meeting_date' => $scheduledDate.' 00:00:00']);
         $this->travelBack();
+    }
+
+    public function test_board_deferral_returns_the_proposal_for_revision_and_clears_the_old_meeting(): void
+    {
+        Storage::fake('local');
+        $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $project = Project::create(['created_by' => $owner->id, 'chair_id' => $owner->id,
+            'title' => 'Deferred proposal', 'status' => 'Submitted for Formal Approval',
+            'proposal_admin_reviewed_at' => now(), 'proposal_budget_reviewed_at' => now(),
+            'proposal_submitted_revision' => 1, 'revision' => 1]);
+        $url = route('projects.transition', $project);
+        $this->actingAs($admin)->post($url, ['action' => 'approve_full_proposal', 'comments' => 'Too early',
+            'meeting_date' => today()->toDateString(),
+            'evidence' => UploadedFile::fake()->create('early.pdf', 10, 'application/pdf')])->assertSessionHasErrors('action');
+        $this->post(route('projects.board-meeting.schedule', $project), ['meeting_date' => today()->toDateString()])->assertSessionHasNoErrors();
+        $this->post($url, ['action' => 'defer_full_proposal', 'comments' => 'Revise delivery measures',
+            'meeting_date' => today()->toDateString(),
+            'evidence' => UploadedFile::fake()->create('deferred.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $project->refresh();
+        $this->assertSame('Returned for Revision', $project->status);
+        $this->assertNull($project->proposal_admin_reviewed_at);
+        $this->assertNull($project->proposal_budget_reviewed_at);
+        $this->assertDatabaseMissing('calendar_events', ['project_id' => $project->id, 'purpose' => 'proposal_board']);
+        $this->assertDatabaseHas('bod_decisions', ['project_id' => $project->id, 'decision' => 'deferred']);
     }
 }

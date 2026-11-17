@@ -1,7 +1,7 @@
 @php
     $manages = $project->canManage(auth()->user());
     $creating = !$task->exists;
-    $taskStatuses = $project->status === 'Plan Locked' ? ['To Do'] : ['To Do', 'In Progress', 'Blocked', 'Completed'];
+    $taskStatuses = in_array($project->status, ['Approved', 'Plan Locked'], true) ? ['To Do'] : ['To Do', 'In Progress', 'Blocked', 'Completed'];
     $selectedAssignees = collect(old('assignees', $task->assignees ?? []))->map(fn ($id) => (string) $id)->all();
 @endphp
 <form method="POST" action="{{ $task->exists?route('tasks.update',[$project,$task]):route('tasks.store',$project) }}" class="form-grid task-work-form">@csrf @if($task->exists) @method('PUT') @endif

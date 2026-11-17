@@ -156,6 +156,7 @@ class ProjectCreationFlowTest extends TestCase
             'proposal' => array_fill_keys(array_keys(ChapterForms::PROPOSAL_REQUIRED), 'Volunteer-led delivery and evaluation'),
         ])->assertSessionHasNoErrors();
         $this->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post($url, ['action' => 'review_full_proposal', 'comments' => 'Plan reviewed'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, [
             'action' => 'return_full_proposal', 'comments' => 'Clarify how results will be measured',
         ])->assertRedirect()->assertSessionHasNoErrors();
@@ -165,15 +166,17 @@ class ProjectCreationFlowTest extends TestCase
         $this->put(route('projects.update', $project), [...$proposalBase, 'proposal' => $proposal])
             ->assertSessionHasNoErrors();
         $this->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post($url, ['action' => 'review_full_proposal', 'comments' => 'Revised plan reviewed'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Zero-cost plan verified'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('projects.board-meeting.schedule', $project), ['meeting_date' => today()->toDateString()])->assertSessionHasNoErrors();
         $this->actingAs($admin)->post($url, [
             'action' => 'approve_full_proposal', 'comments' => 'Final plan approved',
             'meeting_date' => today()->toDateString(),
             'evidence' => UploadedFile::fake()->create('signed-proposal.pdf', 8, 'application/pdf'),
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('Proposal approved', ProjectFlow::statusLabel($project->fresh()));
-        $this->actingAs($chair)->post($url, ['action' => 'lock_plan'])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertSame('Plan Locked', $project->fresh()->status);
+        $this->assertSame('Approved', $project->fresh()->status);
+        $this->assertNotNull($project->fresh()->plan_locked_at);
         $this->assertSame([], $project->fresh()->budget_items);
     }
 
@@ -222,6 +225,16 @@ class ProjectCreationFlowTest extends TestCase
     public function test_legacy_review_restart_cannot_discard_delivery_history(): void
     {
         $owner = User::factory()->create(['role' => 'member', 'status' => 'active']);
+        $endorsed = Project::create(['created_by' => $owner->id, 'chair_id' => $owner->id,
+            'title' => 'Concept already reviewed', 'status' => 'Endorsed for Development',
+            'budget_reviewed_at' => now()]);
+        $this->actingAs($owner)->get(route('projects.show', $endorsed))->assertOk()
+            ->assertSee('Edit full proposal (PPF)')
+            ->assertDontSee('Submit Existing Project for Review');
+        $this->post(route('projects.transition', $endorsed), [
+            'action' => 'restart_review', 'comments' => 'Should prepare the proposal instead',
+        ])->assertForbidden();
+
         $active = Project::create(['created_by' => $owner->id, 'title' => 'Legacy live project', 'status' => 'Ongoing']);
         Task::create(['project_id' => $active->id, 'title' => 'Delivered work', 'status' => 'Completed']);
         $this->actingAs($owner)->post(route('projects.transition', $active), [

@@ -8,18 +8,21 @@ JCISTEM uses the CIA triad as operational goals and layered authorization as its
 | --- | --- | --- | --- | --- |
 | View chapter projects permitted by project visibility | Yes | Yes | Yes | Yes |
 | Create a project concept | Yes | Yes | Yes | Yes |
-| Review a concept | Only when assigned as concept reviewer | Only when assigned as concept reviewer | No | No |
-| Approve a formal proposal | Only when assigned as proposal reviewer | Only when assigned as proposal reviewer | No | No |
-| Review a proposed budget | No | No | Yes | No |
+| Review a submitted concept | Yes | View only | Budget review only | No |
+| Review a submitted full proposal | Yes, before final budget verification | View after final budget verification; no online approval | No | No |
+| Record the signed Board verdict on a formal proposal | Yes, after Admin review, final Treasurer verification, and the scheduled meeting | View and discuss at the meeting; no online approval | No | No |
+| Review a proposed budget | No | No | Yes, at concept and final-proposal stages | No |
 | Manage allocations, ledger, liquidation, dues and finance export | No | No | Yes | No |
 | Manage member accounts and roles | Yes | No | No | No |
 | Review and manage public contact inquiries | Yes | No | No | No |
 | Review submitted chapter documents | Yes | No | No | No |
-| Complete or archive a project | Yes, at the correct workflow stage | No | No | No |
+| Archive a completed or cancelled project early | Yes, unless a cancellation appeal is pending | No | No | No |
 | Manage an approved project | Only if separately assigned as Chair, except Admin-only workflow actions | Only if separately assigned as Chair | Only if separately assigned as Chair | Only if separately assigned as Chair |
 | View audit history | Yes | No | No | No |
 
 `App\Support\Permissions` is the central broad-permission registry. `permission:` route middleware blocks protected areas before controller execution. Controllers and `ChapterService` retain record-level, assignment-level and workflow-level checks for defense in depth. Admin is deliberately not a finance superuser; Treasurer authority remains separate.
+
+The formal sequence is concept submission, Admin concept review, Treasurer concept budget review, full proposal submission, Admin full-proposal review, Treasurer final budget check of that revision, scheduled in-person Board meeting, and Admin recording the signed Board verdict. Approval immediately opens task assignment. A due project with at least one assigned task launches through the daily PMS reminders job, or immediately when a task is saved on or after its planned date; the Chair can also launch a due, task-ready project manually. A deferral returns the proposal for revision and clears its old meeting while retaining the decision history. Completion and liquidation reports remain separate Admin and Treasurer approvals.
 
 ## CIA controls
 
@@ -46,7 +49,7 @@ JCISTEM uses the CIA triad as operational goals and layered authorization as its
 
 - Laravel's `/up` endpoint checks application boot, database connectivity and private-storage writability. Monitor it from outside the server.
 - `php artisan chapter:backup` snapshots the database and private uploads into a directory outside the web root, signs a SHA-256 manifest using `APP_KEY`, and verifies the finished copy. `php artisan chapter:backup --verify=PATH` checks a stored copy for missing or changed files.
-- The Laravel scheduler runs the backup daily at 02:00 server time. The host must actually run `php artisan schedule:run` every minute; without that operating-system task, no automatic backup occurs.
+- Laravel registers the backup for 02:00 server time, but registration alone does not run it. The host must actually run `php artisan schedule:run` every minute, or invoke the backup command from a separate monitored operating-system task. The local Windows project-archive and reminder tasks do not run backups.
 - Production must run with `APP_DEBUG=false`, HTTPS, monitored storage capacity and database alerts.
 - Backup contents are **not encrypted by this command**. Set `CHAPTER_BACKUP_PATH` to a restricted, encrypted volume and copy completed backups to encrypted off-server storage. Never expose this path under `public/` or the web server document root. Keep `APP_KEY` separately in secure recovery storage; it is required to verify manifests and restore encrypted application data.
 - Test restoration regularly in an isolated environment; a backup is not considered usable until restoration succeeds.
@@ -56,7 +59,7 @@ JCISTEM uses the CIA triad as operational goals and layered authorization as its
 
 1. Set `CHAPTER_BACKUP_PATH` to a private, encrypted directory outside the application and web root, with space for multiple complete backups (for XAMPP, for example, `C:\xampp\jcistem-backups`). Backups fail closed until this is configured. If `mysqldump` is not on `PATH`, set `CHAPTER_MYSQLDUMP_PATH` to its executable. Give only the application and backup operators access.
 2. Run `php artisan chapter:backup`. Confirm it reports `Backup created and verified`. Copy that entire dated directory to encrypted off-server storage. Alert an operator if the command exits nonzero or if no new completed directory appears within 26 hours.
-3. On Windows/XAMPP, create a Task Scheduler job that runs `C:\xampp\php\php.exe` with arguments `C:\xampp\htdocs\jci_system\artisan schedule:run` every minute, with the project directory as its working directory. On other hosts, configure the equivalent cron or scheduler service.
+3. On Windows/XAMPP, create a Task Scheduler job that runs `C:\xampp\php\php.exe` with arguments `artisan schedule:run` every minute, with `C:\xampp\htdocs\jci_system` as its working directory. On other hosts, configure the equivalent cron or scheduler service. The local `JCISTEM Project Archive` and `JCISTEM PMS Reminders` tasks only run those two commands while their Windows account is signed in; they are not a replacement for the full scheduler or a production backup service.
 4. For a recovery drill, copy one backup to an isolated machine with the same application version and `APP_KEY`. Run `php artisan chapter:backup --verify=PATH` before restoration. Restore `database.sql` with the matching MySQL client (or replace the SQLite database with `database.sqlite` while the application is stopped), then copy the backup's `private/` directory into `storage/app/private/`.
 5. Run migrations only after matching the backed-up application version, start the isolated app, and verify login, project records, and private document downloads. Record the time and outcome of the drill. Never restore over the live database without a separate pre-restore backup and an approved recovery window.
 

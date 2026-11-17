@@ -9,7 +9,7 @@ class Project extends ChapterRecord
 {
     use SoftDeletes;
     public const DRAFT_STATUSES = ['Draft Concept', 'Full Proposal Draft'];
-    protected $casts = ['concept' => 'array', 'proposal' => 'array', 'budget_items' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'completed_at' => 'datetime', 'archived_at' => 'datetime', 'plan_locked_at' => 'datetime', 'budget_reviewed_at' => 'datetime', 'proposal_budget_reviewed_at' => 'datetime', 'proposal_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
+    protected $casts = ['concept' => 'array', 'proposal' => 'array', 'budget_items' => 'array', 'starts_on' => 'date', 'ends_on' => 'date', 'completed_at' => 'datetime', 'archived_at' => 'datetime', 'plan_locked_at' => 'datetime', 'budget_reviewed_at' => 'datetime', 'proposal_admin_reviewed_at' => 'datetime', 'proposal_budget_reviewed_at' => 'datetime', 'proposal_reviewed_at' => 'datetime', 'proposed_budget' => 'decimal:2'];
     public const APPROVED = ['Approved', 'Plan Locked', 'Ongoing', 'Completion Review', 'Completed', 'Archived'];
     public static function toneForStatus(string $status): string
     {
@@ -72,7 +72,7 @@ class Project extends ChapterRecord
 
         return in_array($this->status, self::APPROVED, true) && ($proposalApproved || $legacyConceptApproved);
     }
-    public function canManage(User $user): bool { return $this->isChair($user) && $this->plan_locked_at && in_array($this->status, ['Plan Locked', 'Ongoing'], true); }
+    public function canManage(User $user): bool { return $this->isChair($user) && $this->plan_locked_at && in_array($this->status, ['Approved', 'Plan Locked', 'Ongoing'], true); }
     public function canReport(User $user): bool { return $this->isChair($user) && $this->status === 'Completion Review'; }
     public function canEdit(User $user): bool
     {

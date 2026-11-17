@@ -7,7 +7,6 @@
             || ['slow-2g', '2g'].includes(connection.effectiveType));
         if (slow) {
             document.documentElement.classList.add('data-saver');
-            return;
         }
         const fonts = document.createElement('link');
         fonts.rel = 'stylesheet';

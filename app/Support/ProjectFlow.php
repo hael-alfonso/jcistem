@@ -17,7 +17,7 @@ final class ProjectFlow
             'Approved' => $project->proposal_reviewed_at ? 'Proposal approved' : 'Concept approved',
             'Endorsed for Development' => 'Proposal preparation',
             'Full Proposal Draft' => 'Proposal draft',
-            'Submitted for Formal Approval' => $project->proposal_budget_reviewed_at ? 'Board review' : 'Budget review',
+            'Submitted for Formal Approval' => $project->proposal_budget_reviewed_at ? 'Board review' : ($project->proposal_admin_reviewed_at ? 'Budget review' : 'Admin review'),
             'Plan Locked' => 'Ready to start',
             'Ongoing' => $project->starts_on
                 && $project->starts_on->toDateString() <= now('Asia/Manila')->toDateString()
@@ -54,18 +54,20 @@ final class ProjectFlow
                 'detail' => 'Concepts no longer receive a BOD verdict here. The formal Board decision belongs to the completed proposal.', 'anchor' => 'project-actions',
             ],
             'Approved' => $project->proposal_reviewed_at
-                ? ['title' => 'Lock the approved plan', 'actor' => 'Project Chair', 'detail' => 'Confirm the final PPF before task assignments and delivery begin.', 'anchor' => 'project-actions']
+                ? ['title' => 'Assign tasks for the approved project', 'actor' => 'Project Chair', 'detail' => 'Assign deliverables now. Launch on the planned project start date.', 'anchor' => 'tasks']
                 : ['title' => 'Prepare the full proposal', 'actor' => 'Project Chair', 'detail' => 'Complete the PPF and submit it for budget verification and final Board approval.', 'anchor' => 'project-actions'],
             'Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision' => [
                 'title' => 'Complete the full proposal', 'actor' => 'Project Chair',
                 'detail' => 'Revise the plan and budget, then submit the current proposal version.', 'anchor' => 'proposal',
             ],
             'Submitted for Formal Approval' => $project->proposal_budget_reviewed_at
-                ? ['title' => 'Record final Board approval', 'actor' => 'Admin after the Board meeting', 'detail' => 'Attach the signed final decision before the Chair can finalize the plan.', 'anchor' => 'project-actions']
-                : ['title' => 'Verify the full proposal budget', 'actor' => 'Treasurer', 'detail' => 'Check the expense lines before the final Board decision.', 'anchor' => 'budget'],
+                ? ['title' => 'Hold the Board meeting and record its verdict', 'actor' => 'Admin after the Board meeting', 'detail' => 'Schedule the meeting and attach the signed decision after it takes place.', 'anchor' => 'project-actions']
+                : ($project->proposal_admin_reviewed_at
+                    ? ['title' => 'Verify the final proposal budget', 'actor' => 'Treasurer', 'detail' => 'Check the itemized budget of this exact proposal revision.', 'anchor' => 'budget']
+                    : ['title' => 'Review the full proposal', 'actor' => 'Admin', 'detail' => 'Check the submitted plan before sending its final budget to the Treasurer.', 'anchor' => 'project-actions']),
             'Plan Locked' => [
                 'title' => 'Assign tasks and launch the project', 'actor' => 'Project Chair',
-                'detail' => 'Create clear deliverables, assign members, then start implementation.', 'anchor' => 'delivery',
+                'detail' => 'Create clear deliverables and assign members; launch opens on the scheduled start date.', 'anchor' => 'delivery',
             ],
             'Ongoing' => [
                 'title' => 'Deliver work and record spending', 'actor' => 'Chair, assignees, and Treasurer',
@@ -137,6 +139,7 @@ final class ProjectFlow
 
         $current = match (true) {
             in_array($status, ['Draft Concept', 'Needs Revision'], true) => 0,
+            $status === 'Approved' && $project->proposal_reviewed_at => 2,
             in_array($status, [
                 'Admin Review', 'Submitted for President Review', 'Treasurer Review',
                 'BOD Agenda', 'Approved', 'Endorsed for Development',
@@ -155,11 +158,11 @@ final class ProjectFlow
             'Treasurer Review' => 'Treasurer is checking the concept budget.',
             'BOD Agenda' => 'This legacy concept is being routed to full proposal preparation.',
             'Approved' => $project->proposal_reviewed_at
-                ? 'The full proposal is approved. The Chair can lock the plan.'
+                ? 'The full proposal is approved. The Chair can assign tasks before launch.'
                 : 'The concept is approved. The Chair prepares the full proposal.',
             'Submitted for Formal Approval' => $project->proposal_budget_reviewed_at
-                ? 'The full proposal budget is verified; the final Board decision is next.'
-                : 'Treasurer is checking the full proposal budget.',
+                ? 'The final budget is verified; the in-person Board decision is next.'
+                : ($project->proposal_admin_reviewed_at ? 'Treasurer is checking the final proposal budget.' : 'Admin is reviewing the full proposal.'),
             'Endorsed for Development', 'Full Proposal Draft' => 'The Chair is preparing the full proposal.',
             'Returned for Revision' => 'The Chair is revising the full proposal from review notes.',
             'Needs Revision' => 'The concept needs changes before another review.',
@@ -171,7 +174,7 @@ final class ProjectFlow
             ['Project Idea', $status === 'Needs Revision' ? 'Revise the concept using reviewer feedback.' : 'Define the need and submit the concept.', 'overview'],
             ['Review & Approval', $current === 1 ? $reviewDetail : 'Review and approve the concept, budget, and proposal.',
                 in_array($status, ['Admin Review', 'Submitted for President Review', 'Treasurer Review', 'BOD Agenda', 'Not Approved', 'Declined'], true) ? 'overview' : 'proposal'],
-            ['Work Plan', $current === 2 ? 'Set deliverables, owners, and deadlines.' : 'Turn the approved plan into assigned work.', 'tasks'],
+            ['Work Plan', $current === 2 ? ($status === 'Approved' ? 'The full proposal is approved. Assign tasks, owners, and deadlines.' : 'Set deliverables, owners, and deadlines.') : 'Turn the approved plan into assigned work.', 'tasks'],
             ['Implementation', $current === 3
                 ? ($totalTasks > 0
                     ? $completedTasks.' of '.$totalTasks.' tasks complete. Record activities and evidence.'

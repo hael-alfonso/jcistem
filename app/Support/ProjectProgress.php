@@ -17,7 +17,7 @@ final class ProjectProgress
             'Admin Review', 'Submitted for President Review' => 12,
             'Treasurer Review' => 22,
             'BOD Agenda' => 32,
-            'Approved' => $project->proposal_reviewed_at ? 48 : 42,
+            'Approved' => $project->proposal_reviewed_at ? 50 : 42,
             'Submitted for Formal Approval' => 44,
             'Plan Locked' => 50,
             'Ongoing' => 50 + (int) round(35 * $taskPercent / 100),

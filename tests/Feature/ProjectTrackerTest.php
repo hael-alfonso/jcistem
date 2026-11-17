@@ -27,7 +27,10 @@ class ProjectTrackerTest extends TestCase
         $this->assertSame('proposal', $tracker['steps'][1]['anchor']);
 
         $project->proposal_reviewed_at = now();
-        $this->assertStringContainsString('full proposal is approved', ProjectFlow::tracker($project)['steps'][1]['detail']);
+        $tracker = ProjectFlow::tracker($project);
+        $this->assertSame('done', $tracker['steps'][1]['state']);
+        $this->assertSame('current', $tracker['steps'][2]['state']);
+        $this->assertStringContainsString('full proposal is approved', $tracker['steps'][2]['detail']);
 
         $project->status = 'Plan Locked';
         $this->assertSame('current', ProjectFlow::tracker($project)['steps'][2]['state']);

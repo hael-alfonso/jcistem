@@ -20,7 +20,7 @@ class ChapterController extends Controller
             ->whereJsonContains('assignees', $request->user()->id)
             ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END')->orderBy('deadline')->get();
         $tasks = $assignedTasks->where('status', '!=', 'Completed');
-        $pendingAssignments = $tasks->filter(fn ($task) => in_array($task->project?->status, ['Plan Locked', 'Ongoing'], true)
+        $pendingAssignments = $tasks->filter(fn ($task) => in_array($task->project?->status, ['Approved', 'Plan Locked', 'Ongoing'], true)
             && !in_array($task->assignment_responses[$request->user()->id]['response'] ?? null, ['accepted', 'declined'], true));
         $readyTasks = $tasks->filter(fn ($task) => $task->status !== 'Blocked' && $task->project?->status === 'Ongoing'
             && ($task->assignment_responses[$request->user()->id]['response'] ?? null) === 'accepted'
@@ -426,6 +426,8 @@ class ChapterController extends Controller
                 'proposal_submitted_revision' => null,
                 'proposal_budget_reviewed_at' => null,
                 'proposal_budget_reviewed_by' => null,
+                'proposal_admin_reviewed_at' => null,
+                'proposal_admin_reviewed_by' => null,
                 'proposal_reviewed_at' => null,
                 'proposal_reviewed_by' => null,
                 'plan_locked_at' => null,
@@ -593,8 +595,9 @@ class ChapterController extends Controller
 
         $meetingResult = DB::transaction(function () use ($request, $project, $data) {
             $project = Project::lockForUpdate()->findOrFail($project->id);
-            abort_unless($project->status === 'Submitted for Formal Approval' && $project->proposal_budget_reviewed_at
-                && !$project->decisions()->where('stage', 'proposal')->exists(), 403);
+            abort_unless($project->status === 'Submitted for Formal Approval' && $project->proposal_admin_reviewed_at && $project->proposal_budget_reviewed_at
+                && $project->proposal_submitted_revision === $project->revision
+                && !$project->decisions()->where('stage', 'proposal')->whereIn('decision', ['approved', 'rejected'])->exists(), 403);
 
             $event = CalendarEvent::where('project_id', $project->id)->where('purpose', 'proposal_board')->lockForUpdate()->first();
             $wasScheduled = (bool) $event;
@@ -706,14 +709,14 @@ class ChapterController extends Controller
             $project = Project::lockForUpdate()->findOrFail($project->id);
             if ($task) $task = Task::lockForUpdate()->findOrFail($task->id);
             if ($task) abort_unless($task->project_id === $project->id, 404);
-            abort_unless($request->user()->status === 'active' && $project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing'], true), 403);
+            abort_unless($request->user()->status === 'active' && $project->plan_locked_at && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing'], true), 403);
             $manager = $project->canManage($request->user());
             abort_unless($manager || ($task && in_array($request->user()->id, $task->assignees ?? [], true) && $project->status === 'Ongoing'), 403);
             if (!$manager) abort_unless(($task->assignment_responses[$request->user()->id]['response'] ?? null) === 'accepted', 403, 'Accept this assignment before updating progress.');
             $rules = ['status' => ['required', Rule::in(['To Do', 'In Progress', 'Blocked', 'Completed'])], 'notes' => 'nullable|string|max:10000', 'evidence' => 'nullable|string|max:10000'];
         if ($manager) $rules += ['title' => 'required|string|max:200', 'description' => 'nullable|string|max:10000', 'assignees' => 'required|array|min:1', 'assignees.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where('status', 'active')->where('role', '!=', 'admin')], 'priority' => ['required', Rule::in(['Low', 'Medium', 'High', 'Urgent'])], 'starts_on' => 'nullable|date', 'deadline' => ['required', 'date', Rule::when($request->filled('starts_on'), 'after_or_equal:starts_on')], 'milestone' => 'nullable|string|max:255', 'dependencies' => 'nullable|array', 'dependencies.*' => ['integer', 'distinct', Rule::exists('tasks', 'id')->where('project_id', $project->id)->whereNull('deleted_at')]];
             $data = $request->validate($rules);
-            if ($project->status === 'Plan Locked' && $data['status'] !== 'To Do') throw ValidationException::withMessages(['status' => 'Launch the project before recording task progress.']);
+            if (in_array($project->status, ['Approved', 'Plan Locked'], true) && $data['status'] !== 'To Do') throw ValidationException::withMessages(['status' => 'Launch the project before recording task progress.']);
             if ($data['status'] === 'Completed' && !trim($data['evidence'] ?? '')) throw ValidationException::withMessages(['evidence' => 'Completion evidence is required.']);
             if ($manager) {
                 $data['assignees'] = array_map('intval', $data['assignees']);
@@ -743,6 +746,7 @@ class ChapterController extends Controller
             }
             ChapterService::notify(array_merge($task->assignees ?? [], [$project->chair_id]), 'Task updated: '.$task->title, $task->status, route('projects.show', $project, false).'#task-'.$task->id);
         });
+        \App\Services\ProjectLaunchService::launchIfReady($project);
         return back()->with('success', 'Task saved.');
     }
 
@@ -753,7 +757,7 @@ class ChapterController extends Controller
             $project = Project::lockForUpdate()->findOrFail($project->id);
             $task = Task::lockForUpdate()->findOrFail($task->id);
             abort_unless($task->project_id === $project->id, 404);
-            abort_unless($project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing'], true), 403);
+            abort_unless($project->plan_locked_at && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing'], true), 403);
 
             $dependent = $project->tasks()->where('id', '!=', $task->id)->get(['title', 'dependencies'])
                 ->first(fn (Task $other) => in_array($task->id, array_map('intval', $other->dependencies ?? []), true));
@@ -779,7 +783,7 @@ class ChapterController extends Controller
             $project = Project::lockForUpdate()->findOrFail($project->id);
             $task = Task::onlyTrashed()->lockForUpdate()->findOrFail($taskId);
             abort_unless($task->project_id === $project->id, 404);
-            abort_unless($project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing'], true), 403);
+            abort_unless($project->plan_locked_at && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing'], true), 403);
 
             $dependencies = array_map('intval', $task->dependencies ?? []);
             if ($project->tasks()->whereIn('id', $dependencies)->count() !== count($dependencies)) {
@@ -834,7 +838,7 @@ class ChapterController extends Controller
             $project = Project::lockForUpdate()->findOrFail($project->id);
             $task = Task::lockForUpdate()->findOrFail($task->id);
             abort_unless($task->project_id === $project->id, 404);
-            abort_unless($request->user()->status === 'active' && $project->plan_locked_at && in_array($project->status, ['Plan Locked', 'Ongoing']) && in_array($request->user()->id, $task->assignees ?? [], true) && $task->status !== 'Completed', 403);
+            abort_unless($request->user()->status === 'active' && $project->plan_locked_at && in_array($project->status, ['Approved', 'Plan Locked', 'Ongoing']) && in_array($request->user()->id, $task->assignees ?? [], true) && $task->status !== 'Completed', 403);
             $before = $task->toArray();
             $responses = $task->assignment_responses ?? [];
             $responses[$request->user()->id] = $data + ['at' => now()->toIso8601String()];

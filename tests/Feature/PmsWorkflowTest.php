@@ -55,17 +55,18 @@ class PmsWorkflowTest extends TestCase
             $this->actingAs($treasurer)->post('/projects/'.$project->id.'/budget', ['budget_item_id' => $project->budget_items[0]['id'], 'amount' => '5000.00', 'approved_by' => 'Board', 'approved_on' => '2026-10-02', 'remarks' => 'Premature allocation'])->assertStatus(422);
             $this->actingAs($owner);
             $this->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+            $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Too early'])->assertForbidden();
+            $this->actingAs($admin)->post($url, ['action' => 'review_full_proposal', 'comments' => 'Full proposal reviewed'])->assertSessionHasNoErrors();
             $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Full budget checked'])->assertRedirect()->assertSessionHasNoErrors();
             $this->actingAs($admin)->post($url, ['action' => 'approve_full_proposal', 'comments' => 'Approved'])->assertSessionHasErrors(['meeting_date', 'evidence']);
-            $formalDecision = ['action' => 'approve_full_proposal', 'comments' => 'Full proposal approved', 'meeting_date' => '2026-10-02', 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')];
+            $this->post(route('projects.board-meeting.schedule', $project), ['meeting_date' => today()->toDateString()])->assertSessionHasNoErrors();
+            $formalDecision = ['action' => 'approve_full_proposal', 'comments' => 'Full proposal approved', 'meeting_date' => today()->toDateString(), 'evidence' => UploadedFile::fake()->create('signed-full.pdf', 10, 'application/pdf')];
             $this->actingAs($bod)->post($url, $formalDecision)->assertForbidden();
             $this->actingAs($admin)->post($url, $formalDecision)->assertRedirect()->assertSessionHasNoErrors();
             $this->actingAs($owner);
-            $this->post($url, ['action' => 'lock_plan'])->assertRedirect()->assertSessionHasNoErrors();
             $this->assertTrue($project->fresh()->canManage($owner));
-            $this->post($url, ['action' => 'start'])->assertSessionHasNoErrors();
             $this->get('/projects/'.$project->id.'/edit')->assertForbidden();
-            $this->assertSame('Ongoing', $project->fresh()->status);
+            $this->assertSame('Approved', $project->fresh()->status);
         }
     }
 
@@ -322,8 +323,10 @@ class PmsWorkflowTest extends TestCase
         $this->actingAs($treasurer)->post($url, ['action' => 'budget_review', 'comments' => 'Rechecked'])->assertSessionHasNoErrors();
         $project->update(['budget_items' => \App\Support\ProjectBudget::normalize([['category' => 'materials_supplies', 'description' => 'Community kits', 'quantity' => 1, 'unit_cost' => 5000]])]);
         $this->actingAs($owner)->post($url, ['action' => 'submit_full_proposal'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post($url, ['action' => 'review_full_proposal', 'comments' => 'Revised proposal reviewed'])->assertSessionHasNoErrors();
         $this->actingAs($treasurer)->post($url, ['action' => 'review_full_budget', 'comments' => 'Full budget checked'])->assertRedirect()->assertSessionHasNoErrors();
-        $this->actingAs($admin)->post($url, ['action' => 'reject_full_proposal', 'comments' => 'Board rejected', 'meeting_date' => '2026-10-01', 'evidence' => UploadedFile::fake()->create('minutes.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('projects.board-meeting.schedule', $project), ['meeting_date' => today()->toDateString()])->assertSessionHasNoErrors();
+        $this->post($url, ['action' => 'reject_full_proposal', 'comments' => 'Board rejected', 'meeting_date' => today()->toDateString(), 'evidence' => UploadedFile::fake()->create('minutes.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('Not Approved', $project->fresh()->status);
         $this->assertFalse($project->fresh()->isChair($owner));
         $this->actingAs($owner)->post($url, ['action' => 'submit_concept'])->assertForbidden();

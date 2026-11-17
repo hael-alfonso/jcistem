@@ -36,17 +36,22 @@ class ProposalWorkflowService
                     $project->archived_at = null;
                     break;
                 case 'restart_review':
-                    abort_unless(($admin || $owner) && !$project->decisions()->exists()
-                        && in_array($from, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision', 'Submitted for Formal Approval', 'Approved'], true)
+                    abort_unless(($admin || $owner) && $from === 'Approved' && $project->proposal_reviewed_at && !$project->decisions()->exists()
                         && !$project->plan_locked_at && !$project->tasks()->exists() && !$project->allocations()->exists()
                         && !$project->transactions()->exists() && !$project->expenseClaims()->exists()
                         && !$project->fundReleases()->exists(), 403);
                     $this->comments($comments);
+                    if ($meeting = $project->events()->where('purpose', 'proposal_board')->first()) {
+                        ChapterService::audit('project_board_meeting_cancelled', $meeting, $meeting->toArray(), 'Project review restarted.');
+                        $meeting->delete();
+                    }
                     $project->chair_id = null;
                     $project->plan_locked_at = null;
                     $project->budget_reviewed_at = null;
                     $project->budget_reviewed_by = null;
                     $project->proposal_submitted_revision = null;
+                    $project->proposal_admin_reviewed_at = null;
+                    $project->proposal_admin_reviewed_by = null;
                     $project->proposal_budget_reviewed_at = null;
                     $project->proposal_budget_reviewed_by = null;
                     $project->proposal_reviewed_at = null;
@@ -91,21 +96,39 @@ class ProposalWorkflowService
                     abort_unless(($chair || $owner) && in_array($from, ['Endorsed for Development', 'Full Proposal Draft', 'Returned for Revision'], true) && !$project->proposal_reviewed_at, 403);
                     if ($issues = ProjectSubmission::issues($project, 'proposal')) throw ValidationException::withMessages($issues);
                     $project->proposal_submitted_revision = $project->revision;
+                    $project->proposal_admin_reviewed_at = null;
+                    $project->proposal_admin_reviewed_by = null;
                     $project->proposal_budget_reviewed_at = null;
                     $project->proposal_budget_reviewed_by = null;
                     $project->status = 'Submitted for Formal Approval';
                     break;
+                case 'review_full_proposal':
+                    abort_unless($admin && $from === 'Submitted for Formal Approval' && !$project->proposal_admin_reviewed_at, 403);
+                    $this->comments($comments);
+                    if ($project->proposal_submitted_revision !== $project->revision) $this->invalid('The proposal changed after submission. Ask the Chair to submit it again.');
+                    $project->proposal_admin_reviewed_at = now();
+                    $project->proposal_admin_reviewed_by = $user->id;
+                    break;
                 case 'review_full_budget':
-                    abort_unless($treasurer && $independent && $from === 'Submitted for Formal Approval' && !$project->proposal_budget_reviewed_at, 403);
+                    abort_unless($treasurer && $independent && $from === 'Submitted for Formal Approval' && $project->proposal_admin_reviewed_at && !$project->proposal_budget_reviewed_at, 403);
                     $this->comments($comments);
                     if ($project->proposal_submitted_revision !== $project->revision) $this->invalid('The proposal changed after submission. Ask the Chair to submit it again.');
                     $project->proposal_budget_reviewed_at = now();
                     $project->proposal_budget_reviewed_by = $user->id;
                     break;
                 case 'return_full_proposal':
-                    abort_unless(($admin || ($treasurer && $independent)) && $from === 'Submitted for Formal Approval', 403);
+                    abort_unless(($admin || ($treasurer && $independent && $project->proposal_admin_reviewed_at && !$project->proposal_budget_reviewed_at)) && $from === 'Submitted for Formal Approval', 403);
                     $this->comments($comments);
+                    if ($meeting = $project->events()->where('purpose', 'proposal_board')->first()) {
+                        ChapterService::audit('project_board_meeting_cancelled', $meeting, $meeting->toArray(), 'Full proposal returned for revision.');
+                        $meeting->delete();
+                        ChapterService::notify(User::where('status', 'active')->pluck('id'), 'Board meeting cancelled: '.$project->title,
+                            'The full proposal was returned for revision. A new meeting will be scheduled after review.',
+                            route('projects.show', $project, false).'#project-actions', true);
+                    }
                     $project->proposal_submitted_revision = null;
+                    $project->proposal_admin_reviewed_at = null;
+                    $project->proposal_admin_reviewed_by = null;
                     $project->proposal_budget_reviewed_at = null;
                     $project->proposal_budget_reviewed_by = null;
                     $project->status = 'Returned for Revision';
@@ -113,10 +136,11 @@ class ProposalWorkflowService
                 case 'approve_full_proposal': case 'reject_full_proposal': case 'defer_full_proposal':
                     abort_unless($admin && $from === 'Submitted for Formal Approval', 403);
                     $this->comments($comments);
-                    if (!$project->proposal_budget_reviewed_at || $project->proposal_submitted_revision !== $project->revision) $this->invalid('The Treasurer must verify this exact proposal revision before final approval.');
+                    if (!$project->proposal_admin_reviewed_at || !$project->proposal_budget_reviewed_at || $project->proposal_submitted_revision !== $project->revision) $this->invalid('Admin and Treasurer must review this exact proposal revision before the Board verdict.');
                     if (empty($decision['meeting_date']) || empty($decision['evidence_path'])) $this->invalid('Record the BOD meeting date and signed evidence.');
                     $boardMeeting = $project->events()->where('purpose', 'proposal_board')->first();
-                    if ($boardMeeting && $boardMeeting->starts_on?->toDateString() !== $decision['meeting_date']) {
+                    if (!$boardMeeting) $this->invalid('Schedule the Board meeting before recording its decision.');
+                    if ($boardMeeting->starts_on?->toDateString() !== $decision['meeting_date']) {
                         $this->invalid('The decision date must match the scheduled Board meeting. Reschedule the meeting first if its date changed.');
                     }
                     if (!Storage::disk('local')->exists($decision['evidence_path'])) $this->invalid('The signed BOD evidence file is missing.');
@@ -129,10 +153,23 @@ class ProposalWorkflowService
                     if ($action === 'approve_full_proposal') {
                         $project->proposal_reviewed_at = now();
                         $project->proposal_reviewed_by = $user->id;
+                        $project->plan_locked_at = now();
                         $project->status = 'Approved';
                     } elseif ($action === 'reject_full_proposal') {
                         $project->status = 'Not Approved';
                         $project->archived_at = now();
+                    } else {
+                        $project->status = 'Returned for Revision';
+                        $project->proposal_submitted_revision = null;
+                        $project->proposal_admin_reviewed_at = null;
+                        $project->proposal_admin_reviewed_by = null;
+                        $project->proposal_budget_reviewed_at = null;
+                        $project->proposal_budget_reviewed_by = null;
+                        ChapterService::audit('project_board_meeting_concluded', $boardMeeting, $boardMeeting->toArray(), 'BOD deferred the proposal for revision.');
+                        $boardMeeting->delete();
+                        ChapterService::notify(User::where('status', 'active')->pluck('id'), 'Board decision deferred: '.$project->title,
+                            'The Chair must revise the proposal before a new Board meeting is scheduled.',
+                            route('projects.show', $project, false).'#project-actions', true);
                     }
                     break;
                 case 'lock_plan':
@@ -143,7 +180,9 @@ class ProposalWorkflowService
                     $project->status = 'Plan Locked';
                     break;
                 case 'start':
-                    abort_unless($chair && $from === 'Plan Locked' && $project->plan_locked_at, 403);
+                    abort_unless($chair && in_array($from, ['Approved', 'Plan Locked'], true) && $project->plan_locked_at, 403);
+                    if (!$project->tasks()->get(['id', 'assignees'])->contains(fn ($task) => count($task->assignees ?? []) > 0)) $this->invalid('Assign at least one project task before launching the project.');
+                    if ($project->starts_on && $project->starts_on->toDateString() > now('Asia/Manila')->toDateString()) $this->invalid('The project cannot launch before its scheduled start date.');
                     $project->status = 'Ongoing';
                     break;
                 case 'request_completion':
@@ -169,7 +208,7 @@ class ProposalWorkflowService
                 'Admin Review' => ['admin'],
                 'Treasurer Review' => ['treasurer'],
                 'BOD Agenda' => ['admin'],
-                'Submitted for Formal Approval' => $action === 'review_full_budget' ? ['admin', 'bod'] : ['admin', 'treasurer'],
+                'Submitted for Formal Approval' => $action === 'review_full_budget' ? ['admin', 'bod'] : ($action === 'review_full_proposal' ? ['treasurer'] : ['admin']),
                 'Approved', 'Not Approved' => ['bod'],
                 default => [],
             };

@@ -52,7 +52,7 @@
     </div>
     @if($proposal && $project->exists && $project->proposal)<a class="btn secondary" href="{{ route('projects.proposal', $project) }}"><x-icon name="eye" /> View &amp; print proposal</a>@endif
 </div>
-<div class="notice project-entry-notice">You can save an unfinished draft. Submission checks the required answers and uploaded form. {{ $proposal ? 'After submission, the Treasurer verifies the budget, Admin records the signed Board decision, then the Chair finalizes the plan.' : 'After submission, Admin and Treasurer review the concept before the Board decision; the full proposal and implementation follow.' }}</div>
+<div class="notice project-entry-notice">You can save an unfinished draft. Submission checks the required answers and uploaded form. {{ $proposal ? 'After submission, Admin reviews the full proposal, Treasurer checks its final budget, and the Board discusses it in person. Admin records the signed verdict.' : 'After submission, Admin and Treasurer review the concept. The Chair then prepares the full proposal for formal review.' }}</div>
 <form class="project-entry-form" method="POST" enctype="multipart/form-data" action="{{ $project->exists ? route('projects.update', $project) : route('projects.store') }}" data-project-submission-form>
     @csrf
     @if($project->exists) @method('PUT') @endif
